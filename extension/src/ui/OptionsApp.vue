@@ -1,8 +1,8 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
-import { mdiCheckCircle, mdiAlertCircle, mdiContentSave } from '@mdi/js';
+import { mdiCheckCircle, mdiAlertCircle, mdiDeleteSweep } from '@mdi/js';
 import { DEFAULTS, getSettings } from '../lib/messages.js';
-import { writeSettings } from '../lib/ext-api.js';
+import { writeSettings, sendMessage } from '../lib/ext-api.js';
 
 const form = reactive({ ...DEFAULTS });
 const saved = ref(false);
@@ -16,61 +16,28 @@ async function save() {
   setTimeout(() => { saved.value = false; }, 1800);
 }
 
-/**
- * Saves first, then checks reachability *and* the token.
- *
- * Both halves matter. /health sits outside the server's /api guard, so it
- * answers 200 whatever token you send — testing only that reported a healthy
- * setup while the popover was being rejected. And testing the form's values
- * without saving them checked something the popover never reads.
- */
-async function testConnection() {
+/** A real lookup end to end — nothing else proves the whole path works. */
+async function testLookup() {
   test.state = 'pending';
   test.message = '';
-  await save();
+  const res = await sendMessage({ type: 'neosnipe:lookup', item: { name: 'Faerie Paint Brush' } });
 
-  const base = form.backendUrl.replace(/\/$/, '');
-  let health;
-  try {
-    health = await (await fetch(`${base}/health`)).json();
-  } catch {
+  if (res?.ok) {
+    test.state = 'ok';
+    test.message = `Jelly Neo reachable — Faerie Paint Brush is ${res.data.priceText}`
+      + `${res.data.cached ? ' (from cache)' : ''}.`;
+  } else {
     test.state = 'error';
-    test.message = 'Could not reach the server. Is it running?';
-    return;
+    test.message = res?.error === 'offline'
+      ? 'Could not reach Jelly Neo. Check your connection.'
+      : `Lookup failed: ${res?.detail || res?.error || 'unknown error'}`;
   }
+}
 
-  if (!health?.ok) {
-    test.state = 'error';
-    test.message = 'Server responded but reported a problem.';
-    return;
-  }
-
-  if (!form.token) {
-    test.state = 'error';
-    test.message = 'Server is reachable, but no token is set.';
-    return;
-  }
-
-  try {
-    const res = await fetch(`${base}/api/verify`, { headers: { 'X-NeoSnipe-Token': form.token } });
-    if (res.status === 401) {
-      test.state = 'error';
-      test.message = "Server is reachable, but it rejected this token. It must match NEOSNIPE_TOKEN in the server's .env.";
-      return;
-    }
-    if (!res.ok) {
-      test.state = 'error';
-      test.message = `Server is reachable, but returned ${res.status} when checking the token.`;
-      return;
-    }
-  } catch {
-    test.state = 'error';
-    test.message = 'Server is reachable, but the token check failed.';
-    return;
-  }
-
+async function clearCache() {
+  await sendMessage({ type: 'neosnipe:clear-cache' });
   test.state = 'ok';
-  test.message = `Saved. Token accepted. Browser ${health.browserUp ? 'running' : 'idle'}, ${health.cacheSize} cached items.`;
+  test.message = 'Cached prices cleared.';
 }
 </script>
 
@@ -80,30 +47,10 @@ async function testConnection() {
       <v-container class="opts">
         <h1 class="text-h5 mb-1">neo-snipe</h1>
         <p class="text-body-2 text-medium-emphasis mb-6">
-          Prices come from your local scraper, not from Neopets. Start the server, then set the
-          matching token below.
+          Prices come from <a href="https://items.jellyneo.net" target="_blank" rel="noopener">Jelly Neo</a>,
+          fetched by the extension itself. Nothing else to install and nothing to run — each item is
+          looked up the first time you click its badge, then cached for a day.
         </p>
-
-        <v-text-field
-          v-model="form.backendUrl"
-          label="Server URL"
-          hint="Where the neo-snipe server is listening"
-          persistent-hint
-          variant="outlined"
-          density="comfortable"
-          class="mb-4"
-        />
-
-        <v-text-field
-          v-model="form.token"
-          label="Server token"
-          type="password"
-          hint="Must match NEOSNIPE_TOKEN in the server's .env"
-          persistent-hint
-          variant="outlined"
-          density="comfortable"
-          class="mb-4"
-        />
 
         <v-switch
           v-model="form.hoverOnly"
@@ -112,12 +59,15 @@ async function testConnection() {
           density="compact"
           hide-details
           class="mb-4"
+          @update:model-value="save"
         />
 
-        <div class="d-flex ga-2">
-          <v-btn color="primary" :prepend-icon="mdiContentSave" @click="save">Save</v-btn>
-          <v-btn variant="tonal" :loading="test.state === 'pending'" @click="testConnection">
-            Save &amp; test connection
+        <div class="d-flex ga-2 flex-wrap">
+          <v-btn color="primary" :loading="test.state === 'pending'" @click="testLookup">
+            Test a lookup
+          </v-btn>
+          <v-btn variant="tonal" :prepend-icon="mdiDeleteSweep" @click="clearCache">
+            Clear cached prices
           </v-btn>
         </div>
 

@@ -11,10 +11,12 @@
     "build:safari": "vite build --mode safari",
     "test:safari": "node test/safari-webkit.mjs",
     "build:safari-app": "bash scripts/build-safari-app.sh",
-    "test:detect": "node --test test/detect.test.mjs"
+    "test:detect": "node --test test/detect.test.mjs",
+    "test:jellyneo": "node --test test/jellyneo.test.mjs"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
+    "linkedom": "^0.18.13",
     "vue": "^3.5.13",
     "vuetify": "^3.7.6"
   },

@@ -1,9 +1,13 @@
-import { withPage } from './browser.js';
+import { parseHTML } from 'linkedom';
 
 // ---------------------------------------------------------------------------
 // Everything site-specific lives here. Verified against items.jellyneo.net on
 // 2026-08-30 (fixtures in test/fixtures/). If Jelly Neo changes its layout,
 // this block is the only thing that should need editing.
+//
+// Jelly Neo serves complete server-rendered HTML to a plain fetch, so no
+// browser engine is involved: the extension fetches and parses it directly.
+// MV3 service workers have no DOM, hence linkedom rather than DOMParser.
 // ---------------------------------------------------------------------------
 
 export const URLS = {
@@ -65,20 +69,20 @@ export class NotFoundError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// In-page extractors. These run inside the browser, so they must be
-// self-contained: selectors are passed in rather than closed over. They return
-// raw strings only — all parsing happens in Node so it stays unit-testable.
+// Extractors. Given a parsed document, they return raw strings only — every
+// bit of interpretation happens in the normalisers below, which stay pure and
+// trivially testable.
 // ---------------------------------------------------------------------------
 
-export function extractSearchResults(sel) {
+export function extractSearchResults(doc, sel) {
   const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
 
-  const countEl = [...document.querySelectorAll('p')].find((p) =>
+  const countEl = [...doc.querySelectorAll('p')].find((p) =>
     /results? for your search/i.test(p.textContent),
   );
   const count = countEl ? Number((countEl.textContent.match(/([\d,]+)\s+results?/i) || [])[1]?.replace(/,/g, '')) : null;
 
-  const cards = [...document.querySelectorAll(sel.resultCard)]
+  const cards = [...doc.querySelectorAll(sel.resultCard)]
     .filter((card) => card.querySelector(sel.cardLink));
 
   const results = cards.map((card) => {
@@ -103,22 +107,22 @@ export function extractSearchResults(sel) {
   return { count: Number.isFinite(count) ? count : results.length, results };
 }
 
-export function extractItemPage(sel) {
+export function extractItemPage(doc, sel, url) {
   const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
 
-  const name = text(document.querySelector(sel.name));
-  const img = document.querySelector(sel.image);
+  const name = text(doc.querySelector(sel.name));
+  const img = doc.querySelector(sel.image);
 
   // The "Description" header is markup-only on desktop (show-for-small), but the
   // paragraph after it is always present. Fall back to the first substantial
   // <p><em>, skipping icon and footnote <em>s.
-  const descHeader = [...document.querySelectorAll('h3')].find((h) => /^description$/i.test(h.textContent.trim()));
+  const descHeader = [...doc.querySelectorAll('h3')].find((h) => /^description$/i.test(h.textContent.trim()));
   let description = '';
   if (descHeader && descHeader.nextElementSibling?.tagName === 'P') {
     description = text(descHeader.nextElementSibling);
   }
   if (!description) {
-    description = text([...document.querySelectorAll('p > em')].find(
+    description = text([...doc.querySelectorAll('p > em')].find(
       (em) => !em.classList.contains('svg-icon') && !em.classList.contains('text-smaller')
         && em.textContent.trim().length > 15,
     ));
@@ -127,13 +131,13 @@ export function extractItemPage(sel) {
   // Sidebar stats are label/value pairs; read them generically so a new or
   // reordered stat doesn't break the parse.
   const stats = {};
-  for (const li of document.querySelectorAll(sel.statBlock)) {
+  for (const li of doc.querySelectorAll(sel.statBlock)) {
     const label = li.querySelector(sel.statLabel);
     const value = li.querySelector(sel.statValue);
     if (label && value) stats[text(label)] = text(value);
   }
 
-  const history = [...document.querySelectorAll(sel.priceRow)].map((row) => {
+  const history = [...doc.querySelectorAll(sel.priceRow)].map((row) => {
     const dateEl = row.querySelector(sel.priceDate);
     const up = row.querySelector(sel.priceIncrease);
     const down = row.querySelector(sel.priceDecrease);
@@ -153,17 +157,17 @@ export function extractItemPage(sel) {
     description,
     stats,
     history,
-    url: document.location.href,
+    url,
   };
 }
 
-export function extractTradingPost(sel) {
+export function extractTradingPost(doc, sel) {
   const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
 
   // Sidebar: "Last Seen" under a Shop Wizard / Trading Post heading, plus two
   // bare figures whose meaning is in the caption below them.
   const stats = {};
-  for (const li of document.querySelectorAll(sel.statBlock)) {
+  for (const li of doc.querySelectorAll(sel.statBlock)) {
     const label = text(li.querySelector(sel.statLabel));
     const value = text(li.querySelector(sel.statValue));
     if (label && value) stats[label] = value;
@@ -178,8 +182,8 @@ export function extractTradingPost(sel) {
   // Jelly Neo withholds trading post history for low-value items, and says so
   // in place of the lot list. That is a real answer, not an empty result.
   let notice = null;
-  if (!document.querySelector(sel.lot)) {
-    const heading = [...document.querySelectorAll(sel.section)]
+  if (!doc.querySelector(sel.lot)) {
+    const heading = [...doc.querySelectorAll(sel.section)]
       .find((h) => /trading post history/i.test(h.textContent));
     let node = heading?.nextElementSibling;
     for (let i = 0; i < 6 && node && !notice; i++, node = node.nextElementSibling) {
@@ -188,7 +192,7 @@ export function extractTradingPost(sel) {
     }
   }
 
-  const lots = [...document.querySelectorAll(sel.lot)].map((li) => {
+  const lots = [...doc.querySelectorAll(sel.lot)].map((li) => {
     const header = text(li.querySelector('p'));
     const highlighted = li.querySelector(sel.highlighted);
     const paragraphs = [...li.querySelectorAll('p')].map(text);
@@ -348,57 +352,55 @@ export function pickResult(results, { name, imageHash }) {
 // ---------------------------------------------------------------------------
 
 /**
- * Trading post history, fetched separately from the price.
- *
- * Jelly Neo generates this page on demand and it can take ~20s for a heavily
- * traded item before their own cache warms (afterwards it is ~1s). Making the
- * price wait on that would be a poor trade, so the extension asks for this
- * only when someone actually opens the trading post tab.
+ * Fetches a Jelly Neo page and parses it. Injectable so tests can feed saved
+ * fixtures instead of hitting the network.
  */
-export async function lookupTradingPost({ itemId }) {
-  if (!itemId) throw new NotFoundError('(no item id)');
-
-  return withPage(async (page) => {
-    await page.goto(URLS.tradingPostHistory(itemId), {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000,
-    });
-    const raw = await page.evaluate(extractTradingPost, SELECTORS.tradingPost);
-    const tp = normalizeTradingPost(raw);
-    if (!tp) throw new ScrapeError('trading post history');
-    return tp;
-  });
+export async function fetchDoc(url) {
+  const res = await fetch(url, { credentials: 'omit', redirect: 'follow' });
+  if (!res.ok) throw new ScrapeError('page', `Jelly Neo returned ${res.status} for ${url}`);
+  const { document } = parseHTML(await res.text());
+  return document;
 }
 
-export async function lookupItem({ name, imageHash, itemId }) {
-  return withPage(async (page) => {
-    let itemUrl = itemId ? `${URLS.origin}/item/${itemId}/` : null;
-    let searchHit = null;
+/**
+ * Trading post history, fetched separately from the price: Jelly Neo generates
+ * that page on demand and it can take ~20s for a heavily traded item before
+ * their own cache warms, so we only ask when someone opens that tab.
+ */
+export async function lookupTradingPost({ itemId }, { load = fetchDoc } = {}) {
+  if (!itemId) throw new NotFoundError('(no item id)');
 
-    if (!itemUrl) {
-      // Exact match first — it's the common case and avoids ambiguity.
-      let found = null;
-      for (const exact of [true, false]) {
-        await page.goto(URLS.search(name, exact), { waitUntil: 'domcontentloaded' });
-        const { results } = await page.evaluate(extractSearchResults, SELECTORS.search);
-        found = pickResult(results, { name, imageHash });
-        if (found) break;
-      }
-      if (!found) throw new NotFoundError(name);
-      searchHit = found;
-      itemUrl = found.url;
+  const doc = await load(URLS.tradingPostHistory(itemId));
+  const tp = normalizeTradingPost(extractTradingPost(doc, SELECTORS.tradingPost));
+  if (!tp) throw new ScrapeError('trading post history');
+  return tp;
+}
+
+export async function lookupItem({ name, imageHash, itemId }, { load = fetchDoc } = {}) {
+  let itemUrl = itemId ? `${URLS.origin}/item/${itemId}/` : null;
+  let searchHit = null;
+
+  if (!itemUrl) {
+    // Exact match first — it is the common case and avoids ambiguity.
+    let found = null;
+    for (const exact of [true, false]) {
+      const doc = await load(URLS.search(name, exact));
+      const { results } = extractSearchResults(doc, SELECTORS.search);
+      found = pickResult(results, { name, imageHash });
+      if (found) break;
     }
+    if (!found) throw new NotFoundError(name);
+    searchHit = found;
+    itemUrl = found.url;
+  }
 
-    await page.goto(itemUrl, { waitUntil: 'domcontentloaded' });
-    const raw = await page.evaluate(extractItemPage, SELECTORS.item);
-    const item = normalizeItem(raw);
+  const doc = await load(itemUrl);
+  const item = normalizeItem(extractItemPage(doc, SELECTORS.item, itemUrl));
 
-
-    // The search card carries rarity in its alt text; use it if the item page
-    // sidebar didn't yield one.
-    if (item.rarity === null && searchHit?.imageAlt) {
-      Object.assign(item, parseRarity(searchHit.imageAlt));
-    }
-    return item;
-  });
+  // The search card carries rarity in its alt text; use it if the item page
+  // sidebar did not yield one.
+  if (item.rarity === null && searchHit?.imageAlt) {
+    Object.assign(item, parseRarity(searchHit.imageAlt));
+  }
+  return item;
 }

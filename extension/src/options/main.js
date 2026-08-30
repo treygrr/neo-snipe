@@ -4,13 +4,13 @@ import { createApp } from 'vue';
 import 'vuetify/styles';
 import OptionsApp from '../ui/OptionsApp.vue';
 import { makeVuetify } from '../ui/vuetify.js';
-import { VContainer, VMain, VSwitch, VTextField } from 'vuetify/components';
+import { VContainer, VMain, VSwitch } from 'vuetify/components';
 
 const app = createApp(OptionsApp);
 const vuetify = makeVuetify(false);
 app.use(vuetify);
 // Components the options page uses that the popover does not.
-for (const [name, c] of Object.entries({ VContainer, VMain, VSwitch, VTextField })) {
+for (const [name, c] of Object.entries({ VContainer, VMain, VSwitch })) {
   app.component(name, c);
 }
 app.mount('#app');

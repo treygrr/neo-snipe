@@ -12,6 +12,12 @@ const DIST = resolve('dist-safari');
 const FIXTURE = buildPage();
 const contentJs = readFileSync(resolve(DIST, 'content.js'), 'utf8');
 const backgroundJs = readFileSync(resolve(DIST, 'background.js'), 'utf8');
+const jn = (f) => readFileSync(resolve('test/fixtures/jellyneo', f), 'utf8');
+const JELLYNEO = [
+  [/\/trading-post-history\//, 'item-5554-trading-post-history.html'],
+  [/\/item\/\d+\//, 'item-5554-faerie-paint-brush.html'],
+  [/\/search\//, 'search-faerie-paint-brush.html'],
+];
 
 const results = [];
 const check = (name, pass, detail = '') => {
@@ -28,6 +34,17 @@ page.on('console', (m) => { if (m.type() === 'error') console.log(`    [console]
 // fetch happens from the service worker, where mixed content does not apply.
 await page.route('**://www.neopets.com/**', (route) =>
   route.fulfill({ contentType: 'text/html', body: FIXTURE }));
+await page.route('**://items.jellyneo.net/**', (route) => {
+  const hit = JELLYNEO.find(([re]) => re.test(route.request().url()));
+  return route.fulfill({
+    contentType: 'text/html',
+    // The real extension fetches from the extension origin, where host
+    // permissions exempt it from CORS; the stub runs in the page.
+    headers: { 'access-control-allow-origin': '*' },
+    body: hit ? jn(hit[1]) : '',
+  });
+});
+
 await page.route('**://images.neopets.com/**', (route) =>
   route.fulfill({
     contentType: 'image/gif',
@@ -36,10 +53,10 @@ await page.route('**://images.neopets.com/**', (route) =>
 
 // A minimal stand-in for the extension runtime, using the `browser` namespace
 // Safari provides.
-await page.addInitScript(({ token }) => {
+await page.addInitScript(() => {
   const listeners = [];
   const local = {};
-  const sync = { backendUrl: 'http://127.0.0.1:8787', token, hoverOnly: true };
+  const sync = { hoverOnly: true };
   // Mirrors chrome.storage semantics: a key, an array of keys, an object of
   // defaults, or null for everything. Getting this wrong hides real bugs.
   const area = (store) => ({
@@ -73,7 +90,7 @@ await page.addInitScript(({ token }) => {
     storage: { local: area(local), sync: area(sync) },
   };
   globalThis.__nsStubReady = true;
-}, { token: process.env.NEOSNIPE_TOKEN || 'dev' });
+});
 
 await page.goto('http://www.neopets.com/inventory.phtml');
 check('extension API stub installed', await page.evaluate(() => !!globalThis.__nsStubReady));

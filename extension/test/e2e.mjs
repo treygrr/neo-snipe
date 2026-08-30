@@ -2,14 +2,25 @@
 // the neopets.com origin so the content script matches, and checks the badge and
 // popover behaviour end to end.
 import { chromium } from 'playwright';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildPage, ITEM_COUNT } from './page.mjs';
 
 const EXT = resolve('dist');
 const FIXTURE = buildPage();
-const TOKEN = process.env.NEOSNIPE_TOKEN || 'dev';
+
+// Jelly Neo is served from saved pages: the tests must not depend on the live
+// site, and must not hammer it. Any item resolves to the Faerie Paint Brush
+// pages, which is enough to exercise the whole path.
+const jn = (f) => readFileSync(resolve('test/fixtures/jellyneo', f), 'utf8');
+const JELLYNEO = [
+  [/\/trading-post-history\//, 'item-5554-trading-post-history.html'],
+  [/\/item\/\d+\//, 'item-5554-faerie-paint-brush.html'],
+  [/\/search\//, 'search-faerie-paint-brush.html'],
+];
+let jellyNeoOffline = false;
+let jellyNeoRequests = 0;
 
 const results = [];
 const check = (name, pass, detail = '') => {
@@ -26,6 +37,16 @@ const ctx = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'n
 });
 
 // Find the extension id from its service worker.
+await ctx.route('**://items.jellyneo.net/**', (route) => {
+  jellyNeoRequests++;
+  if (jellyNeoOffline) return route.abort('failed');
+  const url = route.request().url();
+  const hit = JELLYNEO.find(([re]) => re.test(url));
+  return hit
+    ? route.fulfill({ contentType: 'text/html', body: jn(hit[1]) })
+    : route.fulfill({ status: 404, body: '' });
+});
+
 const sw = ctx.serviceWorkers()[0] || (await ctx.waitForEvent('serviceworker', { timeout: 10000 }));
 const extId = new URL(sw.url()).host;
 console.log(`extension id: ${extId}\n`);
@@ -34,42 +55,12 @@ console.log(`extension id: ${extId}\n`);
 const opts = await ctx.newPage();
 await opts.goto(`chrome-extension://${extId}/src/options/index.html`);
 await opts.waitForSelector('.v-application', { timeout: 10000 });
-check('options page renders Vuetify', await opts.locator('.v-text-field').count() >= 2,
-  `${await opts.locator('.v-text-field').count()} fields`);
-
-// The options page must report a bad token as bad. /health sits outside the
-// server's /api guard, so testing only that reported success for any token.
-const testConn = async (token) => {
-  await opts.evaluate((t) => {
-    const set = (label, value) => {
-      const field = [...document.querySelectorAll('.v-text-field')]
-        .find((f) => f.textContent.includes(label));
-      const input = field.querySelector('input');
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      setter.call(input, value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    };
-    set('Server URL', 'http://127.0.0.1:8787');
-    set('Server token', t);
-  }, token);
-  await opts.getByRole('button', { name: /save.*test/i }).click();
-  await opts.waitForFunction(
-    () => /accepted|rejected|reachable|Could not/i.test(document.querySelector('.v-alert')?.textContent || ''),
-    { timeout: 15000 },
-  );
-  return (await opts.locator('.v-alert').last().textContent()).replace(/\s+/g, ' ').trim();
-};
-
-const badMsg = await testConn('definitely-not-the-token');
-check('a wrong token is reported as rejected', /rejected this token/i.test(badMsg), badMsg.slice(0, 70));
-
-const goodMsg = await testConn(TOKEN);
-check('a correct token is reported as accepted', /accepted/i.test(goodMsg), goodMsg.slice(0, 70));
-
-// Save settings the content script will need.
-await opts.evaluate((token) => chrome.storage.sync.set({
-  backendUrl: 'http://127.0.0.1:8787', token, hoverOnly: true,
-}), TOKEN);
+const optsUi = await opts.evaluate(() => ({
+  switches: document.querySelectorAll('.v-switch').length,
+  buttons: [...document.querySelectorAll('.v-btn')].map((b) => b.textContent.trim()),
+}));
+check('options page renders Vuetify', optsUi.switches === 1 && optsUi.buttons.length === 2,
+  JSON.stringify(optsUi));
 
 // --- content script on a neopets.com page -----------------------------------
 const page = await ctx.newPage();
@@ -129,6 +120,9 @@ check('only the badge stylesheet is added to the page', leaked.ourStyles === 1,
   `${leaked.ourStyles} style tag(s)`);
 
 // --- click a badge: lazy mount + lookup -------------------------------------
+check('nothing is fetched from Jelly Neo before a click', jellyNeoRequests === 0,
+  `${jellyNeoRequests} requests`);
+
 await badges.first().click();
 await page.waitForSelector('[data-neosnipe="popover-host"]', { state: 'attached', timeout: 10000 });
 check('exactly one popover host exists',
@@ -293,8 +287,9 @@ await page.locator('.ah2_listing_item_image .neosnipe-badge').first().click();
 await page.waitForTimeout(400);
 check('badge click does not follow the item link', page.url() === before, page.url());
 
-// --- error path: the server is unreachable ----------------------------------
-await opts.evaluate(() => chrome.storage.sync.set({ backendUrl: 'http://127.0.0.1:9', token: 'dev' }));
+// --- error path: Jelly Neo unreachable -------------------------------------
+jellyNeoOffline = true;
+await opts.evaluate(() => chrome.storage.local.clear()); // drop cached prices
 await page.reload();
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 await page.locator('.neosnipe-badge').nth(1).click();
@@ -304,13 +299,13 @@ const errText = await page.evaluate(async () => {
     // Re-query each pass: the host is recreated after the reload.
     const host = document.querySelector('[data-neosnipe="popover-host"]');
     const t = host?.shadowRoot?.textContent || '';
-    if (/cannot reach|server/i.test(t)) return t;
+    if (/could not reach|jelly neo/i.test(t)) return t;
     await new Promise((r) => setTimeout(r, 250));
   }
   const host = document.querySelector('[data-neosnipe="popover-host"]');
-  return `EMPTY(host=${!!host},html=${host?.shadowRoot?.innerHTML.length ?? -1})`;
+  return `UNMATCHED: ${(host?.shadowRoot?.textContent || '(no host)').replace(/\s+/g, ' ').slice(0, 120)}`;
 });
-check('unreachable server shows a useful message', /cannot reach/i.test(errText),
+check('unreachable Jelly Neo shows a useful message', /could not reach/i.test(errText),
   errText.replace(/\s+/g, ' ').slice(0, 70));
 check('badge shows the error state',
   await page.locator('.neosnipe-badge[data-state="error"]').count() >= 1);

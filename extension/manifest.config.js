@@ -13,8 +13,9 @@ export default function makeManifest(target = 'chrome') {
     version: pkg.version,
     icons: { 16: 'icons/icon-16.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' },
     permissions: ['storage'],
-    // The service worker does the fetching, but it still needs host access.
-    host_permissions: ['http://127.0.0.1:8787/*', 'http://localhost:8787/*'],
+    // The service worker fetches Jelly Neo directly. Host permission here is
+    // what exempts those requests from CORS; content scripts cannot do this.
+    host_permissions: ['https://items.jellyneo.net/*'],
     background: { service_worker: 'src/background.js', type: 'module' },
     content_scripts: [
       {

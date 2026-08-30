@@ -2,40 +2,30 @@
 
 Jelly Neo prices on every Neopets item, without leaving the page.
 
-A browser extension (Chrome and Safari) puts a small 🔍 badge in the bottom-right corner of every item image on
-neopets.com. Clicking it asks a local server for that item's Jelly Neo data; the server drives a
-headless Playwright browser (WebKit, presenting as desktop Safari), caches the result, and returns
-a card the extension renders in a popover.
+A browser extension (Chrome and Safari) puts a small 🔍 badge in the bottom-right corner of every
+item on neopets.com. Clicking it looks the item up on Jelly Neo and shows the price, its history,
+and trading post activity in a popover.
+
+**There is nothing to run.** No server, no Node, no daemon, no token — the extension fetches and
+parses Jelly Neo itself. Install it and it works.
 
 ```
 neopets.com page
-  └─ content script  ── finds item <img>, injects plain-DOM badges
+  └─ content script  ── finds items, injects plain-DOM badges
         └─ on click: mounts the Vue + Vuetify popover into a shadow root
-        │ chrome.runtime.sendMessage
-  └─ service worker  ── in-flight dedupe + chrome.storage.local cache → fetch()
-        │ POST http://127.0.0.1:8787/api/price   (X-NeoSnipe-Token)
-  server/
-     ├─ SQLite cache (hit → return immediately)
-     ├─ rate limiter + in-flight dedupe
-     └─ Playwright WebKit, persistent browser, Desktop-Safari context
-            └─ items.jellyneo.net search → item page → parse
+        │ runtime.sendMessage
+  └─ service worker  ── cache (storage.local) → dedupe → rate limit
+        └─ fetch items.jellyneo.net, parse with linkedom
+              search page → item page → (on demand) trading post history
 ```
+
+Jelly Neo serves complete server-rendered HTML to a plain fetch, so no browser engine is needed to
+read it. `host_permissions` for `items.jellyneo.net` is what exempts the service worker's requests
+from CORS; content scripts cannot fetch cross-origin in MV3, which is why the worker does it.
 
 ## Setup
 
-### 1. Server
-
-```bash
-cd server
-npm install                 # also downloads the Playwright WebKit build
-cp .env.example .env        # then set NEOSNIPE_TOKEN to something of your own
-npm start
-```
-
-`NEOSNIPE_TOKEN` is required. Without it every `/api` request is refused — otherwise any site you
-visited could drive your local browser pool through `127.0.0.1:8787`.
-
-### 2a. Extension — Chrome
+### Chrome
 
 ```bash
 cd extension
@@ -43,13 +33,13 @@ npm install
 npm run build
 ```
 
-`chrome://extensions` → enable Developer mode → **Load unpacked** → pick `extension/dist`. Open the
-extension's options, enter the same token, and hit **Save & test connection** — that saves your
-settings, then checks both that the server is reachable and that it accepts your token.
+`chrome://extensions` → enable Developer mode → **Load unpacked** → pick `extension/dist`. That is
+the whole install. The options page has a **Test a lookup** button if you want to confirm it can
+reach Jelly Neo.
 
 `npm run dev` runs Vite with HMR if you're iterating on the UI.
 
-### 2b. Extension — Safari
+### Safari
 
 Safari extensions have to ship inside a macOS app, so this needs Xcode:
 
@@ -66,7 +56,7 @@ is not checked in), and compiles the app. Then:
 3. Safari → Develop → **Allow Unsigned Extensions** (this resets every time Safari restarts; a real
    signing identity avoids it).
 4. Safari → Settings → Extensions → enable **neo-snipe**, and set neopets.com to **Always Allow**.
-5. Open the extension's options, enter the same server token, and hit **Save & test connection**.
+5. That's it — the options page has a **Test a lookup** button if you want to confirm it works.
 
 Set `SAFARI_BUNDLE_ID` to use your own bundle identifier.
 
@@ -94,35 +84,20 @@ not its name** ("This mystical codestone is used for training pets..."). Trustin
 sends Jelly Neo a whole sentence, so `alt` is only consulted on a real `<img>`. When no name can
 be resolved the element is marked and skipped — a wrong name is worse than no badge.
 
-## Server endpoints
-
-All `/api/*` routes require an `X-NeoSnipe-Token` header matching `NEOSNIPE_TOKEN`. Without it, any
-site you visited could drive your local browser pool through `127.0.0.1:8787`.
-
-| Method | Path | Body | Returns |
-|---|---|---|---|
-| GET | `/health` | — | `{ok, browserUp, cacheSize, userAgent, queue}` — **outside the token guard**, so it answers 200 whatever token you send |
-| GET | `/api/verify` | — | `{ok}`, or 401 — the cheap token check the options page uses |
-| POST | `/api/price` | `{name, imageHash?, itemId?}` | the item card |
-| POST | `/api/trading-post` | `{itemId}` | trading post history |
-| DELETE | `/api/cache` | `?name=` or none | cache bust, for debugging |
-
-`/health` deliberately needs no token so you can check the server is up before configuring
-anything — which is exactly why it is not sufficient on its own to validate a setup.
-
 ## Notes on the design
 
-**Why WebKit rather than Chromium with a spoofed UA.** WebKit is Safari's actual engine, so the
-whole fingerprint is consistent — a Safari UA string on Chromium still ships Chromium-only
-`Sec-CH-UA` client-hint headers underneath. `playwright.devices['Desktop Safari']` supplies the UA
-and viewport; `npm run probe` in `server/` prints what a server actually sees.
+**Why there is no server.** There was one, running Playwright. It turned out Jelly Neo serves
+complete HTML to a plain fetch — with a Chrome UA, and with no User-Agent at all — so the browser
+engine was fetching static pages. Deleting it removed Node, npm, Playwright's ~300MB of browser
+binaries, a shared-secret token, a SQLite cache and a background daemon, and turned installation
+into "install the extension". MV3 service workers have no DOM, so parsing uses `linkedom` rather
+than `DOMParser`.
 
 **Why trading post history is a second request.** The popover has two tabs: price history (which
 comes with the item lookup) and TP history, which lives on its own Jelly Neo page. That page is
-generated on demand and can take ~20s for a heavily traded item before their cache warms —
-longer than the extension's own request timeout. Making every price lookup wait on that would be
-a bad trade, so `POST /api/trading-post` is separate and the extension calls it only when someone
-opens that tab. Items nobody asks about never cost Jelly Neo the page at all.
+generated on demand and can take ~20s for a heavily traded item before their cache warms. Making
+every price lookup wait on that would be a bad trade, so it is fetched only when someone opens
+that tab — and items nobody asks about never cost Jelly Neo the page at all.
 
 Note that an empty lot list is not always "no activity": Jelly Neo declines to publish TP history
 for low-value items, and the popover shows that explanation rather than an empty table.
@@ -164,26 +139,28 @@ doesn't resolve in Chrome.
 ## Being a good neighbour
 
 Jelly Neo is a small fan site. **One click, one lookup** — there is deliberately no batch or
-prefetch endpoint, so a page showing 100 items costs Jelly Neo nothing until you actually ask
-about one. Lookups are capped at 2 concurrent with a ~1s floor between page loads, and cached for
-24h in SQLite plus 24h in the extension. Please keep it that way if you extend this, and check
+prefetch, so a page showing 100 items costs Jelly Neo nothing until you actually ask about one.
+Requests are serialised with a ~700ms floor between them, identical lookups in flight are
+coalesced, and results are cached for 24h. Please keep it that way if you extend this, and check
 their robots.txt and terms before taking it further than personal use.
 
 ## Tests
 
 ```bash
-cd server    && npm test                             # parser tests against saved fixtures, offline
-cd extension && npm run test:detect                  # detection against real Neopets markup
-cd extension && npm run build  && npm run test:e2e   # the real thing, in real Chrome
-cd extension && npm run build:safari && npm run test:safari   # the Safari bundles, in WebKit
+cd extension
+npm run test:jellyneo                        # Jelly Neo parsing, from saved pages — no network
+npm run test:detect                          # detection against real Neopets markup
+npm run build  && npm run test:e2e           # the real thing, in real Chrome
+npm run build:safari && npm run test:safari  # the Safari bundles, in WebKit
 ```
 
-Both extension suites need the server running.
+Nothing needs a server or the network: both end-to-end suites serve Jelly Neo from saved pages, so
+they are deterministic and never touch the live site.
 
 `test:e2e` loads the built extension into Chrome and serves a fake Neopets page from the
 neopets.com origin so the content script matches, then checks badge injection, that no extension
 CSS reaches the page, that Vuetify overlays stay inside the shadow root, hover-only badges, a live
-priced popover, and the server-unreachable error path.
+priced popover, and the Jelly-Neo-unreachable error path.
 
 `test:safari` runs the Safari bundles in WebKit — Safari's own engine — with a stubbed extension
 runtime. It covers what the Safari build changes: that the popover mounts with no dynamic import
@@ -195,9 +172,9 @@ worker); that part needs the manual steps above.
 
 | Path | What it is |
 |---|---|
-| `server/src/jellyneo.js` | Every Jelly Neo selector and URL, plus the parsing. Start here when the site changes. |
-| `server/src/browser.js` | Playwright lifecycle and the Safari context pool. |
-| `server/src/cache.js`, `queue.js` | SQLite cache; concurrency cap, rate limit, request coalescing. |
+| `extension/src/lib/jellyneo.js` | Every Jelly Neo selector and URL, plus fetching and parsing. Start here when the site changes. |
+| `extension/src/background.js` | The whole backend: cache, dedupe, error mapping. |
+| `extension/src/lib/queue.js` | Rate limit and request coalescing. |
 | `extension/src/content/` | Detection, badge injection, shadow-root mount. `run.js` is shared; `index.js` / `index.safari.js` are the per-browser entries. |
 | `extension/src/lib/ext-api.js` | `browser` / `chrome` shim and storage fallback. |
 | `extension/src/ui/` | Vue components, Vuetify config, popover state. |
