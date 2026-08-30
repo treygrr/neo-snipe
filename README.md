@@ -94,6 +94,22 @@ not its name** ("This mystical codestone is used for training pets..."). Trustin
 sends Jelly Neo a whole sentence, so `alt` is only consulted on a real `<img>`. When no name can
 be resolved the element is marked and skipped — a wrong name is worse than no badge.
 
+## Server endpoints
+
+All `/api/*` routes require an `X-NeoSnipe-Token` header matching `NEOSNIPE_TOKEN`. Without it, any
+site you visited could drive your local browser pool through `127.0.0.1:8787`.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/health` | — | `{ok, browserUp, cacheSize, userAgent, queue}` — **outside the token guard**, so it answers 200 whatever token you send |
+| GET | `/api/verify` | — | `{ok}`, or 401 — the cheap token check the options page uses |
+| POST | `/api/price` | `{name, imageHash?, itemId?}` | the item card |
+| POST | `/api/trading-post` | `{itemId}` | trading post history |
+| DELETE | `/api/cache` | `?name=` or none | cache bust, for debugging |
+
+`/health` deliberately needs no token so you can check the server is up before configuring
+anything — which is exactly why it is not sufficient on its own to validate a setup.
+
 ## Notes on the design
 
 **Why WebKit rather than Chromium with a spoofed UA.** WebKit is Safari's actual engine, so the
