@@ -1,0 +1,27 @@
+/* Shadow DOM does not block inherited properties, so pin the ones Neopets sets. */
+.ns-root {
+  position: absolute;
+  inset: 0;
+  /* The root spans the viewport so overlays can position freely, but it must
+     not swallow clicks meant for the page. */
+  pointer-events: none;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.4;
+  color: rgba(0, 0, 0, .87);
+  text-align: left;
+}
+
+/* v-app wants to be a full-page surface with its own background; here it is
+   only a positioning context. */
+.ns-root .v-application,
+.ns-root .v-application__wrap {
+  min-height: 0 !important;
+  background: transparent !important;
+  display: block !important;
+}
+
+/* Only the actual popover surface is interactive. */
+.ns-root .v-overlay-container { pointer-events: none; }
+.ns-root .v-overlay__content { pointer-events: auto; }
+.ns-root .v-overlay__scrim { pointer-events: none; }
