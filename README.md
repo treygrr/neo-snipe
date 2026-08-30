@@ -44,7 +44,8 @@ npm run build
 ```
 
 `chrome://extensions` → enable Developer mode → **Load unpacked** → pick `extension/dist`. Open the
-extension's options, enter the same token, and hit **Test connection**.
+extension's options, enter the same token, and hit **Save & test connection** — that saves your
+settings, then checks both that the server is reachable and that it accepts your token.
 
 `npm run dev` runs Vite with HMR if you're iterating on the UI.
 
@@ -65,7 +66,7 @@ is not checked in), and compiles the app. Then:
 3. Safari → Develop → **Allow Unsigned Extensions** (this resets every time Safari restarts; a real
    signing identity avoids it).
 4. Safari → Settings → Extensions → enable **neo-snipe**, and set neopets.com to **Always Allow**.
-5. Open the extension's options and enter the same server token.
+5. Open the extension's options, enter the same server token, and hit **Save & test connection**.
 
 Set `SAFARI_BUNDLE_ID` to use your own bundle identifier.
 

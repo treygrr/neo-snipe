@@ -16,19 +16,61 @@ async function save() {
   setTimeout(() => { saved.value = false; }, 1800);
 }
 
+/**
+ * Saves first, then checks reachability *and* the token.
+ *
+ * Both halves matter. /health sits outside the server's /api guard, so it
+ * answers 200 whatever token you send — testing only that reported a healthy
+ * setup while the popover was being rejected. And testing the form's values
+ * without saving them checked something the popover never reads.
+ */
 async function testConnection() {
   test.state = 'pending';
+  test.message = '';
+  await save();
+
+  const base = form.backendUrl.replace(/\/$/, '');
+  let health;
   try {
-    const res = await fetch(`${form.backendUrl.replace(/\/$/, '')}/health`);
-    const body = await res.json();
-    test.state = body.ok ? 'ok' : 'error';
-    test.message = body.ok
-      ? `Server reachable. Browser ${body.browserUp ? 'running' : 'idle'}, ${body.cacheSize} cached items.`
-      : 'Server responded but reported a problem.';
+    health = await (await fetch(`${base}/health`)).json();
   } catch {
     test.state = 'error';
     test.message = 'Could not reach the server. Is it running?';
+    return;
   }
+
+  if (!health?.ok) {
+    test.state = 'error';
+    test.message = 'Server responded but reported a problem.';
+    return;
+  }
+
+  if (!form.token) {
+    test.state = 'error';
+    test.message = 'Server is reachable, but no token is set.';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${base}/api/verify`, { headers: { 'X-NeoSnipe-Token': form.token } });
+    if (res.status === 401) {
+      test.state = 'error';
+      test.message = "Server is reachable, but it rejected this token. It must match NEOSNIPE_TOKEN in the server's .env.";
+      return;
+    }
+    if (!res.ok) {
+      test.state = 'error';
+      test.message = `Server is reachable, but returned ${res.status} when checking the token.`;
+      return;
+    }
+  } catch {
+    test.state = 'error';
+    test.message = 'Server is reachable, but the token check failed.';
+    return;
+  }
+
+  test.state = 'ok';
+  test.message = `Saved. Token accepted. Browser ${health.browserUp ? 'running' : 'idle'}, ${health.cacheSize} cached items.`;
 }
 </script>
 
@@ -75,7 +117,7 @@ async function testConnection() {
         <div class="d-flex ga-2">
           <v-btn color="primary" :prepend-icon="mdiContentSave" @click="save">Save</v-btn>
           <v-btn variant="tonal" :loading="test.state === 'pending'" @click="testConnection">
-            Test connection
+            Save &amp; test connection
           </v-btn>
         </div>
 

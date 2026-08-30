@@ -37,6 +37,35 @@ await opts.waitForSelector('.v-application', { timeout: 10000 });
 check('options page renders Vuetify', await opts.locator('.v-text-field').count() >= 2,
   `${await opts.locator('.v-text-field').count()} fields`);
 
+// The options page must report a bad token as bad. /health sits outside the
+// server's /api guard, so testing only that reported success for any token.
+const testConn = async (token) => {
+  await opts.evaluate((t) => {
+    const set = (label, value) => {
+      const field = [...document.querySelectorAll('.v-text-field')]
+        .find((f) => f.textContent.includes(label));
+      const input = field.querySelector('input');
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    set('Server URL', 'http://127.0.0.1:8787');
+    set('Server token', t);
+  }, token);
+  await opts.getByRole('button', { name: /save.*test/i }).click();
+  await opts.waitForFunction(
+    () => /accepted|rejected|reachable|Could not/i.test(document.querySelector('.v-alert')?.textContent || ''),
+    { timeout: 15000 },
+  );
+  return (await opts.locator('.v-alert').last().textContent()).replace(/\s+/g, ' ').trim();
+};
+
+const badMsg = await testConn('definitely-not-the-token');
+check('a wrong token is reported as rejected', /rejected this token/i.test(badMsg), badMsg.slice(0, 70));
+
+const goodMsg = await testConn(TOKEN);
+check('a correct token is reported as accepted', /accepted/i.test(goodMsg), goodMsg.slice(0, 70));
+
 // Save settings the content script will need.
 await opts.evaluate((token) => chrome.storage.sync.set({
   backendUrl: 'http://127.0.0.1:8787', token, hoverOnly: true,

@@ -27,6 +27,11 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// Cheap credential check for the extension's options page. /health cannot do
+// this job: it sits outside the /api guard, so it answers 200 whatever token
+// you send — which made a wrong token look like a working setup.
+app.get('/api/verify', (_req, res) => res.json({ ok: true }));
+
 async function priceFor({ name, imageHash, itemId }) {
   const key = cache.cacheKey({ name, imageHash });
 

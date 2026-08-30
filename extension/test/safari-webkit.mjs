@@ -40,11 +40,21 @@ await page.addInitScript(({ token }) => {
   const listeners = [];
   const local = {};
   const sync = { backendUrl: 'http://127.0.0.1:8787', token, hoverOnly: true };
+  // Mirrors chrome.storage semantics: a key, an array of keys, an object of
+  // defaults, or null for everything. Getting this wrong hides real bugs.
   const area = (store) => ({
-    async get(defaults) {
-      if (typeof defaults === 'string') return { [defaults]: store[defaults] };
-      const out = { ...(defaults || {}) };
-      for (const k of Object.keys(defaults || store)) if (k in store) out[k] = store[k];
+    async get(query) {
+      if (query === null || query === undefined) return { ...store };
+      if (typeof query === 'string') {
+        return query in store ? { [query]: store[query] } : {};
+      }
+      if (Array.isArray(query)) {
+        const out = {};
+        for (const k of query) if (k in store) out[k] = store[k];
+        return out;
+      }
+      const out = { ...query };
+      for (const k of Object.keys(query)) if (k in store) out[k] = store[k];
       return out;
     },
     async set(values) { Object.assign(store, values); },
