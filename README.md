@@ -261,8 +261,9 @@ discipline as the Neopets selectors, and for the same reason.
   ours matched against theirs. Both shapes were captured from live responses; the refusal is in
   `test/fixtures/foodclub/refused.html`.
 
-  **Your bets** and **Collect winnings** sit at the bottom of the tab, and the toast links to the
-  first.
+  **Your bets** and **Collect winnings** sit at the top of the tab, under the stake, tinted blue
+  and green so they read as somewhere to go rather than another bet to place. The toast links to
+  the first.
 
   One gap worth naming: the end-to-end suite covers the request and the refusal, but not the
   success branch. Playwright cannot fulfil a redirect that a `fetch` will follow, and the panel's

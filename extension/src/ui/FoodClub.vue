@@ -50,6 +50,13 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
                @click="loadFoodClub({ force: true })" />
       </div>
 
+      <div class="ns-fc-links">
+        <v-btn size="x-small" variant="tonal" color="info" :prepend-icon="mdiFormatListChecks"
+               :href="CURRENT_BETS_URL" target="_blank" rel="noopener">Your bets</v-btn>
+        <v-btn size="x-small" variant="tonal" color="success" :prepend-icon="mdiCashMultiple"
+               :href="COLLECT_URL" target="_blank" rel="noopener">Collect winnings</v-btn>
+      </div>
+
       <div class="ns-fc-levels">
         <button
           v-for="level in levels"
@@ -105,13 +112,6 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
         </div>
       </div>
 
-      <div class="ns-fc-links">
-        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiFormatListChecks"
-               :href="CURRENT_BETS_URL" target="_blank" rel="noopener">Your bets</v-btn>
-        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiCashMultiple"
-               :href="COLLECT_URL" target="_blank" rel="noopener">Collect winnings</v-btn>
-      </div>
-
       <p class="ns-fc-note">
         <strong>Place</strong> places the bet with Neopets from here, and marks it done once it is
         accepted. You can tick or untick a mark yourself, and the
@@ -165,6 +165,6 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
 .ns-bet-foot { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
 .ns-bet-odds { font-size: 10.5px; font-weight: 600; opacity: .8; }
 .ns-bet-warn { font-size: 10px; color: #c62828; }
-.ns-fc-links { display: flex; gap: 6px; padding: 4px 10px 0; }
+.ns-fc-links { display: flex; gap: 6px; padding: 2px 10px 6px; }
 .ns-fc-note { font-size: 10px; opacity: .55; padding: 8px 12px 0; margin: 0; }
 </style>

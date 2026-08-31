@@ -970,11 +970,23 @@ check('a bet Neopets refuses is reported in its own words',
 check('a bet that was not placed is not marked done',
   await inShadow((root) => !root.querySelector('.ns-bet').classList.contains('ns-bet--done')));
 
+const fcLinks = await inShadow((root) => {
+  const links = [...root.querySelectorAll('.ns-fc-links a')];
+  const levels = root.querySelector('.ns-fc-levels');
+  return {
+    hrefs: links.map((a) => a.getAttribute('href')),
+    colours: links.map((a) => [...a.classList].filter((c) => /^(text|bg)-/.test(c)).join(' ')),
+    // 4 === DOCUMENT_POSITION_FOLLOWING: the levels come after the links.
+    aboveLevels: !!levels && (links[0].compareDocumentPosition(levels) & 4) === 4,
+  };
+});
 check('the tab links to your bets and to collecting winnings',
-  await inShadow((root) => {
-    const hrefs = [...root.querySelectorAll('.ns-fc-links a')].map((a) => a.getAttribute('href'));
-    return hrefs.some((h) => /current_bets/.test(h)) && hrefs.some((h) => /type=collect/.test(h));
-  }));
+  fcLinks.hrefs.some((h) => /current_bets/.test(h)) && fcLinks.hrefs.some((h) => /type=collect/.test(h)),
+  JSON.stringify(fcLinks.hrefs));
+check('those links sit above the risk levels', fcLinks.aboveLevels === true);
+check('each link is coloured, and differently from the other',
+  fcLinks.colours.every(Boolean) && fcLinks.colours[0] !== fcLinks.colours[1],
+  JSON.stringify(fcLinks.colours));
 
 await inShadow((root) => root.querySelector('.ns-toast-x').click());
 await page.waitForTimeout(300);
