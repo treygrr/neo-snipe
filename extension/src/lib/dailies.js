@@ -168,3 +168,18 @@ export const DAILIES = [
 ];
 
 export const DAILY_COUNT = DAILIES.reduce((n, g) => n + g.items.length, 0);
+
+// Anything under /premium/ needs a Neopets Premium subscription. Deriving this
+// from the path rather than tagging entries by hand means a premium link added
+// later is caught without anyone remembering to flag it.
+const PREMIUM_PATH = /^https:\/\/www\.neopets\.com\/premium\//i;
+
+export const isPremiumDaily = (item) => item?.premium === true || PREMIUM_PATH.test(item?.url || '');
+
+/** The list as it should be shown: premium-only entries are dropped without it. */
+export function dailiesFor({ premium = false } = {}) {
+  if (premium) return DAILIES;
+  return DAILIES
+    .map((group) => ({ ...group, items: group.items.filter((i) => !isPremiumDaily(i)) }))
+    .filter((group) => group.items.length);
+}

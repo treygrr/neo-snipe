@@ -7,7 +7,7 @@ import {
 } from './store.js';
 import SettingsView from './SettingsView.vue';
 import FoodClub from './FoodClub.vue';
-import { DAILIES } from '../lib/dailies.js';
+import { dailiesFor, isPremiumDaily } from '../lib/dailies.js';
 
 const FAVOURITES_GROUP = 'Favourites';
 
@@ -20,10 +20,18 @@ const toggleGroup = (title) => {
 
 // Favourited dailies get pinned to the top, and also stay in their own group
 // so the list does not reshuffle as you star things.
+//
+// Premium-only entries are dropped without the setting — including from the
+// pinned group, so one favourited while Premium was on does not linger.
+const visibleDailies = computed(() => dailiesFor({ premium: state.settings.premium }));
+const pinnedDailies = computed(() => (state.settings.premium
+  ? state.dailyFavourites
+  : state.dailyFavourites.filter((d) => !isPremiumDaily(d))));
+
 const dailyGroups = computed(() => (
-  state.dailyFavourites.length
-    ? [{ title: FAVOURITES_GROUP, items: state.dailyFavourites }, ...DAILIES]
-    : DAILIES
+  pinnedDailies.value.length
+    ? [{ title: FAVOURITES_GROUP, items: pinnedDailies.value }, ...visibleDailies.value]
+    : visibleDailies.value
 ));
 
 // The clicked row is the popover's anchor, so it appears beside the favourite.

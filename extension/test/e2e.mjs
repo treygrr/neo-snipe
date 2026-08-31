@@ -965,11 +965,80 @@ check('turning Premium off hides the Shops tab and Super Wiz button',
     return !tabs.includes('Shops') && !root.querySelector('.ns-search-btn--ssw');
   }));
 
-// Put it back, and leave the panel on its tabs.
+// Premium-only dailies go too — a link to a page you cannot use is noise.
+await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(300);
+await inShadow((root) => {
+  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /dailies/i.test(t.textContent)).click();
+});
+await page.waitForTimeout(400);
+const withoutPremium = await inShadow((root) => {
+  const links = [...root.querySelectorAll('.ns-daily')];
+  return { count: links.length, premiumLinks: links.filter((a) => /\/premium\//.test(a.href)).length };
+});
+check('premium-only dailies are hidden without Premium',
+  withoutPremium.premiumLinks === 0 && withoutPremium.count > 90,
+  JSON.stringify(withoutPremium));
+
+// Turn it back on: the premium daily returns.
+await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(300);
+await inShadow((root) => root.querySelector('.ns-set-row input').click());
+await page.waitForTimeout(400);
+await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(300);
+await inShadow((root) => {
+  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /dailies/i.test(t.textContent)).click();
+});
+await page.waitForTimeout(400);
+const withPremium = await inShadow((root) => {
+  const links = [...root.querySelectorAll('.ns-daily')];
+  return {
+    count: links.length,
+    starlight: links.some((a) => a.href === 'https://www.neopets.com/premium/wheel.phtml'),
+  };
+});
+check('turning Premium on brings the premium dailies back',
+  withPremium.starlight && withPremium.count === withoutPremium.count + 1,
+  JSON.stringify(withPremium));
+
+// A premium daily favourited while Premium was on must not linger in the
+// pinned group after it is turned off.
+await inShadow((root) => {
+  const row = [...root.querySelectorAll('.ns-daily-row')]
+    .find((r) => r.querySelector('.ns-daily')?.href === 'https://www.neopets.com/premium/wheel.phtml');
+  row.querySelector('.ns-daily-fav').click();
+});
+await page.waitForTimeout(400);
+check('the premium daily can be favourited while Premium is on',
+  await inShadow((root) => [...root.querySelectorAll('.ns-group--pinned .ns-daily')]
+    .some((a) => a.href === 'https://www.neopets.com/premium/wheel.phtml')));
+
+await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(300);
+await inShadow((root) => root.querySelector('.ns-set-row input').click());   // Premium off
+await page.waitForTimeout(300);
+await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(400);
+check('and disappears from the pinned group when Premium goes off',
+  await inShadow((root) => ![...root.querySelectorAll('.ns-daily')]
+    .some((a) => /\/premium\//.test(a.href))));
+
+// Restore: Premium on, and unfavourite it again.
+await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(300);
 await inShadow((root) => root.querySelector('.ns-set-row input').click());
 await page.waitForTimeout(300);
 await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(400);
+await inShadow((root) => {
+  const row = [...root.querySelectorAll('.ns-group--pinned .ns-daily-row')]
+    .find((r) => /\/premium\//.test(r.querySelector('.ns-daily')?.href || ''));
+  row?.querySelector('.ns-daily-fav')?.click();
+});
 await page.waitForTimeout(300);
+
+// Premium is back on and the panel is on its tabs already.
 
 // --- the toolbar button ------------------------------------------------------
 // It must do nothing away from Neopets. Rather than take the "tabs" permission

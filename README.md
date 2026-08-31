@@ -149,7 +149,10 @@ field says whether it will answer, and that message is shown as-is.
   click.
 - **Dailies** — 110 quick links in nine groups: money makers, all seven wheels, free stuff, games
   of chance, the daily prize spots, both lab rays, training schools, contests and the quest givers.
-  Groups collapse, with a chevron showing their state. Hovering a daily reveals a ♥ — favourited
+  Groups collapse, with a chevron showing their state. Premium-only links are hidden unless *I have
+  Neopets Premium* is on — including one you favourited while it was — since a link to a page you
+  cannot use is just noise. That is decided by the URL path (`/premium/…`) rather than by tagging
+  entries by hand, so a premium link added later is caught without anyone remembering to flag it. Hovering a daily reveals a ♥ — favourited
   ones are pinned to a group at the top, draggable to reorder, while staying in their original
   group so the list does not reshuffle under you as you star things.
 

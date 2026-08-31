@@ -67,3 +67,32 @@ test('malformed input fails with a readable message', () => {
   assert.throws(() => parseExport('[]'), (e) => /does not look like/.test(e.message));
   assert.throws(() => parseExport('null'), ImportError);
 });
+
+// --- premium-only dailies --------------------------------------------------
+import { DAILIES, DAILY_COUNT, dailiesFor, isPremiumDaily } from '../src/lib/dailies.js';
+
+test('premium dailies are recognised by their path, not by hand-tagging', () => {
+  assert.ok(isPremiumDaily({ url: 'https://www.neopets.com/premium/wheel.phtml' }));
+  assert.ok(isPremiumDaily({ url: 'https://www.neopets.com/premium/anything-added-later.phtml' }));
+  assert.ok(!isPremiumDaily({ url: 'https://www.neopets.com/faerieland/wheel.phtml' }));
+  // An explicit flag still wins, for a premium page that is not under /premium/.
+  assert.ok(isPremiumDaily({ url: 'https://www.neopets.com/x.phtml', premium: true }));
+});
+
+test('without Premium the premium-only dailies are gone', () => {
+  const shown = dailiesFor({ premium: false }).flatMap((g) => g.items);
+  const all = DAILIES.flatMap((g) => g.items);
+
+  assert.equal(shown.length, DAILY_COUNT - 1, 'exactly the premium ones are dropped');
+  assert.ok(!shown.some(isPremiumDaily), 'nothing premium survives');
+  assert.ok(all.some(isPremiumDaily), 'and there was something to drop');
+});
+
+test('with Premium the whole list is shown', () => {
+  assert.equal(dailiesFor({ premium: true }).flatMap((g) => g.items).length, DAILY_COUNT);
+});
+
+test('a group left empty by the filter is dropped, not shown blank', () => {
+  const groups = dailiesFor({ premium: false });
+  assert.ok(groups.every((g) => g.items.length > 0));
+});
