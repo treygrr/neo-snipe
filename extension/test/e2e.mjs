@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildPage, ITEM_COUNT } from './page.mjs';
+import { installNeopetsRoutes } from './routes.mjs';
 
 // NS_DIST lets the release pipeline run this against release/chrome/ rather
 // than the working build.
@@ -70,33 +71,7 @@ page.on('console', (m) => console.log(`    [page:${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => console.log(`    [page:error] ${e.message}`));
 page.on('requestfailed', (r) => console.log(`    [reqfail] ${r.url().slice(0, 130)} ${r.failure()?.errorText}`));
 page.on('response', (r) => { if (r.status() >= 400) console.log(`    [resp ${r.status()}] ${r.url().slice(0, 130)}`); });
-// Scoped to neopets.com only — a catch-all route would also intercept the
-// extension's own chrome-extension:// module requests.
-await page.route('**://www.neopets.com/**', (route) =>
-  route.fulfill({ contentType: 'text/html', body: FIXTURE }));
-
-await page.route('**://images.neopets.com/**', (route) =>
-  route.fulfill({
-    contentType: 'image/gif',
-    body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
-  }));
-
-// Food Club pages, served from what the live site returned. Registered after
-// the catch-all so they take precedence.
-const fc = (f) => readFileSync(resolve('test/fixtures/foodclub', f), 'utf8');
-await page.route('**://www.neopets.com/pirates/foodclub.phtml*', (route) => route.fulfill({
-  contentType: 'text/html',
-  // The real page computes odds in its own script; stub those so the form behaves.
-  body: `<!doctype html><html><body><script>
-      window.calls = [];
-      function add_odds(a, p) { window.calls.push(['add_odds', a, p]); }
-      function calc_odds() { window.calls.push(['calc_odds']); }
-      function reset_odds(a) { window.calls.push(['reset_odds', a]); }
-      function set_winnings(v) { window.calls.push(['set_winnings', v]); }
-    </script>${fc('bet-page.html')}</body></html>`,
-}));
-await page.route('**://www.neopets.com/~Shrmsh', (route) =>
-  route.fulfill({ contentType: 'text/html', body: `<!doctype html><html><body>${fc('sets-page.html')}</body></html>` }));
+await installNeopetsRoutes(page);
 
 await page.goto('https://www.neopets.com/inventory.phtml');
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });

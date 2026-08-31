@@ -64,8 +64,13 @@ npm run dev                      # Vite with hot reload, run alongside
 ```
 
 `npm run fixture` is the fast loop for UI work: it builds if needed, then opens a browser with the
-extension loaded on the same saved markup the tests use — all five item surfaces on one page, with
-Jelly Neo answered from fixtures. No Neopets account, no network.
+extension loaded on the same saved markup the tests use — all five item surfaces on one page, the
+Food Club bet form and the daily sets, with Jelly Neo answered from fixtures. No Neopets account,
+no network.
+
+The routes are shared with the end-to-end tests (`test/routes.mjs`) so the two cannot drift: the
+Food Club tab worked in the tests and was broken in the dev browser once, because only the tests
+had those routes.
 
 `dev:browser` launches Chromium with the built extension side-loaded and a persistent profile, so
 your Neopets login survives between runs. It reports whether the extension actually loaded rather

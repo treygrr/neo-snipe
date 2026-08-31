@@ -105,23 +105,16 @@ if (!sw) {
 const page = ctx.pages()[0] || (await ctx.newPage());
 
 if (has('--fixture')) {
-  // Serve the same saved markup the tests use: every Neopets surface on one
-  // page, and Jelly Neo from fixtures, so nothing needs a login or the network.
-  const { buildPage } = await import('../test/page.mjs');
-  const jn = (f) => readFileSync(join(root, 'test/fixtures/jellyneo', f), 'utf8');
-  const PAGES = [
-    [/\/trading-post-history\//, 'item-5554-trading-post-history.html'],
-    [/\/item\/\d+\//, 'item-5554-faerie-paint-brush.html'],
-    [/\/search\//, 'search-faerie-paint-brush.html'],
-  ];
+  // The same saved pages the tests use: item surfaces, the Food Club bet form
+  // and the daily sets, plus Jelly Neo. Nothing needs a login or the network.
+  const { installNeopetsRoutes, JELLYNEO_PAGES, jellyNeoFixture } = await import('../test/routes.mjs');
   await ctx.route('**://items.jellyneo.net/**', (route) => {
-    const hit = PAGES.find(([re]) => re.test(route.request().url()));
-    return route.fulfill({ contentType: 'text/html', body: hit ? jn(hit[1]) : '' });
+    const hit = JELLYNEO_PAGES.find(([re]) => re.test(route.request().url()));
+    return route.fulfill({ contentType: 'text/html', body: hit ? jellyNeoFixture(hit[1]) : '' });
   });
-  await page.route('**://www.neopets.com/**', (route) =>
-    route.fulfill({ contentType: 'text/html', body: buildPage() }));
+  await installNeopetsRoutes(page);
   await page.goto('https://www.neopets.com/inventory.phtml');
-  console.log('\n  Fixture mode: offline test page with all five item surfaces.');
+  console.log('\n  Fixture mode: item surfaces, Food Club and the daily sets, all offline.');
 } else {
   await page.goto('https://www.neopets.com/');
   console.log('\n  Real neopets.com. Your login is saved in .dev-profile between runs.');
