@@ -56,6 +56,15 @@ export function parseBetPage(doc) {
 }
 
 /**
+ * The round number, so "done" marks reset when a new round opens rather than
+ * carrying over onto a different set of bets.
+ */
+export function parseRound(doc) {
+  const m = (doc.body?.textContent || '').match(/Round\s+(\d+)/i);
+  return m ? m[1] : null;
+}
+
+/**
  * The sets page publishes one table per risk level: a header row of arena
  * names, then one row per bet with a pirate name (or blank) per arena.
  */
@@ -115,6 +124,13 @@ export function resolveBet(bet, arenas) {
   const totalOdds = resolved ? picks.reduce((n, p) => n * (p.odds || 1), 1) : null;
   return { picks, resolved, totalOdds };
 }
+
+/**
+ * A bet is identified by what it actually bets on, so the same picks are the
+ * same bet whichever risk level lists them.
+ */
+export const betId = (bet) =>
+  (bet.picks || bet).map((p) => `${p.arena}:${p.pirateId ?? p.pirateName}`).sort().join(',');
 
 export const payout = (totalOdds, amount) =>
   (totalOdds && amount ? totalOdds * amount : null);

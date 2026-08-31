@@ -268,6 +268,20 @@ check('hover overlay is subtle, not a solid black wash',
 await page.mouse.move(0, 0);
 
 // --- the bottom-right bar, favourites and dailies ---------------------------
+/**
+ * Opens the panel if it is not already open. Toggling blindly makes each
+ * section depend on what the last one left behind, which has bitten twice.
+ */
+const ensurePanelOpen = async () => {
+  await page.keyboard.press('Escape'); // any popover covering the bar
+  await page.waitForTimeout(300);
+  const open = await page.evaluate(() => !!document.querySelector('[data-neosnipe="popover-host"]')
+    ?.shadowRoot?.querySelector('.ns-panel'));
+  if (!open) await page.locator('.neosnipe-launcher').click();
+  await page.waitForSelector('.ns-panel', { timeout: 5000 });
+  await page.waitForTimeout(300);
+};
+
 const sr = (sel, fn = 'textContent') => page.evaluate(([s, f]) => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
   const el = root.querySelector(s);
@@ -453,6 +467,18 @@ check('food club and bargain stocks are there',
   dailies.hasFoodClub && dailies.hasBargainStocks);
 check('all the wheels are there', dailies.wheels >= 7, `${dailies.wheels} wheels`);
 
+const labs = await inShadow((root) => {
+  const links = [...root.querySelectorAll('.ns-daily')];
+  return {
+    group: [...root.querySelectorAll('.ns-group-title')].map((t) => t.textContent.trim()).includes('Labs'),
+    lab: links.find((a) => /^lab ray$/i.test(a.textContent.trim()))?.href,
+    petpet: links.find((a) => /petpet lab/i.test(a.textContent.trim()))?.href,
+  };
+});
+check('both labs are listed',
+  labs.group && labs.lab === 'https://www.neopets.com/lab.phtml'
+  && labs.petpet === 'https://www.neopets.com/petpetlab.phtml', JSON.stringify(labs));
+
 // Opening a favourite must re-fetch, not serve the cached price.
 await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
@@ -492,14 +518,46 @@ await page.waitForTimeout(300);
 check('closing the panel un-highlights the launcher',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
 
-// --- Food Club: read the round, pick a risk level, fill a bet ---------------
-// The favourite's popover is still open over the launcher; dismiss it the way
-// a person would before reaching for the bar again.
-await page.keyboard.press('Escape');
-await page.waitForTimeout(400);
-
-await page.locator('.neosnipe-launcher').click();
+// --- reordering favourites by dragging --------------------------------------
+// Add a second favourite so there is an order to change.
+await opts.evaluate(() => chrome.storage.local.set({
+  favorites: [
+    { name: 'Alpha Item', imageHash: 'alpha', imageUrl: null, addedAt: 2 },
+    { name: 'Beta Item', imageHash: 'beta', imageUrl: null, addedAt: 1 },
+  ],
+}));
+await ensurePanelOpen(); // opening reloads favourites from storage
+await inShadow((root) => {
+  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /favourites/i.test(t.textContent)).click();
+});
 await page.waitForTimeout(300);
+
+const orderBefore = await inShadow((root) =>
+  [...root.querySelectorAll('.ns-fav-name')].map((e) => e.textContent.trim()));
+check('two favourites are listed in order',
+  orderBefore.join(',') === 'Alpha Item,Beta Item', JSON.stringify(orderBefore));
+
+check('favourites have a drag handle and are draggable', await inShadow((root) => {
+  const row = root.querySelector('.ns-fav');
+  return row.getAttribute('draggable') === 'true' && !!row.querySelector('.ns-fav-grip');
+}));
+
+// Playwright's CSS selectors pierce open shadow roots, so this is a real drag.
+await page.locator('.ns-fav').first().dragTo(page.locator('.ns-fav').nth(1));
+await page.waitForTimeout(600);
+
+const orderAfter = await inShadow((root) =>
+  [...root.querySelectorAll('.ns-fav-name')].map((e) => e.textContent.trim()));
+check('dragging reorders the list',
+  orderAfter.join(',') === 'Beta Item,Alpha Item', JSON.stringify(orderAfter));
+
+const storedOrder = await opts.evaluate(() => chrome.storage.local.get('favorites'));
+check('the new order is persisted',
+  (storedOrder.favorites || []).map((f) => f.name).join(',') === 'Beta Item,Alpha Item',
+  JSON.stringify((storedOrder.favorites || []).map((f) => f.name)));
+
+// --- Food Club: read the round, pick a risk level, fill a bet ---------------
+await ensurePanelOpen();
 await inShadow((root) => {
   [...root.querySelectorAll('.ns-panel-tab')].find((t) => /food club/i.test(t.textContent)).click();
 });
@@ -533,6 +591,37 @@ const beginnerCount = await inShadow((root) => {
 await page.waitForTimeout(300);
 check('switching risk level re-renders the set', beginnerCount > 0, `${beginnerCount} bets`);
 
+const betButtons = await inShadow((root) => {
+  const foot = root.querySelector('.ns-bet .ns-bet-foot');
+  return {
+    buttons: [...foot.querySelectorAll('.v-btn')].map((b) => b.textContent.trim()),
+    hasDoneToggle: !!foot.querySelector('.ns-done input[type=checkbox]'),
+  };
+});
+check('each bet offers both Fill and Place',
+  betButtons.buttons.includes('Fill') && betButtons.buttons.includes('Place'),
+  JSON.stringify(betButtons.buttons));
+check('each bet has a done toggle you can set yourself', betButtons.hasDoneToggle);
+
+// Ticking it marks the bet done, and unticking clears it.
+await inShadow((root) => root.querySelector('.ns-bet .ns-done input').click());
+await page.waitForTimeout(400);
+const afterTick = await inShadow((root) => ({
+  marked: root.querySelector('.ns-bet').classList.contains('ns-bet--done'),
+  checked: root.querySelector('.ns-bet .ns-done input').checked,
+}));
+check('ticking done marks the bet', afterTick.marked && afterTick.checked, JSON.stringify(afterTick));
+
+const storedDone = await opts.evaluate(() => chrome.storage.local.get('fcDone'));
+check('done marks are stored against the round',
+  storedDone.fcDone?.round === '9978' && storedDone.fcDone.ids.length === 1,
+  JSON.stringify(storedDone.fcDone));
+
+await inShadow((root) => root.querySelector('.ns-bet .ns-done input').click());
+await page.waitForTimeout(400);
+check('unticking clears it again',
+  await inShadow((root) => !root.querySelector('.ns-bet').classList.contains('ns-bet--done')));
+
 // Fill: stores the bet, navigates to the bet page, fills the real form.
 await inShadow((root) => root.querySelector('.ns-bet .v-btn').click());
 await page.waitForURL(/foodclub\.phtml/, { timeout: 15000 }).catch(() => {});
@@ -562,6 +651,10 @@ check('the bet was not submitted', !/process_foodclub/.test(filled.url || ''), f
 
 const cleared = await opts.evaluate(() => chrome.storage.local.get('pendingBet'));
 check('the pending bet is cleared after filling', cleared.pendingBet === undefined);
+
+const doneAfterFill = await opts.evaluate(() => chrome.storage.local.get('fcDone'));
+check('using Fill marks that bet done', (doneAfterFill.fcDone?.ids || []).length === 1,
+  JSON.stringify(doneAfterFill.fcDone?.ids));
 
 await page.goto('https://www.neopets.com/inventory.phtml');
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });

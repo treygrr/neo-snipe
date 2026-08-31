@@ -7,8 +7,9 @@ export const onBetPage = (url = location.href) =>
   /\/pirates\/foodclub\.phtml/i.test(url) && /type=bet/i.test(url);
 
 /**
- * Fills Neopets' own bet form and stops. It never submits: placing the bet
- * stays a deliberate click by the person whose Neopoints are at stake.
+ * Fills Neopets' own bet form. It submits only when explicitly told to, by a
+ * bet marked `submit` — which is what the panel's Place button sets and its
+ * Fill button does not.
  *
  * total_odds and winnings are computed by the page's own script, wired to the
  * select's onchange and the checkbox's onclick. Setting values silently would
@@ -52,7 +53,13 @@ export function fillBetForm(doc, bet) {
   amount.blur();
 
   form.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-  return { ok: true, arenas: applied };
+
+  // Only ever on an explicit Place: Fill leaves the submit to the user.
+  if (bet.submit === true) {
+    form.submit();
+    return { ok: true, arenas: applied, submitted: true };
+  }
+  return { ok: true, arenas: applied, submitted: false };
 }
 
 /** Reads a bet stashed by the panel, applies it, and clears it. */
@@ -72,7 +79,7 @@ export async function applyPendingBet(doc = document) {
   if (Date.now() - (pending.at || 0) > MAX_AGE_MS) return { ok: false, reason: 'stale' };
 
   const result = fillBetForm(doc, pending);
-  if (result.ok) showFilledNotice(doc, pending);
+  if (result.ok && !result.submitted) showFilledNotice(doc, pending);
   return result;
 }
 

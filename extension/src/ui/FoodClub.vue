@@ -2,8 +2,8 @@
 import { computed } from 'vue';
 import { mdiRefresh, mdiOpenInNew, mdiAlertCircleOutline } from '@mdi/js';
 import {
-  state, loadFoodClub, setFoodClubLevel, setFoodClubAmount, currentBets, fillBet,
-  RISK_LEVELS, BET_URL, SETS_URL,
+  state, loadFoodClub, setFoodClubLevel, setFoodClubAmount, currentBets, fillBet, placeBet,
+  isBetDone, toggleBetDone, RISK_LEVELS, BET_URL, SETS_URL,
 } from './store.js';
 
 const bets = computed(() => currentBets());
@@ -64,7 +64,12 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
         Sets by <a :href="SETS_URL" target="_blank" rel="noopener">~Shrmsh</a>.
       </p>
 
-      <div v-for="(bet, i) in bets" :key="i" class="ns-bet" :class="{ 'ns-bet--broken': !bet.resolved }">
+      <div
+        v-for="(bet, i) in bets"
+        :key="i"
+        class="ns-bet"
+        :class="{ 'ns-bet--broken': !bet.resolved, 'ns-bet--done': isBetDone(bet) }"
+      >
         <div class="ns-bet-picks">
           <span v-for="pick in bet.picks" :key="pick.arena" class="ns-pick">
             <span class="ns-pick-arena">{{ pick.arenaName }}</span>
@@ -73,18 +78,28 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
           </span>
         </div>
         <div class="ns-bet-foot">
+          <label class="ns-done" :title="isBetDone(bet) ? 'Mark as not done' : 'Mark as done'">
+            <input type="checkbox" :checked="isBetDone(bet)" @change="toggleBetDone(bet)">
+            <span>done</span>
+          </label>
           <span v-if="bet.resolved" class="ns-bet-odds">
             {{ bet.totalOdds }}:1 · wins {{ np(bet.payout) }} NP
           </span>
           <span v-else class="ns-bet-warn">A pirate here isn't in this round — skip it.</span>
           <v-spacer />
-          <v-btn v-if="bet.resolved" size="x-small" variant="tonal" @click="fillBet(bet)">Fill</v-btn>
+          <template v-if="bet.resolved">
+            <v-btn size="x-small" variant="tonal" class="ns-btn-fill" @click="fillBet(bet)">Fill</v-btn>
+            <v-btn size="x-small" variant="flat" color="primary" class="ns-btn-place"
+                   title="Fills the form and submits it" @click="placeBet(bet)">Place</v-btn>
+          </template>
         </div>
       </div>
 
       <p class="ns-fc-note">
-        Fill opens the <a :href="BET_URL" target="_blank" rel="noopener">bet page</a> with the form
-        filled in. You press Place Bet — neo-snipe never submits it for you.
+        <strong>Fill</strong> opens the <a :href="BET_URL" target="_blank" rel="noopener">bet page</a>
+        with the form filled in, for you to check and submit.
+        <strong>Place</strong> submits it for you. Both mark the bet done; you can tick or untick
+        that yourself. Marks clear when a new round opens.
       </p>
     </template>
   </div>
@@ -114,6 +129,16 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
 
 .ns-bet { padding: 6px 12px; border-top: 1px solid rgba(0,0,0,.07); }
 .ns-bet--broken { opacity: .6; }
+.ns-bet--done { opacity: .45; }
+.ns-bet--done .ns-pick-name { text-decoration: line-through; }
+
+.ns-done {
+  display: flex; align-items: center; gap: 3px; cursor: pointer;
+  font-size: 9.5px; opacity: .6; text-transform: uppercase; letter-spacing: .02em;
+}
+.ns-done input { margin: 0; width: 12px; height: 12px; cursor: pointer; }
+.ns-bet--done .ns-done { opacity: .9; }
+.ns-btn-place { font-weight: 600; }
 .ns-bet-picks { display: flex; flex-direction: column; gap: 1px; }
 .ns-pick { display: flex; gap: 5px; font-size: 11px; align-items: baseline; }
 .ns-pick-arena { flex: 0 0 78px; opacity: .5; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; }

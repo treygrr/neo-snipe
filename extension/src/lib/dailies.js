@@ -84,6 +84,13 @@ export const DAILIES = [
     ],
   },
   {
+    title: "Labs",
+    items: [
+      { label: "Lab Ray", url: "https://www.neopets.com/lab.phtml" },
+      { label: "Petpet Lab Ray", url: "https://www.neopets.com/petpetlab.phtml" }
+    ],
+  },
+  {
     title: "Quests",
     items: [
       { label: "Faerie Quests", url: "https://www.neopets.com/quests.phtml" },

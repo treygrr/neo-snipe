@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { mdiClose, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove } from '@mdi/js';
 import {
   state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily, loadFoodClub,
+  moveFavourite,
 } from './store.js';
 import FoodClub from './FoodClub.vue';
 import { DAILIES } from '../lib/dailies.js';
@@ -26,7 +27,39 @@ const dailyGroups = computed(() => (
 
 // The clicked row is the popover's anchor, so it appears beside the favourite.
 function open(event, favourite) {
+  // A drag ends with a click on some browsers; do not open what was dragged.
+  if (dragging.value !== null) return;
   openFavourite(event.currentTarget, favourite);
+}
+
+// --- reordering favourites by dragging -------------------------------------
+const dragging = ref(null);
+const dragOver = ref(null);
+
+function onDragStart(event, index) {
+  dragging.value = index;
+  event.dataTransfer.effectAllowed = 'move';
+  // Firefox refuses to start a drag without data set.
+  event.dataTransfer.setData('text/plain', String(index));
+}
+
+function onDragOver(event, index) {
+  if (dragging.value === null) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  dragOver.value = index;
+}
+
+async function onDrop(index) {
+  const from = dragging.value;
+  dragging.value = null;
+  dragOver.value = null;
+  if (from !== null) await moveFavourite(from, index);
+}
+
+function onDragEnd() {
+  dragging.value = null;
+  dragOver.value = null;
 }
 
 </script>
@@ -55,16 +88,28 @@ function open(event, favourite) {
             No favourites yet. Click the ♥ on any item's price popover to save it here.
           </p>
           <div v-else>
-            <p class="ns-panel-hint">Opening a favourite fetches its current price, ignoring the cache.</p>
+            <p class="ns-panel-hint">
+              Opening a favourite fetches its current price, ignoring the cache. Drag to reorder.
+            </p>
             <div
-              v-for="fav in state.favourites"
+              v-for="(fav, i) in state.favourites"
               :key="fav.name + (fav.imageHash || '')"
               class="ns-fav"
+              :class="{
+                'ns-fav--dragging': dragging === i,
+                'ns-fav--over': dragOver === i && dragging !== i,
+              }"
               role="button"
               tabindex="0"
+              draggable="true"
               @click="open($event, fav)"
               @keyup.enter="open($event, fav)"
+              @dragstart="onDragStart($event, i)"
+              @dragover="onDragOver($event, i)"
+              @drop.prevent="onDrop(i)"
+              @dragend="onDragEnd"
             >
+              <span class="ns-fav-grip" aria-hidden="true">⠿</span>
               <img v-if="fav.imageUrl" :src="fav.imageUrl" :alt="fav.name" class="ns-fav-img">
               <span class="ns-fav-name">{{ fav.name }}</span>
               <v-btn
@@ -173,6 +218,13 @@ function open(event, favourite) {
   padding: 4px 6px 4px 12px; cursor: pointer; font-size: 12px;
 }
 .ns-fav:hover { background: rgba(0, 0, 0, .04); }
+.ns-fav--dragging { opacity: .4; }
+.ns-fav--over { box-shadow: inset 0 2px 0 #1f6feb; }
+.ns-fav-grip {
+  flex: 0 0 auto; cursor: grab; opacity: 0;
+  font-size: 11px; line-height: 1; letter-spacing: -1px; user-select: none;
+}
+.ns-fav:hover .ns-fav-grip { opacity: .35; }
 .ns-fav-img { width: 28px; height: 28px; object-fit: contain; flex: 0 0 auto; }
 .ns-fav-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ns-fav-remove { opacity: 0; }

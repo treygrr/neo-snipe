@@ -124,11 +124,12 @@ Set `SAFARI_BUNDLE_ID` to use your own bundle identifier.
 A small **neo-snipe** bar sits in the bottom-right of every Neopets page. Clicking it opens a panel
 with two tabs:
 
-- **Favourites** — click the ♥ on any item's price popover to save it here. Opening a favourite
-  **always re-fetches**, ignoring the cache: a saved item is one you are watching, so a day-old
-  price is the wrong answer. It uses the same popover as a badge click.
+- **Favourites** — click the ♥ on any item's price popover to save it here, and drag the rows to
+  reorder them. Opening a favourite **always re-fetches**, ignoring the cache: a saved item is one
+  you are watching, so a day-old price is the wrong answer. It uses the same popover as a badge
+  click.
 - **Dailies** — grouped quick links: food club, the bargain stocks list, all seven wheels, free
-  stuff, games of chance, the daily prize spots and the quest givers. Groups collapse, with a
+  stuff, games of chance, the daily prize spots, both lab rays and the quest givers. Groups collapse, with a
   chevron showing their state. Hovering a daily reveals a ♥ — favourited ones are pinned to a
   group at the top of the list, while staying in their original group so the list does not
   reshuffle under you as you star things.
@@ -142,12 +143,16 @@ discipline as the Neopets selectors, and for the same reason.
   [~Shrmsh](https://www.neopets.com/~Shrmsh) — Beginner, Standard, Aggressive, Adventurous — each
   bet resolved against this round's odds with its payout at your chosen stake.
 
-  **It never places a bet.** The bet form is a `POST` to `process_foodclub.phtml`, so a link cannot
-  place one, and inventing a GET endpoint for something that spends real Neopoints is not a risk
-  worth taking. **Fill** takes you to the bet page with the arenas, pirates and amount filled in;
-  you press Neopets' own Place Bet. `total_odds` and `winnings` are computed by the page's own
-  script, so the filler drives those handlers rather than assigning values, which would otherwise
-  post `total_odds=0`.
+  Each bet has two buttons. **Fill** takes you to the bet page with the arenas, pirates and amount
+  filled in and stops, for you to check and submit. **Place** fills it and submits. Both mark the
+  bet done, and you can tick or untick that yourself; marks are stored against the round number, so
+  they clear when a new round opens rather than carrying over onto different bets.
+
+  Submitting is opt-in at the lowest level: the filler posts the form only for a bet explicitly
+  flagged `submit: true`, and a test runs every falsy and truthy-but-not-`true` value through it to
+  confirm nothing else can trigger a submit. `total_odds` and `winnings` are computed by the page's
+  own script, so the filler drives those handlers rather than assigning values, which would
+  otherwise post `total_odds=0`.
 
   A pirate whose name is not in the current round is shown struck through and its bet cannot be
   filled, rather than being guessed at. The sets come from someone's personal pet page: if they

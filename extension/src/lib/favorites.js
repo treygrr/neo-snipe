@@ -3,6 +3,13 @@ import { api } from './ext-api.js';
 const KEY = 'favorites';
 const MAX = 200;
 
+/**
+ * Storage uses structured cloning, and Vue's reactive proxies do not survive
+ * it intact — a reactive array came back out as an object with numeric keys.
+ * Everything written here goes through this first.
+ */
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
 /** Favourites are identified the same way the price cache keys items. */
 export const favouriteId = ({ name, imageHash }) =>
   `${String(name || '').toLowerCase().replace(/\s+/g, ' ').trim()}|${imageHash || ''}`;
@@ -27,15 +34,42 @@ export async function toggleFavourite(item) {
        ...current].slice(0, MAX)
     : without;
 
-  await api.storage.local.set({ [KEY]: next });
+  await api.storage.local.set({ [KEY]: plain(next) });
   return next;
+}
+
+/** Persists a whole list, which is what reordering needs. */
+export async function saveFavourites(list) {
+  await api.storage.local.set({ [KEY]: plain(list.slice(0, MAX)) });
+  return list;
 }
 
 export async function removeFavourite(item) {
   const id = favouriteId(item);
   const next = (await listFavourites()).filter((f) => favouriteId(f) !== id);
-  await api.storage.local.set({ [KEY]: next });
+  await api.storage.local.set({ [KEY]: plain(next) });
   return next;
+}
+
+// --- Food Club bets already dealt with -------------------------------------
+// Kept per round: a mark against round 9978 means nothing once 9979 opens, and
+// silently carrying it over would hide a bet you have not actually placed.
+
+const FC_DONE_KEY = 'fcDone';
+
+export async function listDoneBets(round) {
+  try {
+    const stored = (await api.storage.local.get(FC_DONE_KEY))[FC_DONE_KEY];
+    if (!stored || (round && stored.round !== round)) return [];
+    return Array.isArray(stored.ids) ? stored.ids : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setDoneBets(round, ids) {
+  await api.storage.local.set({ [FC_DONE_KEY]: plain({ round, ids }) });
+  return ids;
 }
 
 // --- favourited dailies ----------------------------------------------------
@@ -61,6 +95,6 @@ export async function toggleDailyFavourite({ label, url }) {
     ? [...current, { label, url }]
     : without;
 
-  await api.storage.local.set({ [DAILY_KEY]: next });
+  await api.storage.local.set({ [DAILY_KEY]: plain(next) });
   return next;
 }

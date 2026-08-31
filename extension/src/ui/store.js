@@ -2,12 +2,14 @@ import { reactive } from 'vue';
 import { LOOKUP, TP_LOOKUP, ERROR_TEXT } from '../lib/messages.js';
 import { sendMessage, api } from '../lib/ext-api.js';
 import {
-  BET_URL, SETS_URL, RISK_LEVELS, parseBetPage, parseSets, resolveBet, payout, FoodClubError,
+  BET_URL, SETS_URL, RISK_LEVELS, parseBetPage, parseSets, parseRound, resolveBet, payout,
+  betId, FoodClubError,
 } from '../lib/foodclub.js';
 import { PENDING_KEY } from '../content/foodclub-fill.js';
 import {
-  listFavourites, toggleFavourite, favouriteId,
+  listFavourites, toggleFavourite, favouriteId, saveFavourites,
   listDailyFavourites, toggleDailyFavourite,
+  listDoneBets, setDoneBets,
 } from '../lib/favorites.js';
 
 // One popover, one piece of state — badges write into this rather than each
@@ -33,6 +35,8 @@ export const state = reactive({
     level: 'standard',
     amount: null,
     loadedAt: null,
+    round: null,
+    done: [],
   },
 
   // The panel. `panelAnchor` is 'bottom' when opened from the in-page bar and
@@ -211,7 +215,10 @@ export async function loadFoodClub({ force = false } = {}) {
     const [betDoc, setsDoc] = await Promise.all([fetchDoc(BET_URL), fetchDoc(SETS_URL)]);
     const { maxBet, arenas } = parseBetPage(betDoc);
     const sets = parseSets(setsDoc);
+    const round = parseRound(setsDoc);
 
+    state.fc.round = round;
+    state.fc.done = await listDoneBets(round);
     state.fc.maxBet = maxBet;
     state.fc.arenas = arenas;
     state.fc.sets = sets;
@@ -245,19 +252,53 @@ export function currentBets() {
   });
 }
 
+export function isBetDone(bet) {
+  return state.fc.done.includes(betId(bet));
+}
+
+/** Marking is manual as well as automatic, so a mistake can be undone. */
+export async function toggleBetDone(bet, force) {
+  const id = betId(bet);
+  const done = force ?? !state.fc.done.includes(id);
+  state.fc.done = done
+    ? [...new Set([...state.fc.done, id])]
+    : state.fc.done.filter((x) => x !== id);
+  await setDoneBets(state.fc.round, state.fc.done);
+}
+
 /**
  * Stashes the bet and sends you to the Food Club page, where the content
- * script fills the form. It never submits — that click stays yours.
+ * script fills the form.
+ *
+ * `submit` is the difference between the two buttons: Fill stops at a filled
+ * form for you to check, Place posts it. Either way the bet is marked done,
+ * because in both cases you have dealt with it.
  */
-export async function fillBet(bet) {
+export async function fillBet(bet, { submit = false } = {}) {
+  await toggleBetDone(bet, true);
   await api.storage.local.set({
     [PENDING_KEY]: {
       picks: bet.picks.map((p) => ({ arena: p.arena, pirateId: p.pirateId })),
       amount: state.fc.amount,
+      submit,
       at: Date.now(),
     },
   });
   window.location.href = BET_URL;
+}
+
+export const placeBet = (bet) => fillBet(bet, { submit: true });
+
+// --- reordering favourites -------------------------------------------------
+
+/** Moves a favourite and persists the new order. */
+export async function moveFavourite(from, to) {
+  const list = [...state.favourites];
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
+  const [moved] = list.splice(from, 1);
+  list.splice(to, 0, moved);
+  state.favourites = list;
+  await saveFavourites(list);
 }
 
 export { RISK_LEVELS, BET_URL, SETS_URL };

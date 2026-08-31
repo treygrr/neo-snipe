@@ -117,9 +117,59 @@ test('refuses rather than filling a pirate that is not in this round', async () 
   assert.deepEqual(r.checked, [false, false, false, false, false]);
 });
 
-test('never submits the form', async () => {
-  assert.ok(!/\.submit\s*\(/.test(fillSrc), 'the filler must not call form.submit()');
-  assert.ok(!/type=["']?submit/.test(fillSrc), 'the filler must not synthesise a submit');
+test('Fill does not submit; only an explicit Place does', async () => {
+  const page = await browser.newPage();
+  await page.setContent(`<!doctype html><body>
+    <script>
+      window.submitted = 0;
+      window.calls = [];
+      function add_odds(a, p) {} function calc_odds() {}
+      function reset_odds(a) {} function set_winnings(v) {}
+    </script>${formHtml}
+    <script>
+      // Record a submit instead of navigating away.
+      document.querySelector('form[name="bet_form"]').submit = () => { window.submitted++; };
+    </script></body>`);
+
+  const out = await page.evaluate(([src]) => {
+    const mod = {};
+    // eslint-disable-next-line no-new-func
+    new Function('module', 'exports', `${src}; module.fillBetForm = fillBetForm;`)(mod, {});
+
+    const fill = mod.fillBetForm(document, { picks: [{ arena: 1, pirateId: '12' }], amount: 100 });
+    const afterFill = window.submitted;
+
+    const place = mod.fillBetForm(document, { picks: [{ arena: 1, pirateId: '12' }], amount: 100, submit: true });
+    return { afterFill, afterPlace: window.submitted, fillSubmitted: fill.submitted, placeSubmitted: place.submitted };
+  }, [fillSrc]);
+  await page.close();
+
+  assert.equal(out.afterFill, 0, 'Fill must leave the submit to the user');
+  assert.equal(out.fillSubmitted, false);
+  assert.equal(out.afterPlace, 1, 'Place must submit exactly once');
+  assert.equal(out.placeSubmitted, true);
+});
+
+test('a bet without submit:true can never submit, whatever else it carries', async () => {
+  // Guards against a truthy-but-not-true value slipping through.
+  for (const submit of [undefined, false, 0, '', 'yes', 1]) {
+    const page = await browser.newPage();
+    await page.setContent(`<!doctype html><body>
+      <script>window.submitted = 0;
+        function add_odds() {} function calc_odds() {} function reset_odds() {} function set_winnings() {}
+      </script>${formHtml}
+      <script>document.querySelector('form[name="bet_form"]').submit = () => { window.submitted++; };</script>
+      </body>`);
+    const n = await page.evaluate(([src, sub]) => {
+      const mod = {};
+      // eslint-disable-next-line no-new-func
+      new Function('module', 'exports', `${src}; module.fillBetForm = fillBetForm;`)(mod, {});
+      mod.fillBetForm(document, { picks: [{ arena: 1, pirateId: '12' }], amount: 100, submit: sub });
+      return window.submitted;
+    }, [fillSrc, submit]);
+    await page.close();
+    assert.equal(n, submit === true ? 1 : 0, `submit: ${JSON.stringify(submit)}`);
+  }
 });
 
 test.after(async () => { await browser.close(); });
