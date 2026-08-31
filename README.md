@@ -248,8 +248,19 @@ discipline as the Neopets selectors, and for the same reason.
   it is same-origin and already carries your session, where the worker would need host access to
   all of neopets.com — a far broader permission than placing one bet is worth.
 
-  A placed bet is marked done **only once Neopets has accepted it**, so a refused bet stays on the
-  list to try again, with the reason in the toast. While a bet is in flight its button spins and
+  Opening the tab also reads `?type=current_bets`, so a bet you already have on **shows as placed**
+  whether you placed it here, in an earlier session, or on the site itself. Those rows offer no
+  Place button and no tick: a bet Neopets has on is a fact rather than a mark. The two pages have
+  no id in common — the current-bets table lists pirates by name — so they are matched on the
+  arena-and-name pairs, order-insensitively and case-insensitively.
+
+  That table has two shapes a parser has to survive, both captured live: its `<br>`-separated lines
+  contribute no whitespace, so reading a cell's `textContent` runs them together as
+  *"…the BladeTreasure Island: …"*, and its last row is a `Total Possible Winnings` row spanning
+  four columns, which is not a bet.
+
+  A bet placed from here is marked done **only once Neopets has accepted it**, so a refused bet
+  stays on the list to try again, with the reason in the toast. While a bet is in flight its button spins and
   the others are disabled, so a slow response cannot become two bets. Marks are stored against the
   round number, so they clear when a new round opens rather than carrying over onto different bets;
   you can tick or untick one yourself.

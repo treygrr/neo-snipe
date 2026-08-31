@@ -128,11 +128,67 @@ export function resolveBet(bet, arenas) {
 }
 
 /**
+ * The bets already placed this round, from `?type=current_bets`.
+ *
+ * The table is one row per bet: round, then a cell of `<b>Arena</b>: Pirate`
+ * lines separated by `<br>`, then amount, odds and winnings. Captured live —
+ * the fixture is test/fixtures/foodclub/current-bets.html.
+ *
+ * The arena/pirate pairs are read from the `<b>` elements and the text that
+ * follows each, rather than from the cell's text: `textContent` runs the lines
+ * together ("...Scurvy Dan the BladeTreasure Island:..."), because the breaks
+ * are `<br>` elements and contribute no whitespace of their own.
+ */
+export function parseCurrentBets(doc) {
+  const table = [...doc.querySelectorAll('table')].filter(
+    (t) => /Bet Info/i.test(t.textContent),
+  ).pop();
+  if (!table) return [];
+
+  const bets = [];
+  for (const row of table.querySelectorAll('tr')) {
+    const cells = [...row.children];
+    if (cells.length < 5) continue;
+
+    const round = cells[0].textContent.trim();
+    if (!/^\d+$/.test(round)) continue; // the two header rows
+
+    const picks = [];
+    for (const b of cells[1].querySelectorAll('b')) {
+      const arena = ARENAS.indexOf(clean(b.textContent).replace(/:$/, ''));
+      if (arena < 0) continue;
+
+      // Everything up to the next <br> or <b> is this arena's pirate.
+      let pirateName = '';
+      for (let n = b.nextSibling; n; n = n.nextSibling) {
+        if (n.nodeType === 1 && /^(BR|B)$/.test(n.tagName)) break;
+        pirateName += n.textContent || '';
+      }
+      pirateName = clean(pirateName).replace(/^:\s*/, '');
+      if (pirateName) picks.push({ arena: arena + 1, pirateName });
+    }
+
+    if (picks.length) bets.push({ round, picks });
+  }
+  return bets;
+}
+
+/**
  * A bet is identified by what it actually bets on, so the same picks are the
  * same bet whichever risk level lists them.
  */
 export const betId = (bet) =>
   (bet.picks || bet).map((p) => `${p.arena}:${p.pirateId ?? p.pirateName}`).sort().join(',');
+
+/**
+ * The same bet keyed by pirate *name*, for comparing against the current-bets
+ * page — which lists names and never the ids the form posts.
+ */
+export const betNameKey = (bet) =>
+  (bet.picks || bet)
+    .map((p) => `${p.arena}:${String(p.pirateName ?? '').toLowerCase()}`)
+    .sort()
+    .join(',');
 
 export const payout = (totalOdds, amount) =>
   (totalOdds && amount ? totalOdds * amount : null);

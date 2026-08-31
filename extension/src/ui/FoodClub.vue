@@ -2,10 +2,11 @@
 import { computed } from 'vue';
 import {
   mdiRefresh, mdiOpenInNew, mdiAlertCircleOutline, mdiFormatListChecks, mdiCashMultiple,
+  mdiCheckCircle,
 } from '@mdi/js';
 import {
   state, loadFoodClub, setFoodClubLevel, setFoodClubAmount, currentBets, placeBet,
-  isBetDone, toggleBetDone, isPlacing,
+  isBetDone, toggleBetDone, isPlacing, isBetPlaced,
   RISK_LEVELS, BET_URL, SETS_URL, CURRENT_BETS_URL, COLLECT_URL,
 } from './store.js';
 
@@ -88,7 +89,12 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
           </span>
         </div>
         <div class="ns-bet-foot">
-          <label class="ns-done" :title="isBetDone(bet) ? 'Mark as not done' : 'Mark as done'">
+          <!-- A bet Neopets already has on is a fact, not a mark, so it is
+               shown rather than offered as a checkbox. -->
+          <span v-if="isBetPlaced(bet)" class="ns-placed" title="Neopets has this bet on for this round">
+            <v-icon :icon="mdiCheckCircle" size="12" /> placed
+          </span>
+          <label v-else class="ns-done" :title="isBetDone(bet) ? 'Mark as not done' : 'Mark as done'">
             <input type="checkbox" :checked="isBetDone(bet)" @change="toggleBetDone(bet)">
             <span>done</span>
           </label>
@@ -97,7 +103,7 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
           </span>
           <span v-else class="ns-bet-warn">A pirate here isn't in this round — skip it.</span>
           <v-spacer />
-          <template v-if="bet.resolved">
+          <template v-if="bet.resolved && !isBetPlaced(bet)">
             <v-btn
               size="x-small"
               variant="flat"
@@ -149,6 +155,10 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
 .ns-bet--done { opacity: .45; }
 .ns-bet--done .ns-pick-name { text-decoration: line-through; }
 
+.ns-placed {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; color: #2e7d32; font-weight: 600;
+}
 .ns-done {
   display: flex; align-items: center; gap: 3px; cursor: pointer;
   font-size: 9.5px; opacity: .6; text-transform: uppercase; letter-spacing: .02em;

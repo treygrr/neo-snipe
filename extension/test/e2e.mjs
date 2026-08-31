@@ -984,6 +984,27 @@ check('the tab links to your bets and to collecting winnings',
   fcLinks.hrefs.some((h) => /current_bets/.test(h)) && fcLinks.hrefs.some((h) => /type=collect/.test(h)),
   JSON.stringify(fcLinks.hrefs));
 check('those links sit above the risk levels', fcLinks.aboveLevels === true);
+
+// The two fixtures come from the same round, so some of the day's set bets are
+// already on — which is the whole point of reading the current-bets page.
+const placedRows = await inShadow((root) => {
+  const rows = [...root.querySelectorAll('.ns-bet')];
+  return {
+    total: rows.length,
+    placed: rows.filter((r) => r.querySelector('.ns-placed')).length,
+    // A bet Neopets already has on offers no Place button and no checkbox.
+    placedOfferPlace: rows.filter((r) => r.querySelector('.ns-placed') && r.querySelector('.ns-btn-place')).length,
+    placedOfferTick: rows.filter((r) => r.querySelector('.ns-placed') && r.querySelector('.ns-done input')).length,
+    placedAreDone: rows.filter((r) => r.querySelector('.ns-placed'))
+      .every((r) => r.classList.contains('ns-bet--done')),
+  };
+});
+check('bets already on with Neopets are shown as placed',
+  placedRows.placed > 0 && placedRows.placed < placedRows.total,
+  `${placedRows.placed} of ${placedRows.total}`);
+check('a placed bet cannot be placed again', placedRows.placedOfferPlace === 0);
+check('a placed bet is not offered as a tick to undo', placedRows.placedOfferTick === 0);
+check('a placed bet reads as done', placedRows.placedAreDone === true);
 check('each link is coloured, and differently from the other',
   fcLinks.colours.every(Boolean) && fcLinks.colours[0] !== fcLinks.colours[1],
   JSON.stringify(fcLinks.colours));

@@ -3,8 +3,8 @@ import { LOOKUP, TP_LOOKUP, ERROR_TEXT } from '../lib/messages.js';
 import { sendMessage, api } from '../lib/ext-api.js';
 import {
   BET_URL, SETS_URL, CURRENT_BETS_URL, COLLECT_URL,
-  RISK_LEVELS, parseBetPage, parseSets, parseRound, resolveBet, payout,
-  placeBetUrl, placementRefusal, wasPlaced,
+  RISK_LEVELS, parseBetPage, parseSets, parseRound, parseCurrentBets, resolveBet, payout,
+  placeBetUrl, placementRefusal, wasPlaced, betNameKey,
   betId, FoodClubError,
 } from '../lib/foodclub.js';
 import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
@@ -55,6 +55,8 @@ export const state = reactive({
     done: [],
     // betId of the bet currently being placed, so only its button spins.
     placing: null,
+    // Name keys of the bets Neopets already has on for this round.
+    placed: [],
   },
 
   // A short-lived message over the panel. `action` is an optional link.
@@ -427,13 +429,22 @@ export async function loadFoodClub({ force = false } = {}) {
   state.fc.loading = true;
   state.fc.error = null;
   try {
-    const [betDoc, setsDoc] = await Promise.all([fetchDoc(BET_URL), fetchDoc(SETS_URL)]);
+    const [betDoc, setsDoc, placedDoc] = await Promise.all([
+      fetchDoc(BET_URL),
+      fetchDoc(SETS_URL),
+      // A bet placed in an earlier session, or on the site itself, is still
+      // placed — so the marks start from what Neopets says you have on.
+      fetchDoc(CURRENT_BETS_URL).catch(() => null),
+    ]);
     const { maxBet, arenas } = parseBetPage(betDoc);
     const sets = parseSets(setsDoc);
     const round = parseRound(setsDoc);
 
     state.fc.round = round;
     state.fc.done = await listDoneBets(round);
+    state.fc.placed = placedDoc
+      ? parseCurrentBets(placedDoc).filter((b) => b.round === round).map(betNameKey)
+      : [];
     state.fc.maxBet = maxBet;
     state.fc.arenas = arenas;
     state.fc.sets = sets;
@@ -467,8 +478,18 @@ export function currentBets() {
   });
 }
 
+/**
+ * Done covers both a mark you made and a bet Neopets already has on for this
+ * round. The two are kept apart so unticking a mark cannot claim you have not
+ * placed a bet that you have — see isBetPlaced.
+ */
 export function isBetDone(bet) {
-  return state.fc.done.includes(betId(bet));
+  return state.fc.done.includes(betId(bet)) || isBetPlaced(bet);
+}
+
+/** Already on with Neopets this round, by the names on the current-bets page. */
+export function isBetPlaced(bet) {
+  return state.fc.placed.includes(betNameKey(bet));
 }
 
 /** Marking is manual as well as automatic, so a mistake can be undone. */
@@ -519,7 +540,7 @@ export async function placeBet(bet) {
       return;
     }
 
-    await toggleBetDone(bet, true);
+    state.fc.placed = [...new Set([...state.fc.placed, betNameKey(bet)])];
     showToast(`Bet placed — ${state.fc.amount.toLocaleString('en-US')} NP at ${bet.totalOdds}:1.`,
       { action: { label: 'View bets', href: CURRENT_BETS_URL } });
   } catch (err) {

@@ -26,10 +26,17 @@ export async function installNeopetsRoutes(page) {
   await page.route('**://www.neopets.com/**', (route) =>
     route.fulfill({ contentType: 'text/html', body: buildPage() }));
 
-  await page.route('**://www.neopets.com/pirates/foodclub.phtml*', (route) => route.fulfill({
-    contentType: 'text/html',
-    body: `<!doctype html><html><body>${fc('bet-page.html')}</body></html>`,
-  }));
+  await page.route('**://www.neopets.com/pirates/foodclub.phtml*', (route) => {
+    // One endpoint, two pages: the panel reads the bet form for this round's
+    // odds and the current-bets page for what is already on.
+    const body = /type=current_bets/.test(route.request().url())
+      ? fc('current-bets.html')
+      : fc('bet-page.html');
+    return route.fulfill({
+      contentType: 'text/html',
+      body: `<!doctype html><html><body>${body}</body></html>`,
+    });
+  });
 
   await page.route('**://www.neopets.com/~Shrmsh', (route) => route.fulfill({
     contentType: 'text/html',

@@ -7,7 +7,7 @@ import { parseHTML } from 'linkedom';
 
 import {
   parseBetPage, parseSets, resolveBet, payout, ARENAS, RISK_LEVELS, FoodClubError,
-  placeBetUrl, WINNINGS_CAP, placementRefusal, wasPlaced,
+  placeBetUrl, WINNINGS_CAP, placementRefusal, wasPlaced, parseCurrentBets, betNameKey,
 } from '../src/lib/foodclub.js';
 
 const doc = (f) => parseHTML(`<html><body>${readFileSync(resolve('test/fixtures/foodclub', f), 'utf8')}</body></html>`).document;
@@ -165,4 +165,67 @@ test('a refusal is reported in Neopets\' own words', () => {
 test('a refusal nobody recognises still says the bet did not go through', () => {
   assert.match(placementRefusal('<html><body>Something unexpected.</body></html>'), /did not accept/i);
   assert.match(placementRefusal(''), /did not accept/i);
+});
+
+test('current bets: one entry per placed bet, with its arenas and pirates', () => {
+  const bets = parseCurrentBets(doc('current-bets.html'));
+  assert.equal(bets.length, 5);
+  assert.deepEqual(bets[0], {
+    round: '9978',
+    picks: [
+      { arena: 2, pirateName: 'Scurvy Dan the Blade' },
+      { arena: 3, pirateName: 'Admiral Blackbeard' },
+    ],
+  });
+});
+
+test('current bets: the lines are split, not run together', () => {
+  // The cell separates arenas with <br>, which contributes no whitespace — so
+  // reading textContent gives "...the BladeTreasure Island: ...".
+  const names = parseCurrentBets(doc('current-bets.html'))
+    .flatMap((b) => b.picks.map((p) => p.pirateName));
+  for (const name of names) {
+    assert.ok(!/(Lagoon|Treasure Island|Harpoon)/.test(name), name);
+    assert.ok(!name.startsWith(':'), name);
+  }
+});
+
+test('current bets: the header rows are not bets', () => {
+  const rounds = parseCurrentBets(doc('current-bets.html')).map((b) => b.round);
+  assert.deepEqual([...new Set(rounds)], ['9978']);
+});
+
+test('a page with no bet table yields no bets', () => {
+  assert.deepEqual(parseCurrentBets(doc('sets-page.html')), []);
+});
+
+test('a placed bet matches a set bet by name, whichever order the picks are in', () => {
+  const placed = parseCurrentBets(doc('current-bets.html'))[0];
+  const mine = {
+    picks: [
+      // Same bet, listed the other way round and differently cased.
+      { arena: 3, pirateName: 'admiral blackbeard', pirateId: '7' },
+      { arena: 2, pirateName: 'Scurvy Dan the Blade', pirateId: '3' },
+    ],
+  };
+  assert.equal(betNameKey(mine), betNameKey(placed));
+});
+
+test('a different bet does not match', () => {
+  const placed = parseCurrentBets(doc('current-bets.html'))[0];
+  const other = { picks: [{ arena: 2, pirateName: 'Buck Cutlass' }] };
+  assert.notEqual(betNameKey(other), betNameKey(placed));
+});
+
+test('current bets: a bet on one arena is still a bet', () => {
+  const single = parseCurrentBets(doc('current-bets.html')).filter((b) => b.picks.length === 1);
+  assert.equal(single.length, 1);
+  assert.deepEqual(single[0].picks, [{ arena: 3, pirateName: 'Lucky McKyriggan' }]);
+});
+
+test('current bets: the Total Possible Winnings row is not a bet', () => {
+  // It spans four columns, so it has two cells rather than five.
+  const bets = parseCurrentBets(doc('current-bets.html'));
+  assert.ok(bets.every((b) => b.picks.length), 'every bet has picks');
+  assert.ok(!JSON.stringify(bets).includes('Total'), 'no bet came from the totals row');
 });
