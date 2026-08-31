@@ -17,23 +17,22 @@ export class WizardError extends Error {
 }
 
 /**
- * The site posts every field twice — once plain, once under
- * `resubmit_values[...]`, which is how it carries a search forward.
+ * Exactly what the site posts for a fresh search: seven fields, form-encoded.
+ *
+ * An earlier capture also carried each field under `resubmit_values[...]`;
+ * that is a *resubmitted* search carrying a previous one forward, not what a
+ * first search sends, so those are not included here.
  */
 export function wizardBody(name) {
-  const values = [
-    ['type', 'process_wizard'],
-    ['feedset', '0'],
-    ['shopwizard', String(name ?? '').trim()],
-    ['table', ''],
-    ['criteria', 'exact'],
-    ['min_price', '1'],
-    ['max_price', '999999'],
-  ];
-  const body = new URLSearchParams();
-  for (const [k, v] of values) body.append(`resubmit_values[${k}]`, v);
-  for (const [k, v] of values) body.append(k, v);
-  return body;
+  return new URLSearchParams({
+    type: 'process_wizard',
+    feedset: '0',
+    shopwizard: String(name ?? '').trim(),
+    table: 'shop',
+    criteria: 'exact',
+    min_price: '0',
+    max_price: '999999',
+  });
 }
 
 // Wording Neopets uses when it will not run the search.

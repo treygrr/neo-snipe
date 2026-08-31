@@ -9,20 +9,26 @@ import { wizardBody, parseWizardResponse, WizardError, WIZARD_URL } from '../src
 const doc = (html) => parseHTML(`<html><body>${html}</body></html>`).document;
 const sample = () => doc(readFileSync(resolve('test/fixtures/wizard/vo-codestone.html'), 'utf8'));
 
-test('the request body matches what the site posts', () => {
-  const body = wizardBody('Vo Codestone');
-  const pairs = [...body.entries()];
+test('the request body matches what the site posts, field for field', () => {
+  const body = wizardBody('eo codestone');
 
   assert.equal(WIZARD_URL, 'https://www.neopets.com/np-templates/ajax/wizard.php');
-  // Every field twice: plain, and under resubmit_values[...].
-  assert.equal(pairs.length, 14);
-  assert.equal(body.get('type'), 'process_wizard');
-  assert.equal(body.get('shopwizard'), 'Vo Codestone');
-  assert.equal(body.get('criteria'), 'exact');
-  assert.equal(body.get('min_price'), '1');
-  assert.equal(body.get('max_price'), '999999');
-  assert.equal(body.get('resubmit_values[shopwizard]'), 'Vo Codestone');
-  assert.equal(body.get('resubmit_values[type]'), 'process_wizard');
+  assert.deepEqual([...body.entries()], [
+    ['type', 'process_wizard'],
+    ['feedset', '0'],
+    ['shopwizard', 'eo codestone'],
+    ['table', 'shop'],
+    ['criteria', 'exact'],
+    ['min_price', '0'],
+    ['max_price', '999999'],
+  ]);
+});
+
+test('a resubmitted search is not what a fresh one sends', () => {
+  // An early capture carried every field twice, under resubmit_values[...].
+  // That is the page forwarding a previous search, not a first request.
+  const keys = [...wizardBody('x').keys()];
+  assert.ok(!keys.some((k) => k.startsWith('resubmit_values')), keys.join(','));
 });
 
 test('listings come out cheapest first with shop links', () => {

@@ -183,7 +183,11 @@ export async function loadWizard({ force = false } = {}) {
     const res = await fetch(WIZARD_URL, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      // charset matches what the site's own request sends.
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
       body: wizardBody(name).toString(),
     });
     if (!res.ok) throw new WizardError(`Neopets returned ${res.status}.`);
