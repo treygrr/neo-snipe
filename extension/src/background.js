@@ -64,18 +64,19 @@ function asFailure(err) {
 }
 
 // One click, one lookup: nothing is fetched until someone asks about an item.
-async function lookup(item) {
+async function lookup(item, { refresh = false } = {}) {
   const k = key(item);
 
-  const cached = await readCache(k);
+  // A refresh still writes through, so the next click is fast again.
+  const cached = refresh ? null : await readCache(k);
   if (cached) return { ok: true, data: { ...cached, cached: true } };
 
   // Firefox will not have granted host access on a fresh install, and the
   // resulting fetch failure is indistinguishable from being offline.
   if (!(await hasJellyNeoAccess())) return { ok: false, error: 'no_permission' };
 
-  return dedupe(k, async () => {
-    const raced = await readCache(k);
+  return dedupe(refresh ? `${k}!fresh` : k, async () => {
+    const raced = refresh ? null : await readCache(k);
     if (raced) return { ok: true, data: { ...raced, cached: true } };
     try {
       const data = await lookupItem(item);
@@ -111,7 +112,7 @@ async function tradingPost(itemId) {
 
 api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === LOOKUP) {
-    lookup(msg.item).then(sendResponse);
+    lookup(msg.item, { refresh: msg.refresh === true }).then(sendResponse);
     return true; // keep the message channel open for the async response
   }
   if (msg?.type === TP_LOOKUP) {

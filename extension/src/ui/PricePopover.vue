@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
-import { mdiOpenInNew, mdiRefresh } from '@mdi/js';
-import { state, retry, close } from './store.js';
+import { mdiOpenInNew, mdiRefresh, mdiHeart, mdiHeartOutline } from '@mdi/js';
+import { state, retry, close, isFavourite, toggleCurrentFavourite } from './store.js';
 import PriceCard from './PriceCard.vue';
 import HistoryTabs from './HistoryTabs.vue';
 
@@ -14,7 +14,7 @@ const open = computed({
 </script>
 
 <template>
-  <v-app>
+  <div>
     <v-menu
       v-model="open"
       :target="state.anchor"
@@ -28,7 +28,9 @@ const open = computed({
         <v-card-text class="ns-body">
           <div v-if="state.loading" class="ns-center">
             <v-progress-circular indeterminate size="28" width="3" />
-            <div class="ns-loading-label">Looking up {{ state.item?.name }}…</div>
+            <div class="ns-loading-label">
+              {{ state.refreshing ? 'Refreshing' : 'Looking up' }} {{ state.item?.name }}…
+            </div>
           </div>
 
           <v-alert v-else-if="state.error" type="warning" variant="tonal" density="compact">
@@ -42,6 +44,17 @@ const open = computed({
         <HistoryTabs v-if="state.data && !state.loading" :data="state.data" />
 
         <v-card-actions v-if="!state.loading" class="ns-actions">
+          <v-btn
+            v-if="state.data"
+            :icon="isFavourite(state.item) ? mdiHeart : mdiHeartOutline"
+            :color="isFavourite(state.item) ? 'red' : undefined"
+            size="small"
+            variant="text"
+            :aria-label="isFavourite(state.item) ? 'Remove from favourites' : 'Add to favourites'"
+            :title="isFavourite(state.item) ? 'Remove from favourites' : 'Add to favourites'"
+            class="ns-fav-btn"
+            @click="toggleCurrentFavourite"
+          />
           <v-btn
             v-if="state.error"
             size="small"
@@ -62,7 +75,7 @@ const open = computed({
         </v-card-actions>
       </v-card>
     </v-menu>
-  </v-app>
+  </div>
 </template>
 
 <style scoped>

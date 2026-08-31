@@ -114,12 +114,17 @@ const leaked = await page.evaluate(() => {
     try { return [...s.cssRules].some((r) => r.cssText.includes('.v-application')); }
     catch { return false; }
   });
-  const ourStyles = document.querySelectorAll('style[data-neosnipe]').length;
-  return { vuetifyInPage, ourStyles };
+  return {
+    vuetifyInPage,
+    // Only our own small scoped sheets should reach the page: the badge and
+    // the launcher. Everything else belongs in the shadow root.
+    ours: [...document.querySelectorAll('style[data-neosnipe]')].map((s) => s.dataset.neosnipe).sort(),
+    foreign: [...document.querySelectorAll('style:not([data-neosnipe])')].length,
+  };
 });
 check('no Vuetify CSS in the host page', leaked.vuetifyInPage === false);
-check('only the badge stylesheet is added to the page', leaked.ourStyles === 1,
-  `${leaked.ourStyles} style tag(s)`);
+check('only our two scoped stylesheets are added to the page',
+  JSON.stringify(leaked.ours) === '["badge","launcher"]', JSON.stringify(leaked.ours));
 
 // --- click a badge: lazy mount + lookup -------------------------------------
 check('nothing is fetched from Jelly Neo before a click', jellyNeoRequests === 0,
@@ -141,6 +146,7 @@ const shadowText = await page.evaluate(async () => {
 });
 check('popover rendered content', shadowText.trim().length > 0, shadowText.replace(/\s+/g, ' ').slice(0, 90));
 check('popover shows a price', /[\d,]+ NP/.test(shadowText), (shadowText.match(/[\d,]+ NP/) || ['none'])[0]);
+
 
 // Vuetify overlays must stay inside the shadow root.
 const escaped = await page.evaluate(() =>
@@ -268,6 +274,91 @@ const hoverOverlay = await page.evaluate(() => {
 check('hover overlay is subtle, not a solid black wash',
   hoverOverlay !== null && hoverOverlay > 0 && hoverOverlay < 0.5, `opacity ${hoverOverlay}`);
 await page.mouse.move(0, 0);
+
+// --- the bottom-right bar, favourites and dailies ---------------------------
+const sr = (sel, fn = 'textContent') => page.evaluate(([s, f]) => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const el = root.querySelector(s);
+  return el ? el[f] : null;
+}, [sel, fn]);
+
+check('launcher bar is present in the page', await page.locator('.neosnipe-launcher').count() === 1);
+
+// Favourite the item currently in the popover.
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-fav-btn').click();
+});
+await page.waitForTimeout(300);
+const stored = await opts.evaluate(() => chrome.storage.local.get('favorites'));
+check('the heart saves a favourite', (stored.favorites || []).length === 1,
+  JSON.stringify((stored.favorites || []).map((f) => f.name)));
+
+// Open the panel from the launcher.
+await page.locator('.neosnipe-launcher').click();
+await page.waitForTimeout(500);
+check('launcher opens the panel', await sr('.ns-panel') !== null);
+check('launcher shows it is open',
+  await page.locator('.neosnipe-launcher[data-open="1"]').count() === 1);
+
+// The favourite records the Neopets item you clicked, not the Jelly Neo name
+// it resolved to — that is what a re-lookup searches for.
+const favRow = (await sr('.ns-fav-name'))?.trim();
+check('the favourite is listed in the panel',
+  favRow === stored.favorites[0].name, `panel="${favRow}" stored="${stored.favorites[0].name}"`);
+
+// Dailies tab: the links must be real neopets.com URLs.
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /dailies/i.test(t.textContent)).click();
+});
+await page.waitForTimeout(400);
+const dailies = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const links = [...root.querySelectorAll('.ns-daily')];
+  return {
+    groups: root.querySelectorAll('.ns-group').length,
+    shown: links.length,
+    allNeopets: links.every((a) => a.href.startsWith('https://www.neopets.com/')),
+    hasFoodClub: links.some((a) => /foodclub/.test(a.href)),
+    hasBargainStocks: links.some((a) => /stockmarket.*bargain/.test(a.href)),
+    wheels: links.filter((a) => /wheel|monotony|mediocrity|extravagance|knowledge/i.test(a.textContent)).length,
+  };
+});
+check('dailies are grouped', dailies.groups >= 5, `${dailies.groups} groups`);
+check('every daily link points at neopets.com', dailies.allNeopets);
+check('food club and bargain stocks are there',
+  dailies.hasFoodClub && dailies.hasBargainStocks);
+check('all the wheels are there', dailies.wheels >= 7, `${dailies.wheels} wheels`);
+
+// Opening a favourite must re-fetch, not serve the cached price.
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /favourites/i.test(t.textContent)).click();
+});
+await page.waitForTimeout(300);
+const requestsBeforeRefresh = jellyNeoRequests;
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-fav').click();
+});
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  return /NP/.test(root.querySelector('.ns-card')?.textContent || '');
+}, null, { timeout: 15000 }).catch(() => {});
+check('opening a favourite refetches instead of using the cache',
+  jellyNeoRequests > requestsBeforeRefresh,
+  `${jellyNeoRequests - requestsBeforeRefresh} requests`);
+check('the refetched result is not marked cached',
+  !/cached/i.test(await sr('.ns-meta') || ''), await sr('.ns-meta'));
+
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-panel-head .v-btn').click();
+});
+await page.waitForTimeout(300);
+check('closing the panel un-highlights the launcher',
+  await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
 
 // --- hover-only badges -------------------------------------------------------
 // Park the mouse away from the badges first, or the one we just clicked is

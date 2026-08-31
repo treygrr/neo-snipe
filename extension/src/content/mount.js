@@ -5,7 +5,7 @@ import { createApp } from 'vue';
 // the Neopets page never receives any of it.
 import './popover.css';
 
-import PricePopover from '../ui/PricePopover.vue';
+import App from '../ui/App.vue';
 import { makeVuetify, THEME } from '../ui/vuetify.js';
 import { getURL } from '../lib/ext-api.js';
 
@@ -79,7 +79,7 @@ export async function mountPopover() {
   root.className = `ns-root v-theme--${THEME}`;
   shadow.appendChild(root);
 
-  const app = createApp(PricePopover, { attach: root });
+  const app = createApp(App, { attach: root });
   app.use(makeVuetify(root));
   app.mount(root);
 

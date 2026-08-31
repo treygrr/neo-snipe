@@ -89,6 +89,24 @@ is not checked in), and compiles the app. Then:
 
 Set `SAFARI_BUNDLE_ID` to use your own bundle identifier.
 
+## The bar
+
+A small **neo-snipe** bar sits in the bottom-right of every Neopets page. Clicking it opens a panel
+with two tabs:
+
+- **Favourites** — click the ♥ on any item's price popover to save it here. Opening a favourite
+  **always re-fetches**, ignoring the cache: a saved item is one you are watching, so a day-old
+  price is the wrong answer. It uses the same popover as a badge click.
+- **Dailies** — grouped quick links: food club, the bargain stocks list, all seven wheels, free
+  stuff, games of chance, the daily prize spots and the quest givers.
+
+Every daily URL is taken verbatim from [Jelly Neo's dailies guide](https://www.jellyneo.net/?go=dailies)
+and `src/lib/dailies.js` is generated from that page rather than written from memory — the same
+discipline as the Neopets selectors, and for the same reason.
+
+Like the badges, the bar itself is plain DOM. It appears on every page, so it must not pull in Vue
+or Vuetify; clicking it is what loads the panel.
+
 ## How it finds items
 
 Neopets renders items three different ways, so there is no single selector. All of this was

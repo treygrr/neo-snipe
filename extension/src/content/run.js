@@ -1,5 +1,6 @@
 import { findItemElements, describeItem, MARK } from './detect.js';
 import { addBadge, setBadgeState } from './badge.js';
+import { addLauncher, setLauncherOpen } from './launcher.js';
 import { getSettings } from '../lib/messages.js';
 
 /**
@@ -14,10 +15,19 @@ export function run(loadUi) {
       uiPromise = (async () => {
         const { mount, store } = await loadUi();
         await mount.mountPopover();
+        // Keep the launcher in step when the panel closes itself.
+        store.watchPanel(setLauncherOpen);
+        // So the heart reflects saved state the first time a popover opens.
+        await store.loadFavourites();
         return store;
       })();
     }
     return uiPromise;
+  }
+
+  async function openPanel() {
+    const store = await ui();
+    store.togglePanel();
   }
 
   async function activate(btn, item) {
@@ -56,6 +66,8 @@ export function run(loadUi) {
     if (hoverOnly) document.body.dataset.neosnipeHoverOnly = '';
     else delete document.body.dataset.neosnipeHoverOnly;
   });
+
+  addLauncher(() => { openPanel().catch((err) => console.error('[neo-snipe] panel failed', err)); });
 
   scan();
   observer.observe(document.body, { childList: true, subtree: true });
