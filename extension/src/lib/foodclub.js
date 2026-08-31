@@ -2,8 +2,8 @@
 // bets that can be pre-filled into Neopets' own form.
 //
 // Verified against the live pages (fixtures in test/fixtures/foodclub/).
-// Fill drives the page's own form; Place goes straight to process_foodclub.phtml,
-// which takes the whole bet on the query string — see placeBetUrl.
+// Bets are placed by requesting process_foodclub.phtml, which takes the whole
+// bet on the query string — see placeBetUrl.
 
 export const BET_URL = 'https://www.neopets.com/pirates/foodclub.phtml?type=bet';
 export const CURRENT_BETS_URL = 'https://www.neopets.com/pirates/foodclub.phtml?type=current_bets';

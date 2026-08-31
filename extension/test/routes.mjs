@@ -26,17 +26,9 @@ export async function installNeopetsRoutes(page) {
   await page.route('**://www.neopets.com/**', (route) =>
     route.fulfill({ contentType: 'text/html', body: buildPage() }));
 
-  // The Food Club page computes odds in its own script; stub those so the
-  // form behaves as it does on the live site.
   await page.route('**://www.neopets.com/pirates/foodclub.phtml*', (route) => route.fulfill({
     contentType: 'text/html',
-    body: `<!doctype html><html><body><script>
-        window.calls = [];
-        function add_odds(a, p) { window.calls.push(['add_odds', a, p]); }
-        function calc_odds() { window.calls.push(['calc_odds']); }
-        function reset_odds(a) { window.calls.push(['reset_odds', a]); }
-        function set_winnings(v) { window.calls.push(['set_winnings', v]); }
-      </script>${fc('bet-page.html')}</body></html>`,
+    body: `<!doctype html><html><body>${fc('bet-page.html')}</body></html>`,
   }));
 
   await page.route('**://www.neopets.com/~Shrmsh', (route) => route.fulfill({

@@ -226,12 +226,12 @@ discipline as the Neopets selectors, and for the same reason.
   [~Shrmsh](https://www.neopets.com/~Shrmsh) — Beginner, Standard, Aggressive, Adventurous — each
   bet resolved against this round's odds with its payout at your chosen stake.
 
-  Each bet has two buttons. **Place** places it without leaving the page: `process_foodclub.phtml`
-  takes a whole bet on the query string, so the panel requests that URL directly and reports the
-  result in a toast. The URL shape is [neofood.club's](https://neofood.club) own, read out of its
-  bundle rather than guessed — `winner<n>` and `matches[]` for the arenas being bet on, then the
-  stake, the odds, and the winnings capped at the 1M NP Neopets will pay on one bet. **Fill** still
-  opens the bet page in a new tab with the form filled in, for you to check and submit yourself.
+  Each bet has one button. **Place** places it without leaving the page:
+  `process_foodclub.phtml` takes a whole bet on the query string, so the panel requests that URL
+  directly and reports the result in a toast. The URL shape is
+  [neofood.club's](https://neofood.club) own, read out of its bundle rather than guessed —
+  `winner<n>` and `matches[]` for the arenas being bet on, then the stake, the odds, and the
+  winnings capped at the 1M NP Neopets will pay on one bet.
 
   The request goes from the panel, not the service worker: the panel lives in the Neopets page, so
   it is same-origin and already carries your session, where the worker would need host access to
@@ -248,14 +248,8 @@ discipline as the Neopets selectors, and for the same reason.
   **Collect winnings** sit at the bottom of the tab, and the toast links to the first, so a placed
   bet can always be confirmed at the source.
 
-  Nothing now flags a bet for submission — Place does not go through the filler at all — but the
-  filler keeps its guard: it posts the form only for a bet explicitly flagged `submit: true`, and a
-  test runs every falsy and truthy-but-not-`true` value through it to confirm nothing else can. `total_odds` and `winnings` are computed by the page's
-  own script, so the filler drives those handlers rather than assigning values, which would
-  otherwise post `total_odds=0`.
-
   A pirate whose name is not in the current round is shown struck through and its bet cannot be
-  filled, rather than being guessed at. The sets come from someone's personal pet page: if they
+  placed, rather than being guessed at. The sets come from someone's personal pet page: if they
   change its layout the tab says so instead of showing nothing.
 
 A **cog** beside the panel's close button opens settings: Premium detection, the hover-only badge
@@ -380,7 +374,6 @@ cd extension
 npm run test:jellyneo                        # Jelly Neo parsing, from saved pages — no network
 npm run test:detect                          # detection against real Neopets markup
 npm run test:foodclub                        # Food Club odds, sets and bet resolution
-npm run test:foodclub-fill                   # filling Neopets' bet form, in a real browser
 npm run test:icons                           # the shipped PNGs match icons/icon.svg
 npm run build   && npm run test:e2e            # the real thing, in real Chrome
 npm run build:safari  && npm run test:safari   # the Safari bundle, in WebKit

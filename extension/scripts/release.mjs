@@ -53,7 +53,8 @@ The button at the bottom right opens a panel with three tabs:
 - **Dailies** — quick links to the wheels, bargain stocks, lab rays and the rest. Heart the ones you
   use to pin them to a group at the top, also drag-reorderable. Premium-only dailies are hidden
   unless the account has Premium.
-- **Food Club** — the day's bets by risk level, with **Fill** and **Place** buttons.
+- **Food Club** — the day's bets by risk level, each placed with one **Place** button, plus
+  links to your current bets and to collecting winnings.
 
 The cog holds the settings, including exporting them to a JSON file and importing it back.
 

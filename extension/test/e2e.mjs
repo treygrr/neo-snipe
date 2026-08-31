@@ -840,7 +840,7 @@ check('the new order is persisted',
   (storedOrder.favorites || []).map((f) => f.name).join(',') === 'Beta Item,Alpha Item',
   JSON.stringify((storedOrder.favorites || []).map((f) => f.name)));
 
-// --- Food Club: read the round, pick a risk level, fill a bet ---------------
+// --- Food Club: read the round, pick a risk level, place a bet --------------
 await ensurePanelOpen();
 await inShadow((root) => {
   [...root.querySelectorAll('.ns-panel-tab')].find((t) => /food club/i.test(t.textContent)).click();
@@ -882,8 +882,8 @@ const betButtons = await inShadow((root) => {
     hasDoneToggle: !!foot.querySelector('.ns-done input[type=checkbox]'),
   };
 });
-check('each bet offers both Fill and Place',
-  betButtons.buttons.includes('Fill') && betButtons.buttons.includes('Place'),
+check('each bet offers Place',
+  betButtons.buttons.includes('Place') && !betButtons.buttons.includes('Fill'),
   JSON.stringify(betButtons.buttons));
 check('each bet has a done toggle you can set yourself', betButtons.hasDoneToggle);
 
@@ -905,53 +905,6 @@ await inShadow((root) => root.querySelector('.ns-bet .ns-done input').click());
 await page.waitForTimeout(400);
 check('unticking clears it again',
   await inShadow((root) => !root.querySelector('.ns-bet').classList.contains('ns-bet--done')));
-
-// Fill: stores the bet, navigates to the bet page, fills the real form.
-// Fill opens a new tab, so the panel and its set stay put.
-const [betTab] = await Promise.all([
-  ctx.waitForEvent('page', { timeout: 15000 }),
-  inShadow((root) => root.querySelector('.ns-bet .v-btn').click()),
-]);
-await betTab.waitForLoadState('domcontentloaded');
-await betTab.waitForTimeout(2500);
-
-check('Fill opens the bet page in a new tab, leaving this one alone',
-  /foodclub\.phtml/.test(betTab.url()) && /inventory\.phtml/.test(page.url()),
-  `new=${betTab.url().split('/').pop()} original=${page.url().split('/').pop()}`);
-check('the panel is still open in the original tab',
-  await page.evaluate(() => !!document.querySelector('[data-neosnipe="popover-host"]')
-    ?.shadowRoot?.querySelector('.ns-panel')));
-
-const filled = await betTab.evaluate(() => {
-  const form = document.querySelector('form[name="bet_form"]');
-  if (!form) return { noForm: true };
-  return {
-    url: location.href,
-    selects: [1, 2, 3, 4, 5].map((n) => form.querySelector(`select[name="winner${n}"]`).value),
-    checked: [...form.querySelectorAll('input[name="matches[]"]')].map((c) => c.checked),
-    amount: form.querySelector('input[name="bet_amount"]').value,
-    calcRan: (window.calls || []).some(([f]) => f === 'calc_odds'),
-    notice: !!document.querySelector('[data-neosnipe="fc-notice"]'),
-  };
-});
-check('the form in the new tab is filled',
-  filled.checked?.some(Boolean) && filled.selects?.some((v) => v !== ''),
-  JSON.stringify(filled?.selects));
-check('the filled amount matches the stake', filled.amount === '10540', filled.amount);
-check("the page's own odds calculation was triggered", filled.calcRan === true);
-check('it tells you to press Place Bet yourself', filled.notice === true);
-
-// Nothing was submitted: still on the bet form, not the processor.
-check('the bet was not submitted', !/process_foodclub/.test(filled.url || ''), filled.url);
-
-const cleared = await opts.evaluate(() => chrome.storage.local.get('pendingBet'));
-check('the pending bet is cleared after filling', cleared.pendingBet === undefined);
-
-const doneAfterFill = await opts.evaluate(() => chrome.storage.local.get('fcDone'));
-check('using Fill marks that bet done', (doneAfterFill.fcDone?.ids || []).length === 1,
-  JSON.stringify(doneAfterFill.fcDone?.ids));
-
-await betTab.close();
 
 // Place: sent from the page itself, with a toast rather than a tab.
 const oddsShown = await inShadow((root) =>

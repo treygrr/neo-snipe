@@ -7,7 +7,6 @@ import {
   placeBetUrl, placementRefusal,
   betId, FoodClubError,
 } from '../lib/foodclub.js';
-import { PENDING_KEY } from '../content/foodclub-fill.js';
 import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
 import {
   WIZARD_URL, WIZARD_REFERRER, wizardBody, parseWizardResponse, mergeListings, WizardError,
@@ -480,36 +479,6 @@ export async function toggleBetDone(bet, force) {
     ? [...new Set([...state.fc.done, id])]
     : state.fc.done.filter((x) => x !== id);
   await setDoneBets(state.fc.round, state.fc.done);
-}
-
-/**
- * A new tab, so the panel and its set stay where they are while you work
- * through several bets. No `noopener`: that makes window.open return null,
- * which is the signal we need to detect a blocked popup. The target is
- * neopets.com, same origin as the page we are on.
- */
-function openBetTab(url) {
-  const opened = window.open(url, '_blank');
-  if (!opened) window.location.href = url; // popup blocked: go here instead
-}
-
-/**
- * Stashes the bet and sends you to the Food Club page, where the content
- * script fills the form, leaving it for you to check and submit.
- */
-export async function fillBet(bet) {
-  await toggleBetDone(bet, true);
-  await api.storage.local.set({
-    [PENDING_KEY]: {
-      picks: bet.picks.map((p) => ({ arena: p.arena, pirateId: p.pirateId })),
-      amount: state.fc.amount,
-      // Fill never submits. Place does not come through here at all.
-      submit: false,
-      at: Date.now(),
-    },
-  });
-
-  openBetTab(BET_URL);
 }
 
 let toastTimer = null;

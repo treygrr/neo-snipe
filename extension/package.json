@@ -20,7 +20,6 @@
     "dev:browser": "node scripts/dev-browser.mjs",
     "fixture": "node scripts/dev-browser.mjs --fixture",
     "test:foodclub": "node --test test/foodclub.test.mjs",
-    "test:foodclub-fill": "node --test test/foodclub-fill.test.mjs",
     "icons": "node scripts/make-icons.mjs",
     "test:icons": "node --test test/icons.test.mjs",
     "test:search": "node --test test/neopets-search.test.mjs",

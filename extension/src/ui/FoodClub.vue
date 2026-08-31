@@ -4,7 +4,7 @@ import {
   mdiRefresh, mdiOpenInNew, mdiAlertCircleOutline, mdiFormatListChecks, mdiCashMultiple,
 } from '@mdi/js';
 import {
-  state, loadFoodClub, setFoodClubLevel, setFoodClubAmount, currentBets, fillBet, placeBet,
+  state, loadFoodClub, setFoodClubLevel, setFoodClubAmount, currentBets, placeBet,
   isBetDone, toggleBetDone, isPlacing,
   RISK_LEVELS, BET_URL, SETS_URL, CURRENT_BETS_URL, COLLECT_URL,
 } from './store.js';
@@ -91,8 +91,6 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
           <span v-else class="ns-bet-warn">A pirate here isn't in this round — skip it.</span>
           <v-spacer />
           <template v-if="bet.resolved">
-            <v-btn size="x-small" variant="tonal" class="ns-btn-fill"
-                   :disabled="!!state.fc.placing" @click="fillBet(bet)">Fill</v-btn>
             <v-btn
               size="x-small"
               variant="flat"
@@ -116,10 +114,9 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
 
       <p class="ns-fc-note">
         <strong>Place</strong> places the bet with Neopets from here, and marks it done once it is
-        accepted. <strong>Fill</strong> opens the
-        <a :href="BET_URL" target="_blank" rel="noopener">bet page</a> in a new tab with the form
-        filled in, for you to check and submit yourself, and marks it done as you go. You can tick
-        or untick a mark yourself; marks clear when a new round opens.
+        accepted. You can tick or untick a mark yourself, and the
+        <a :href="BET_URL" target="_blank" rel="noopener">bet page</a> is always there if you would
+        rather do one by hand. Marks clear when a new round opens.
       </p>
     </template>
   </div>
