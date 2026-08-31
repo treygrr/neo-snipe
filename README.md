@@ -124,6 +124,15 @@ Set `SAFARI_BUNDLE_ID` to use your own bundle identifier.
 A small **neo-snipe** bar sits in the bottom-right of every Neopets page. Clicking it opens a panel
 with two tabs:
 
+The bottom of each price popover has **where to buy it**: Shop Wizard, Trading Post and Auction
+House, each opening a search for that exact item in a new tab. Those URL shapes are taken verbatim
+from the "Find This Item" links on a Jelly Neo item page rather than written from memory.
+
+A **Super Shop Wizard** button appears alongside them if you tick *I have Neopets Premium* in the
+options. That is a setting rather than detection: nothing on a page the extension can see reliably
+says whether an account has Premium, and guessing would either hide a button you paid for or show
+one that does not work.
+
 - **Favourites** — click the ♥ on any item's price popover to save it here, and drag the rows to
   reorder them. Opening a favourite **always re-fetches**, ignoring the cache: a saved item is one
   you are watching, so a day-old price is the wrong answer. It uses the same popover as a badge

@@ -1,5 +1,5 @@
 import { reactive } from 'vue';
-import { LOOKUP, TP_LOOKUP, ERROR_TEXT } from '../lib/messages.js';
+import { LOOKUP, TP_LOOKUP, ERROR_TEXT, getSettings } from '../lib/messages.js';
 import { sendMessage, api } from '../lib/ext-api.js';
 import {
   BET_URL, SETS_URL, RISK_LEVELS, parseBetPage, parseSets, parseRound, resolveBet, payout,
@@ -24,6 +24,9 @@ export const state = reactive({
   tab: 'price',
   // Trading post history is loaded on demand, the first time its tab is opened.
   tp: { loading: false, data: null, error: null },
+
+  // Mirrors the saved setting, so the popover can react without re-reading it.
+  premium: false,
 
   // Food Club.
   fc: {
@@ -129,6 +132,11 @@ export function close() {
 }
 
 // --- favourites and the panel ---------------------------------------------
+
+export async function loadSettings() {
+  const { premium } = await getSettings();
+  state.premium = premium === true;
+}
 
 export async function loadFavourites() {
   const [items, dailies] = await Promise.all([listFavourites(), listDailyFavourites()]);

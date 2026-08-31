@@ -10,6 +10,9 @@ export const OPEN_PANEL = 'neosnipe:open-panel';
 
 export const DEFAULTS = {
   hoverOnly: true,
+  // Shows the Super Shop Wizard button. A setting rather than detection:
+  // nothing on a page the extension can see reliably says you have Premium.
+  premium: false,
 };
 
 export async function getSettings() {

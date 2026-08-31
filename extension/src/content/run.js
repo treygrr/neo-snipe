@@ -21,6 +21,7 @@ export function run(loadUi) {
         store.watchPanel(setLauncherOpen);
         // So the heart reflects saved state the first time a popover opens.
         await store.loadFavourites();
+        await store.loadSettings();
         return store;
       })();
     }

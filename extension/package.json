@@ -1,6 +1,6 @@
 {
   "name": "neo-snipe-extension",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -22,7 +22,8 @@
     "test:foodclub": "node --test test/foodclub.test.mjs",
     "test:foodclub-fill": "node --test test/foodclub-fill.test.mjs",
     "icons": "node scripts/make-icons.mjs",
-    "test:icons": "node --test test/icons.test.mjs"
+    "test:icons": "node --test test/icons.test.mjs",
+    "test:search": "node --test test/neopets-search.test.mjs"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",

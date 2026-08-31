@@ -1,11 +1,15 @@
 <script setup>
 import { computed } from 'vue';
 import { mdiRefresh } from '@mdi/js';
+import { searchesFor } from '../lib/neopets-search.js';
 import { state, retry, close } from './store.js';
 import PriceCard from './PriceCard.vue';
 import HistoryTabs from './HistoryTabs.vue';
 
 defineProps({ attach: { type: [Object, String, Boolean], default: false } });
+
+const searches = computed(() =>
+  (state.data?.name ? searchesFor(state.data.name, { premium: state.premium }) : []));
 
 const open = computed({
   get: () => state.open,
@@ -44,6 +48,20 @@ const open = computed({
 
         <HistoryTabs v-if="state.data && !state.loading" :data="state.data" />
 
+        <!-- Where to buy it, at the bottom of the card. -->
+        <div v-if="searches.length" class="ns-search">
+          <a
+            v-for="s in searches"
+            :key="s.id"
+            :href="s.href"
+            target="_blank"
+            rel="noopener"
+            class="ns-search-btn"
+            :class="{ 'ns-search-btn--premium': s.id === 'super' }"
+            :title="s.title"
+          >{{ s.label }}</a>
+        </div>
+
         <!-- The title links to Jelly Neo and the heart sits beside it, so the
              only action left here is retrying a failure. -->
         <v-card-actions v-if="state.error && !state.loading" class="ns-actions">
@@ -61,4 +79,18 @@ const open = computed({
 .ns-loading-label { font-size: 12px; opacity: .7; text-align: center; }
 .ns-detail { font-size: 11px; opacity: .75; margin-top: 4px; word-break: break-word; }
 .ns-actions { padding: 0 8px 6px; min-height: 0; }
+
+.ns-search {
+  display: flex; gap: 5px; flex-wrap: wrap;
+  padding: 7px 12px 9px; border-top: 1px solid rgba(0, 0, 0, .12);
+}
+.ns-search-btn {
+  flex: 1 1 auto; text-align: center; padding: 4px 8px;
+  font-size: 10.5px; font-weight: 600; text-decoration: none;
+  color: #14459c; background: #eef3fe; border: 1px solid #cddcfb; border-radius: 5px;
+  white-space: nowrap;
+}
+.ns-search-btn:hover { background: #dfe9fd; border-color: #a9c3f7; }
+.ns-search-btn--premium { color: #7a4c04; background: #fff5dd; border-color: #f0d79a; }
+.ns-search-btn--premium:hover { background: #ffeec4; border-color: #e5c273; }
 </style>

@@ -329,6 +329,57 @@ const titleLink = await page.evaluate(() => {
 check('the title itself links to Jelly Neo',
   titleLink?.tag === 'A' && /^https:\/\/items\.jellyneo\.net\/item\/\d+\//.test(titleLink.href)
   && titleLink.target === '_blank', JSON.stringify(titleLink));
+// --- where-to-buy buttons at the bottom of the card ------------------------
+const searchRow = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const btns = [...root.querySelectorAll('.ns-search-btn')];
+  const card = root.querySelector('.ns-card')?.getBoundingClientRect();
+  const row = root.querySelector('.ns-search')?.getBoundingClientRect();
+  return {
+    labels: btns.map((b) => b.textContent.trim()),
+    hrefs: btns.map((b) => b.href),
+    targets: btns.map((b) => b.target),
+    belowTheCard: card && row ? row.top >= card.top : null,
+  };
+});
+check('the card offers shop wizard, trading post and auctions',
+  searchRow.labels.join(',') === 'Shop Wiz,Trades,Auctions', JSON.stringify(searchRow.labels));
+check('each search links to the right Neopets page',
+  searchRow.hrefs[0].startsWith('https://www.neopets.com/shops/wizard.phtml?string=')
+  && searchRow.hrefs[1].includes('/island/tradingpost.phtml?type=browse&criteria=item_exact')
+  && searchRow.hrefs[2].includes('/genie.phtml?type=process_genie&criteria=exact'),
+  JSON.stringify(searchRow.hrefs.map((h) => h.split('?')[0].replace('https://www.neopets.com', ''))));
+check('the searches use the resolved item name',
+  searchRow.hrefs.every((h) => h.includes('Faerie+Paint+Brush')));
+check('they open in a new tab', searchRow.targets.every((t) => t === '_blank'));
+check('the row sits at the bottom of the card', searchRow.belowTheCard === true);
+check('the Super Shop Wizard is hidden without Premium',
+  !searchRow.labels.includes('Super Wiz'));
+
+// Turning Premium on in the options adds it.
+await opts.evaluate(() => chrome.storage.sync.set({ premium: true }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+await page.waitForTimeout(600);
+await page.locator('.neosnipe-badge').first().click();
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return root && root.querySelectorAll('.ns-search-btn').length > 0;
+}, null, { timeout: 15000 }).catch(() => {});
+
+const withPremium = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const btns = [...root.querySelectorAll('.ns-search-btn')];
+  return { labels: btns.map((b) => b.textContent.trim()), last: btns.at(-1)?.href };
+});
+check('Premium adds the Super Shop Wizard button',
+  withPremium.labels.includes('Super Wiz') && withPremium.labels.length === 4,
+  JSON.stringify(withPremium.labels));
+check('the Super Shop Wizard link carries the item name',
+  (withPremium.last || '').includes('Faerie+Paint+Brush'), withPremium.last);
+
+await opts.evaluate(() => chrome.storage.sync.set({ premium: false }));
+
 check('the old Jelly Neo action button is gone', await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
   return ![...root.querySelectorAll('.ns-actions .v-btn')].some((b) => /jelly neo/i.test(b.textContent));
