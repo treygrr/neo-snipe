@@ -166,22 +166,42 @@ export function placeBetUrl({ picks, amount, totalOdds }) {
 }
 
 /**
- * What the bet handler said. Its success page has not been captured, so this
- * does not try to recognise success — it looks for the ways Neopets says no,
- * and treats anything else as placed. Whoever captures a real response should
- * replace this with a positive check.
+ * A placed bet is a 302 to the current-bets page; a refused one comes back as
+ * a page. `fetch` follows the redirect, so what is left to check is where the
+ * response ended up. This is a positive test for success: anything that did
+ * not redirect there was not placed, whether or not we can name the reason.
  */
-const REFUSALS = [
-  [/you don't have enough neopoints|not enough neopoints/i, "You don't have that many Neopoints."],
-  [/maximum bet|you can only bet|too (much|high)/i, 'That is over your maximum bet.'],
-  [/already (placed|made).{0,20}bet|only place \d+ bets/i, 'That bet is already placed.'],
-  [/betting is closed|round (is )?(over|closed)|no longer accepting/i, 'Betting is closed for this round.'],
-  [/you must be logged in|login/i, 'Neopets says you are not logged in.'],
-  [/error/i, 'Neopets refused the bet.'],
-];
+export function wasPlaced(res) {
+  if (!res?.redirected || !res.url) return false;
+  try {
+    const { pathname, searchParams } = new URL(res.url);
+    return pathname === '/pirates/foodclub.phtml' && searchParams.get('type') === 'current_bets';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Why a bet that did not go through did not go through. Only consulted once
+ * `wasPlaced` has said no, so its job is to name the reason, not to decide.
+ */
+// A refused bet answers 200 with Neopets' standard error block:
+//   <div class="errorMessage"><b>Error: </b>Sorry. We were unable to place your
+//   bet.<br>Please note that you cannot place the same bet more than once!</div>
+// Captured from a live refusal, so the reason shown is Neopets' own wording
+// rather than a phrase of ours matched against theirs.
+const ERROR_BLOCK = /<div[^>]*class=["'][^"']*errorMessage[^"']*["'][^>]*>([\s\S]*?)<\/div>/i;
+
+const strip = (html) => String(html ?? '')
+  .replace(/<br\s*\/?>/gi, ' ')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&nbsp;/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
 
 export function placementRefusal(html) {
-  const text = String(html ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  for (const [re, message] of REFUSALS) if (re.test(text)) return message;
-  return null;
+  const block = ERROR_BLOCK.exec(String(html ?? ''));
+  // The block opens with a bold "Error:" label, which the message repeats.
+  const message = block && strip(block[1]).replace(/^error:\s*/i, '');
+  return message || 'Neopets did not accept that bet.';
 }

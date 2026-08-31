@@ -916,6 +916,16 @@ page.on('request', (r) => {
   if (r.url().includes('process_foodclub.phtml')) placeRequests.push(r.url());
 });
 
+// Success is a 302 to the current-bets page. Playwright cannot fulfil a
+// redirect that a `fetch` will follow — it fails the request outright — and the
+// panel's fetch runs in the content script's isolated world, out of reach of a
+// stub. So the success branch is covered by unit tests over wasPlaced(), and
+// what is checked here is the request itself and the refusal path.
+await page.route('**://www.neopets.com/pirates/process_foodclub.phtml*', (route) => route.fulfill({
+  contentType: 'text/html',
+  body: readFileSync(resolve('test/fixtures/foodclub', 'refused.html'), 'utf8'),
+}));
+
 const tabsBefore = ctx.pages().length;
 await inShadow((root) => root.querySelector('.ns-bet .ns-btn-place').click());
 await page.waitForFunction(() => {
@@ -952,14 +962,13 @@ const toast = await inShadow((root) => {
   return t && {
     text: t.textContent.replace(/\s+/g, ' ').trim(),
     bad: t.classList.contains('ns-toast--bad'),
-    action: t.querySelector('.ns-toast-action')?.getAttribute('href'),
   };
 });
-check('a toast says the bet was placed', /Bet placed/.test(toast?.text || '') && !toast?.bad,
+check('a bet Neopets refuses is reported in its own words',
+  toast?.bad === true && /cannot place the same bet more than once/.test(toast?.text || ''),
   JSON.stringify(toast?.text));
-check('the toast links to your bets', /type=current_bets/.test(toast?.action || ''), toast?.action);
-check('a placed bet is marked done',
-  await inShadow((root) => root.querySelector('.ns-bet').classList.contains('ns-bet--done')));
+check('a bet that was not placed is not marked done',
+  await inShadow((root) => !root.querySelector('.ns-bet').classList.contains('ns-bet--done')));
 
 check('the tab links to your bets and to collecting winnings',
   await inShadow((root) => {
@@ -974,9 +983,17 @@ check('the toast can be dismissed',
 
 // A refused bet must not be marked done, and must say why. The delay also
 // gives the button's loading state something to be observed during.
+// A refusal answers with a page rather than redirecting. The delay also gives
+// the button's loading state something to be observed during.
+await page.unroute('**://www.neopets.com/pirates/process_foodclub.phtml*');
 await page.route('**://www.neopets.com/pirates/process_foodclub.phtml*', async (route) => {
   await new Promise((r) => setTimeout(r, 1200));
-  return route.fulfill({ contentType: 'text/html', body: '<p>You don\'t have enough Neopoints!</p>' });
+  // A different refusal, in Neopets' error block, to show the reason shown is
+  // whatever the page says rather than a phrase of ours.
+  return route.fulfill({
+    contentType: 'text/html',
+    body: '<div class="errorMessage"><b>Error: </b>You do not have enough Neopoints!</div>',
+  });
 });
 
 await inShadow((root) => root.querySelectorAll('.ns-bet')[1].querySelector('.ns-btn-place').click());
@@ -996,7 +1013,8 @@ await page.waitForFunction(() => {
 }, null, { timeout: 15000 }).catch(() => {});
 
 const refusalToast = await inShadow((root) => root.querySelector('.ns-toast')?.textContent || '');
-check('a refused bet says why', /many Neopoints/i.test(refusalToast), JSON.stringify(refusalToast));
+check('a refused bet says why', /do not have enough Neopoints/i.test(refusalToast),
+  JSON.stringify(refusalToast));
 check('a refused bet is not marked done',
   await inShadow((root) => !root.querySelectorAll('.ns-bet')[1].classList.contains('ns-bet--done')));
 check('the buttons come back after a refusal',

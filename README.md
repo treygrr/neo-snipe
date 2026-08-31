@@ -254,10 +254,20 @@ discipline as the Neopets selectors, and for the same reason.
   round number, so they clear when a new round opens rather than carrying over onto different bets;
   you can tick or untick one yourself.
 
-  The handler's success page has not been captured, so the code does not claim to recognise
-  success — it recognises Neopets' refusals and treats anything else as placed. **Your bets** and
-  **Collect winnings** sit at the bottom of the tab, and the toast links to the first, so a placed
-  bet can always be confirmed at the source.
+  Success is read from the handler's own answer: a placed bet is a 302 to
+  `foodclub.phtml?type=current_bets`, so what counts is where the response ended up, not whether
+  any particular words appeared. A refusal comes back as a 200 carrying Neopets' standard error
+  block, and the reason shown in the toast is lifted from that block — its wording, not a phrase of
+  ours matched against theirs. Both shapes were captured from live responses; the refusal is in
+  `test/fixtures/foodclub/refused.html`.
+
+  **Your bets** and **Collect winnings** sit at the bottom of the tab, and the toast links to the
+  first.
+
+  One gap worth naming: the end-to-end suite covers the request and the refusal, but not the
+  success branch. Playwright cannot fulfil a redirect that a `fetch` will follow, and the panel's
+  fetch runs in the content script's isolated world where a stub cannot reach it — so the rule
+  itself is unit-tested over `wasPlaced()` instead.
 
   A pirate whose name is not in the current round is shown struck through and its bet cannot be
   placed, rather than being guessed at. The sets come from someone's personal pet page: if they

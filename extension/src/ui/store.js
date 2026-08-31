@@ -4,7 +4,7 @@ import { sendMessage, api } from '../lib/ext-api.js';
 import {
   BET_URL, SETS_URL, CURRENT_BETS_URL, COLLECT_URL,
   RISK_LEVELS, parseBetPage, parseSets, parseRound, resolveBet, payout,
-  placeBetUrl, placementRefusal,
+  placeBetUrl, placementRefusal, wasPlaced,
   betId, FoodClubError,
 } from '../lib/foodclub.js';
 import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
@@ -512,9 +512,10 @@ export async function placeBet(bet) {
     const res = await fetch(url, { credentials: 'include', referrer: BET_URL });
     if (!res.ok) throw new Error(`Neopets returned ${res.status}`);
 
-    const refusal = placementRefusal(await res.text());
-    if (refusal) {
-      showToast(refusal, { tone: 'bad' });
+    // A placed bet redirects to the current-bets page. Anything else is a
+    // refusal, whose page usually says why.
+    if (!wasPlaced(res)) {
+      showToast(placementRefusal(await res.text()), { tone: 'bad' });
       return;
     }
 

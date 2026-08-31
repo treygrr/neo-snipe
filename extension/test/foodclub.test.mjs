@@ -7,7 +7,7 @@ import { parseHTML } from 'linkedom';
 
 import {
   parseBetPage, parseSets, resolveBet, payout, ARENAS, RISK_LEVELS, FoodClubError,
-  placeBetUrl, WINNINGS_CAP, placementRefusal,
+  placeBetUrl, WINNINGS_CAP, placementRefusal, wasPlaced,
 } from '../src/lib/foodclub.js';
 
 const doc = (f) => parseHTML(`<html><body>${readFileSync(resolve('test/fixtures/foodclub', f), 'utf8')}</body></html>`).document;
@@ -127,13 +127,42 @@ test('an unresolved or unpriced bet produces no URL to place', () => {
   assert.equal(placeBetUrl({ picks: PICKS, amount: 50, totalOdds: null }), null);
 });
 
-test('a refusal from the bet handler is reported in its own words', () => {
-  assert.match(placementRefusal('<p>You don\'t have enough Neopoints!</p>'), /Neopoints/);
-  assert.match(placementRefusal('<b>Betting is closed for this round.</b>'), /closed/i);
-  assert.match(placementRefusal('<div class="error">Error</div>'), /refused/i);
+test('a placed bet is one that redirected to the current-bets page', () => {
+  assert.equal(wasPlaced({
+    redirected: true,
+    url: 'https://www.neopets.com/pirates/foodclub.phtml?type=current_bets',
+  }), true);
 });
 
-test('an ordinary response is not read as a refusal', () => {
-  assert.equal(placementRefusal('<html><body>Your bet has been placed! Good luck.</body></html>'), null);
-  assert.equal(placementRefusal(''), null);
+test('anything short of that redirect is not a placed bet', () => {
+  // Came back as a page rather than a redirect.
+  assert.equal(wasPlaced({
+    redirected: false,
+    url: 'https://www.neopets.com/pirates/foodclub.phtml?type=current_bets',
+  }), false);
+  // Redirected, but somewhere else — bounced to the bet form, or to a login.
+  assert.equal(wasPlaced({
+    redirected: true,
+    url: 'https://www.neopets.com/pirates/foodclub.phtml?type=bet',
+  }), false);
+  assert.equal(wasPlaced({ redirected: true, url: 'https://www.neopets.com/login.phtml' }), false);
+  assert.equal(wasPlaced({}), false);
+  assert.equal(wasPlaced({ redirected: true, url: 'not a url' }), false);
+});
+
+test('a refusal is reported in Neopets\' own words', () => {
+  const html = readFileSync(resolve('test/fixtures/foodclub', 'refused.html'), 'utf8');
+  const message = placementRefusal(html);
+  assert.equal(message,
+    'Sorry. We were unable to place your bet. '
+    + 'Please note that you cannot place the same bet more than once!');
+  // The block's own "Error:" label is not part of the sentence.
+  assert.ok(!/^error:/i.test(message), message);
+  // Nothing from the stylesheet above it leaks in.
+  assert.ok(!/font-family|errorOuter/.test(message), message);
+});
+
+test('a refusal nobody recognises still says the bet did not go through', () => {
+  assert.match(placementRefusal('<html><body>Something unexpected.</body></html>'), /did not accept/i);
+  assert.match(placementRefusal(''), /did not accept/i);
 });
