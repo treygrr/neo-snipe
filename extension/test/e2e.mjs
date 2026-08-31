@@ -76,6 +76,17 @@ page.on('requestfailed', (r) => console.log(`    [reqfail] ${r.url().slice(0, 13
 page.on('response', (r) => { if (r.status() >= 400) console.log(`    [resp ${r.status()}] ${r.url().slice(0, 130)}`); });
 await installNeopetsRoutes(ctx);
 
+// The Shop Wizard is rate-limited on the real site, so the tests count how
+// many searches the extension actually spends.
+let wizardSearches = 0;
+await ctx.route('**/np-templates/ajax/wizard.php*', (route) => {
+  wizardSearches++;
+  return route.fulfill({
+    contentType: 'text/html',
+    body: readFileSync(resolve('test/fixtures/wizard/vo-codestone.html'), 'utf8'),
+  });
+});
+
 await page.goto('https://www.neopets.com/inventory.phtml');
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 await page.waitForTimeout(900); // let the delayed inventory chunk load + be scanned
@@ -166,8 +177,8 @@ const tabLabels = await page.evaluate(() => {
   const sr = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
   return [...sr.querySelectorAll('.ns-tab')].map((t) => t.textContent.trim());
 });
-check('the popover has price, trading post and shops tabs',
-  tabLabels.join(',') === 'Price,TP,Shops', JSON.stringify(tabLabels));
+check('the popover has price, trading post, wizard and shops tabs',
+  tabLabels.join(',') === 'Price,TP,Wiz,Shops', JSON.stringify(tabLabels));
 
 // The price tab is shown first, and its rows come from the item lookup.
 const priceRows = await page.evaluate(() => {
@@ -239,6 +250,58 @@ check('tab panel is scrollable when content overflows', await page.evaluate(() =
   probe.remove();
   return scrolls;
 }));
+
+// --- the Wiz tab: searches only when opened ---------------------------------
+check('opening a popover spends no Shop Wizard search', wizardSearches === 0,
+  `${wizardSearches} searches`);
+
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  [...root.querySelectorAll('.ns-tab')].find((t) => t.textContent.trim() === 'Wiz').click();
+});
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const w = root.querySelector('.ns-tab-window');
+  return w && !/Asking the Shop Wizard/.test(w.textContent);
+}, null, { timeout: 15000 }).catch(() => {});
+
+const wiz = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const rows = [...root.querySelectorAll('.ns-tab-window .ns-rows tbody tr')];
+  return {
+    rows: rows.length,
+    stats: root.querySelector('.ns-tab-window .ns-tp-stats')?.textContent.replace(/\s+/g, ' ').trim(),
+    first: rows[0] && {
+      owner: rows[0].querySelector('.ns-shop-owner')?.textContent.trim(),
+      price: rows[0].querySelectorAll('td')[1]?.textContent.trim(),
+      stock: rows[0].querySelectorAll('td')[2]?.textContent.trim(),
+      href: rows[0].querySelector('a')?.href,
+    },
+  };
+});
+check('clicking the Wiz tab runs exactly one search', wizardSearches === 1,
+  `${wizardSearches} searches`);
+check('the wizard results render cheapest first',
+  wiz.rows === 20 && wiz.first?.price === '3,900 NP' && wiz.first?.stock === 'x9',
+  JSON.stringify(wiz.first));
+check('wizard rows link into the shop',
+  /browseshop\.phtml\?owner=.+buy_obj_info_id=/.test(wiz.first?.href || ''), wiz.first?.href);
+check('it says how fresh the result is', /just searched|searched \d+m ago/.test(wiz.stats || ''),
+  wiz.stats);
+
+// Switching away and back must not spend another search.
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  [...root.querySelectorAll('.ns-tab')].find((t) => t.textContent.trim() === 'Price').click();
+});
+await page.waitForTimeout(300);
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  [...root.querySelectorAll('.ns-tab')].find((t) => t.textContent.trim() === 'Wiz').click();
+});
+await page.waitForTimeout(800);
+check('returning to the tab reuses the result rather than searching again',
+  wizardSearches === 1, `${wizardSearches} searches`);
 
 // --- the Shops tab: live Super Shop Wizard listings -------------------------
 await page.evaluate(() => {

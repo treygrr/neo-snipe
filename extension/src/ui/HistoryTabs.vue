@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { state, selectTab, retryTradingPost } from './store.js';
+import { state, selectTab, retryTradingPost, retryWizard } from './store.js';
 import ShopsList from './ShopsList.vue';
 
 const props = defineProps({ data: { type: Object, required: true } });
@@ -8,6 +8,14 @@ const props = defineProps({ data: { type: Object, required: true } });
 const np = (n) => (n === null || n === undefined ? '—' : `${n.toLocaleString('en-US')} NP`);
 const priceHistory = computed(() => (props.data.history || []).filter((h) => h.date));
 const lots = computed(() => state.tp.data?.lots || []);
+const wizListings = computed(() => state.wiz.data?.listings || []);
+
+// Results are reused rather than re-searched, so say how old they are.
+const searchedAgo = computed(() => {
+  if (!state.wiz.at) return '';
+  const mins = Math.floor((Date.now() - state.wiz.at) / 60000);
+  return mins < 1 ? 'just searched' : `searched ${mins}m ago`;
+});
 </script>
 
 <template>
@@ -24,6 +32,7 @@ const lots = computed(() => state.tp.data?.lots || []);
     >
       <v-tab value="price" class="ns-tab" title="Price history">Price</v-tab>
       <v-tab value="tp" class="ns-tab" title="Trading post history">TP</v-tab>
+      <v-tab value="wiz" class="ns-tab" title="Shop Wizard — searches only when you open this tab">Wiz</v-tab>
       <v-tab v-if="state.settings.premium" value="shops" class="ns-tab"
              title="Shops, via the Super Shop Wizard">Shops</v-tab>
     </v-tabs>
@@ -46,6 +55,41 @@ const lots = computed(() => state.tp.data?.lots || []);
           </tbody>
         </v-table>
         <p v-else class="ns-empty">No price history.</p>
+      </template>
+
+      <!-- Regular Shop Wizard. Searches are limited, so this only runs when
+           the tab is opened, and the result is reused for a while after. -->
+      <template v-else-if="state.tab === 'wiz'">
+        <div v-if="state.wiz.loading" class="ns-tp-loading">
+          <v-progress-circular indeterminate size="22" width="2" />
+          <span>Asking the Shop Wizard…</span>
+        </div>
+
+        <v-alert v-else-if="state.wiz.error" type="warning" variant="tonal" density="compact" class="ns-tp-error">
+          <div>{{ state.wiz.error }}</div>
+          <v-btn size="x-small" variant="text" class="mt-1" @click="retryWizard">Search again</v-btn>
+        </v-alert>
+
+        <template v-else-if="state.wiz.data">
+          <div class="ns-tp-stats">
+            <span>{{ state.wiz.data.listings.length }} shops</span>
+            <span v-if="wizListings.length">cheapest {{ wizListings[0].priceText }}</span>
+            <span class="ns-wiz-age">{{ searchedAgo }}</span>
+          </div>
+          <v-table v-if="wizListings.length" density="compact" class="ns-rows">
+            <tbody>
+              <tr v-for="s in wizListings" :key="s.owner + s.price">
+                <td class="ns-shop-owner">
+                  <a v-if="s.href" :href="s.href" target="_blank" rel="noopener">{{ s.owner }}</a>
+                  <span v-else>{{ s.owner }}</span>
+                </td>
+                <td class="ns-num">{{ s.priceText }}</td>
+                <td class="ns-num ns-shop-stock">{{ s.amount ? `x${s.amount}` : '' }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+          <p v-else class="ns-empty">No shops are stocking this right now.</p>
+        </template>
       </template>
 
       <!-- Super Shop Wizard: the same list the Shops popover shows -->
@@ -121,6 +165,7 @@ const lots = computed(() => state.tp.data?.lots || []);
 .ns-shop-owner { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
 .ns-shop-owner a { color: inherit; }
 .ns-shop-stock { opacity: .55; font-size: 10px; }
+.ns-wiz-age { margin-left: auto; }
 .ns-noprice { opacity: .5; font-size: 10px; }
 .ns-bundle {
   font-size: 9px; opacity: .6; border: 1px solid currentColor;

@@ -1,0 +1,147 @@
+ 
+<style type="text/css">
+	.bgYellow {
+		background-color: #FFCC00;
+	}
+
+	.blistHeader {
+		background-color: #FFCC00;
+		font-weight: bold;
+		font-size: 11px;
+		color: #000000;
+	}
+
+	.blistTopic {
+		font-size: 12px;
+	}
+
+	.blistSmall {
+		font-weight: normal;
+		font-size: 11px;
+	}
+
+	.topicSmall {
+		font-weight: normal;
+		font-size: 10px;
+	}
+
+	.topic {
+		background-color: #FFFFFF;
+		font-weight: normal;
+		font-size: 12px;
+		color: #000000;
+		border-bottom: 1px solid #000000;
+	}
+
+	.topicPosted {
+		background-color: #F6F6F6;
+		font-weight: normal;
+		font-size: 10px;
+		color: #000000;
+		border-bottom: 1px solid #000000;
+	}
+
+	.topicAuthor {
+		background-color: #F6F6F6;
+		font-weight: normal;
+
+		border-right: 1px solid #000000;
+		border-bottom: 1px solid #000000;
+	}
+
+	.blockquote {
+		margin: 10px;
+	}
+
+	.quote {
+		background-color: #F6F6F6;
+		font-size: 11px;
+		font-style: italic;
+		border: 1px solid #000000;
+		padding: 5px;
+	}
+</style>
+
+
+<script language="JavaScript">
+	var NeoboardPens = {};
+  NeoboardPens.maxPostLength = 400;
+
+	function insertSmiley(smiley) {
+		document.message_form.message.value += smiley;
+		textCounter(document.message_form.message, document.message_form.remLen, NeoboardPens.maxPostLength);
+		document.message_form.message.focus();
+		return false;
+	}
+
+	var submitcount = 0;
+
+	function validateNewTopic() {
+		var missing = "";
+
+		if (message_form.topic_title.value == "") {		// missing title
+			missing += "     - Title\n";
+		}
+
+		if (message_form.message.value == "") {		// if too long...trim it!
+			missing += "     - Message\n";
+		}
+
+		if (missing != "") {
+			alert("Please fill in the following item(s):\n" + missing);
+			return false;
+		} else {
+			if (submitcount == 0) {
+		      submitcount++;
+		      return true;
+		   } else {
+		      alert("Oops, you've already submitted your post.\nPlease wait for it to go through so you don't spam. :)");
+		      return false;
+		   }
+		}
+	}
+
+	function blockMultipleReplies() {
+		if (submitcount == 0) {
+	      submitcount++;
+	      return true;
+	   } else {
+	      alert("Oops, you've already submitted your post.\nPlease wait for it to go through so you don't spam. :)");
+	      return false;
+	   }
+	}
+
+	function textCounter(field, countfield, maxlimit) {
+		maxlimit = maxlimit || NeoboardPens.maxPostLength;
+		if (field.value.length > maxlimit) {		// if too long...trim it!
+			field.value = field.value.substring(0, maxlimit);
+		} else {									// otherwise, update 'characters left' counter
+			countfield.value = maxlimit - field.value.length;
+		}
+	}
+
+	function openWin(url, height, width, scroll, menu, resize, tool, loc, status) {
+		height = (height) ? height : 200;
+		width = (width) ? width : 400;
+		scroll = (scroll) ? 'yes' : 'no';
+		menu = (menu) ? 'yes' : 'no';
+		resize = (resize) ? 'yes' : 'no';
+		tool = (tool) ? 'yes' : 'no';
+		loc = (loc) ? 'yes' : 'no';
+		status = (status) ? 'yes' : 'no';
+		options = 'scrollbars='+scroll+',menubar='+menu+',height='+height+',width='+width+',resizable='+resize+',toolbar='+tool+',location='+loc+',status='+status;
+		if (url) {
+			var load = window.open(url,'', options);
+		}
+	}
+</script>
+
+
+
+<div class='wizard-results-header'>
+					<div class='wizard-char wizard-char-old'></div>
+					<div class='wizard-results-text'><p>Searching for: <h3>Vo Codestone</h3></p> <a href="/search.phtml?selected_type=object&string=Vo Codestone"><p>Get details on this item.</p></a></div>
+				</div><div class='wizard-results-grid wizard-results-grid-shop'><ul><li class='wizard-results-grid-header'>
+				<h3>Shop Owner</h3>
+				<!--<td class="contentModuleHeaderAlt">Item</td>-->
+				<h3>Stock</h3><h3>Price</h3></li><li><a href="/browseshop.phtml?owner=shopper001&buy_obj_info_id=7461&buy_cost_neopoints=3900">shopper001</a><p>9</p><div class='wizard-results-price'>3,900 NP</div></li><li><a href="/browseshop.phtml?owner=shopper002&buy_obj_info_id=7461&buy_cost_neopoints=4000">shopper002</a><p>13</p><div class='wizard-results-price'>4,000 NP</div></li><li><a href="/browseshop.phtml?owner=shopper003&buy_obj_info_id=7461&buy_cost_neopoints=4000">shopper003</a><p>10</p><div class='wizard-results-price'>4,000 NP</div></li><li><a href="/browseshop.phtml?owner=shopper004&buy_obj_info_id=7461&buy_cost_neopoints=4150">shopper004</a><p>3</p><div class='wizard-results-price'>4,150 NP</div></li><li><a href="/browseshop.phtml?owner=shopper005&buy_obj_info_id=7461&buy_cost_neopoints=4198">shopper005</a><p>54</p><div class='wizard-results-price'>4,198 NP</div></li><li><a href="/browseshop.phtml?owner=shopper006&buy_obj_info_id=7461&buy_cost_neopoints=4367">shopper006</a><p>55</p><div class='wizard-results-price'>4,367 NP</div></li><li><a href="/browseshop.phtml?owner=shopper007&buy_obj_info_id=7461&buy_cost_neopoints=4476">shopper007</a><p>5</p><div class='wizard-results-price'>4,476 NP</div></li><li><a href="/browseshop.phtml?owner=shopper008&buy_obj_info_id=7461&buy_cost_neopoints=4500">shopper008</a><p>5</p><div class='wizard-results-price'>4,500 NP</div></li><li><a href="/browseshop.phtml?owner=shopper009&buy_obj_info_id=7461&buy_cost_neopoints=4500">shopper009</a><p>1</p><div class='wizard-results-price'>4,500 NP</div></li><li><a href="/browseshop.phtml?owner=shopper010&buy_obj_info_id=7461&buy_cost_neopoints=4500">shopper010</a><p>1</p><div class='wizard-results-price'>4,500 NP</div></li><li><a href="/browseshop.phtml?owner=shopper011&buy_obj_info_id=7461&buy_cost_neopoints=4630">shopper011</a><p>3</p><div class='wizard-results-price'>4,630 NP</div></li><li><a href="/browseshop.phtml?owner=shopper012&buy_obj_info_id=7461&buy_cost_neopoints=4700">shopper012</a><p>1</p><div class='wizard-results-price'>4,700 NP</div></li><li><a href="/browseshop.phtml?owner=shopper013&buy_obj_info_id=7461&buy_cost_neopoints=4795">shopper013</a><p>20</p><div class='wizard-results-price'>4,795 NP</div></li><li><a href="/browseshop.phtml?owner=shopper014&buy_obj_info_id=7461&buy_cost_neopoints=4799">shopper014</a><p>5</p><div class='wizard-results-price'>4,799 NP</div></li><li><a href="/browseshop.phtml?owner=shopper015&buy_obj_info_id=7461&buy_cost_neopoints=4888">shopper015</a><p>26</p><div class='wizard-results-price'>4,888 NP</div></li><li><a href="/browseshop.phtml?owner=shopper016&buy_obj_info_id=7461&buy_cost_neopoints=4900">shopper016</a><p>8</p><div class='wizard-results-price'>4,900 NP</div></li><li><a href="/browseshop.phtml?owner=shopper017&buy_obj_info_id=7461&buy_cost_neopoints=4916">shopper017</a><p>1</p><div class='wizard-results-price'>4,916 NP</div></li><li><a href="/browseshop.phtml?owner=shopper018&buy_obj_info_id=7461&buy_cost_neopoints=4990">shopper018</a><p>286</p><div class='wizard-results-price'>4,990 NP</div></li><li><a href="/browseshop.phtml?owner=shopper019&buy_obj_info_id=7461&buy_cost_neopoints=5000">shopper019</a><p>4</p><div class='wizard-results-price'>5,000 NP</div></li><li><a href="/browseshop.phtml?owner=shopper020&buy_obj_info_id=7461&buy_cost_neopoints=5000">shopper020</a><p>12</p><div class='wizard-results-price'>5,000 NP</div></li></ul></div><div class='button-grid2__2020'><form id='wresultform' method='POST'><input type='hidden' name='type' value='process_wizard'><input type='hidden' name='feedset' value='0'><input type='hidden' name='rs_type' value='vo codestone'><input type='hidden' name='rs_min_price' value='1'><input type='hidden' name='rs_max_price' value='999999'><input type='hidden' name='rs_context' value=''><input type='hidden' name='rs_partial' value='exact'><input id='resubmitWizard' class='button-default__2020 button-blue__2020  wizard-button__2020' type='submit' value='Resubmit' data-ajaxgenerated='yes'></form><form action='/shops/wizard.phtml' method='post'><input type=hidden name=table value="market_stock"><input class='button-default__2020 button-blue__2020 wizard-button__2020' type='submit' value='New Search'></form></div>

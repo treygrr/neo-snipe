@@ -128,6 +128,16 @@ The bottom of each price popover has **where to buy it**: Shop Wizard, Trading P
 House, each opening a search for that exact item in a new tab. Those URL shapes are taken verbatim
 from the "Find This Item" links on a Jelly Neo item page rather than written from memory.
 
+The popover's **Wiz** tab runs the regular Shop Wizard. Neopets limits how often you may search,
+so it runs **only when you open that tab** — never on opening a popover — and the result is kept
+for 15 minutes per item, with a "searched 3m ago" note, rather than searching again when you switch
+tabs and back. *Search again* forces a fresh one. Being told to slow down is reported as that,
+rather than as an empty shop list.
+
+Like the SSW it is an endpoint rather than a page, but it answers with an HTML fragment instead of
+JSON, so `wizard.js` parses markup where `ssw.js` reads fields. Both request shapes came from real
+traffic.
+
 The **Super Shop Wizard** has no page you can link to with a query — it is a JSON endpoint the SSW
 interface calls (`/np-templates/views/shops/ssw/ssw_query.php`). So it appears two ways, both
 querying that endpoint from the content script, same-origin with your session:

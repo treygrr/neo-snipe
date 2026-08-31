@@ -7,6 +7,7 @@ import {
 } from '../lib/foodclub.js';
 import { PENDING_KEY } from '../content/foodclub-fill.js';
 import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
+import { WIZARD_URL, wizardBody, parseWizardResponse, WizardError } from '../lib/wizard.js';
 import { collectSettings, toJson, parseExport, applyImport, ImportError } from '../lib/settings-io.js';
 import { getSettings } from '../lib/messages.js';
 import { writeSettings } from '../lib/ext-api.js';
@@ -32,6 +33,9 @@ export const state = reactive({
   ssw: { loading: false, data: null, error: null },
   // The second popover, opened from the item popover's Super Wiz button.
   shops: { open: false, anchor: null },
+  // The regular Shop Wizard. Searches are rate-limited, so this is only ever
+  // filled by clicking its tab, and reused for a while afterwards.
+  wiz: { loading: false, data: null, error: null, at: null },
 
   // Food Club.
   fc: {
@@ -82,6 +86,7 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   state.ssw = { loading: false, data: null, error: null };
   // A different item now, so any open shops popover is about the wrong thing.
   state.shops = { open: false, anchor: null };
+  state.wiz = { loading: false, data: null, error: null, at: null };
   state.refreshing = refresh;
 
   const res = await sendMessage({ type: LOOKUP, item, refresh });
@@ -169,10 +174,63 @@ export function retryShops() {
   loadShops();
 }
 
+// Neopets limits how often you may use the Shop Wizard, so a result is kept
+// and reused rather than searched again for the same item.
+const WIZ_CACHE_MS = 15 * 60 * 1000;
+const wizCache = new Map();
+
+export async function loadWizard({ force = false } = {}) {
+  if (state.wiz.loading) return;
+
+  const name = state.data?.name;
+  if (!name) return;
+
+  if (!force) {
+    if (state.wiz.data) return;
+    const cached = wizCache.get(name);
+    if (cached && Date.now() - cached.at < WIZ_CACHE_MS) {
+      state.wiz = { loading: false, data: cached.data, error: null, at: cached.at };
+      return;
+    }
+  }
+
+  const id = requestId;
+  state.wiz = { loading: true, data: null, error: null, at: null };
+  try {
+    const res = await fetch(WIZARD_URL, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: wizardBody(name).toString(),
+    });
+    if (!res.ok) throw new WizardError(`Neopets returned ${res.status}.`);
+    const parsed = parseWizardResponse(new DOMParser().parseFromString(await res.text(), 'text/html'));
+    if (id !== requestId) return;
+
+    const at = Date.now();
+    wizCache.set(name, { data: parsed, at });
+    state.wiz = { loading: false, data: parsed, error: null, at };
+  } catch (err) {
+    if (id !== requestId) return;
+    state.wiz = {
+      loading: false,
+      data: null,
+      at: null,
+      error: err instanceof WizardError
+        ? err.message
+        : 'Could not reach the Shop Wizard. Are you logged in to Neopets?',
+    };
+  }
+}
+
+export const retryWizard = () => loadWizard({ force: true });
+
 export function selectTab(tab) {
   state.tab = tab;
   if (tab === 'tp') loadTradingPost();
   if (tab === 'shops') loadShops();
+  // Only on click: opening a popover must never spend a search.
+  if (tab === 'wiz') loadWizard();
 }
 
 export function retryTradingPost() {
