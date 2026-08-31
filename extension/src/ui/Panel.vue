@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { mdiClose, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove } from '@mdi/js';
 import {
   state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily, loadFoodClub,
-  moveFavourite,
+  moveFavourite, moveDailyFavourite,
 } from './store.js';
 import FoodClub from './FoodClub.vue';
 import { DAILIES } from '../lib/dailies.js';
@@ -32,35 +32,45 @@ function open(event, favourite) {
   openFavourite(event.currentTarget, favourite);
 }
 
-// --- reordering favourites by dragging -------------------------------------
+// --- reordering by dragging -------------------------------------------------
+// Shared by both lists. `kind` keeps a drag from one list dropping into the
+// other, which would otherwise reorder the wrong thing.
 const dragging = ref(null);
 const dragOver = ref(null);
+const dragKind = ref(null);
 
-function onDragStart(event, index) {
+const MOVERS = { fav: moveFavourite, daily: moveDailyFavourite };
+
+function onDragStart(event, index, kind) {
   dragging.value = index;
+  dragKind.value = kind;
   event.dataTransfer.effectAllowed = 'move';
   // Firefox refuses to start a drag without data set.
   event.dataTransfer.setData('text/plain', String(index));
 }
 
-function onDragOver(event, index) {
-  if (dragging.value === null) return;
+function onDragOver(event, index, kind) {
+  if (dragging.value === null || dragKind.value !== kind) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
   dragOver.value = index;
 }
 
-async function onDrop(index) {
+async function onDrop(index, kind) {
   const from = dragging.value;
-  dragging.value = null;
-  dragOver.value = null;
-  if (from !== null) await moveFavourite(from, index);
+  const wasKind = dragKind.value;
+  onDragEnd();
+  if (from !== null && wasKind === kind) await MOVERS[kind](from, index);
 }
 
 function onDragEnd() {
   dragging.value = null;
   dragOver.value = null;
+  dragKind.value = null;
 }
+
+const isDragging = (i, kind) => dragging.value === i && dragKind.value === kind;
+const isDragOver = (i, kind) => dragOver.value === i && dragKind.value === kind && dragging.value !== i;
 
 </script>
 
@@ -96,17 +106,17 @@ function onDragEnd() {
               :key="fav.name + (fav.imageHash || '')"
               class="ns-fav"
               :class="{
-                'ns-fav--dragging': dragging === i,
-                'ns-fav--over': dragOver === i && dragging !== i,
+                'ns-fav--dragging': isDragging(i, 'fav'),
+                'ns-fav--over': isDragOver(i, 'fav'),
               }"
               role="button"
               tabindex="0"
               draggable="true"
               @click="open($event, fav)"
               @keyup.enter="open($event, fav)"
-              @dragstart="onDragStart($event, i)"
-              @dragover="onDragOver($event, i)"
-              @drop.prevent="onDrop(i)"
+              @dragstart="onDragStart($event, i, 'fav')"
+              @dragover="onDragOver($event, i, 'fav')"
+              @drop.prevent="onDrop(i, 'fav')"
               @dragend="onDragEnd"
             >
               <span class="ns-fav-grip" aria-hidden="true">⠿</span>
@@ -152,7 +162,22 @@ function onDragEnd() {
             </button>
 
             <div v-show="openGroups.has(group.title)" class="ns-group-body">
-              <div v-for="item in group.items" :key="item.url" class="ns-daily-row">
+              <div
+                v-for="(item, i) in group.items"
+                :key="item.url"
+                class="ns-daily-row"
+                :class="{
+                  'ns-daily-row--pinned': group.title === FAVOURITES_GROUP,
+                  'ns-fav--dragging': group.title === FAVOURITES_GROUP && isDragging(i, 'daily'),
+                  'ns-fav--over': group.title === FAVOURITES_GROUP && isDragOver(i, 'daily'),
+                }"
+                :draggable="group.title === FAVOURITES_GROUP"
+                @dragstart="onDragStart($event, i, 'daily')"
+                @dragover="onDragOver($event, i, 'daily')"
+                @drop.prevent="onDrop(i, 'daily')"
+                @dragend="onDragEnd"
+              >
+                <span v-if="group.title === FAVOURITES_GROUP" class="ns-fav-grip" aria-hidden="true">⠿</span>
                 <a :href="item.url" target="_blank" rel="noopener" class="ns-daily">{{ item.label }}</a>
                 <v-btn
                   :icon="isDailyFavourite(item.url) ? mdiHeart : mdiHeartOutline"
@@ -249,6 +274,11 @@ function onDragEnd() {
 .ns-group-body { padding-bottom: 4px; }
 
 .ns-daily-row { display: flex; align-items: center; }
+/* Pinned rows can be dragged to reorder, so they get the grip and less indent. */
+.ns-daily-row--pinned { padding-left: 8px; }
+.ns-daily-row--pinned .ns-daily { padding-left: 4px; }
+.ns-daily-row--pinned .ns-fav-grip { cursor: grab; }
+.ns-daily-row--pinned:hover .ns-fav-grip { opacity: .35; }
 .ns-daily-row:hover { background: rgba(0, 0, 0, .04); }
 .ns-daily {
   flex: 1 1 auto; min-width: 0; display: block;

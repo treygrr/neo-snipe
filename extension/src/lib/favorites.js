@@ -87,6 +87,12 @@ export async function listDailyFavourites() {
   }
 }
 
+/** Persists a whole list, which is what reordering needs. */
+export async function saveDailyFavourites(list) {
+  await api.storage.local.set({ [DAILY_KEY]: plain(list) });
+  return list;
+}
+
 /** Adds or removes by URL, and returns the new list. */
 export async function toggleDailyFavourite({ label, url }) {
   const current = await listDailyFavourites();

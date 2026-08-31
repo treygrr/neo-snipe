@@ -1,8 +1,14 @@
 // Quick links to Neopets dailies.
 //
-// Every URL here was taken verbatim from Jelly Neo's dailies guide
-// (https://www.jellyneo.net/?go=dailies) rather than written from memory, and
-// the list is regenerated from that page rather than hand-edited.
+// Every URL here was taken verbatim from a published dailies guide rather than
+// written from memory, and generated from those pages rather than hand-typed:
+//   https://www.jellyneo.net/?go=dailies
+//   https://thedailyneopets.com/dailies
+//
+// The second is curated: that page also lists its own games nav and site
+// sections, which are not dailies. Where the two disagreed — TDN gives the Lab
+// Ray as lab2.phtml, Jelly Neo as lab.phtml — lab2.phtml redirects to
+// destination=/lab.phtml, so the latter is canonical.
 export const DAILIES = [
   {
     title: "Money makers",
@@ -35,7 +41,15 @@ export const DAILIES = [
       { label: "Soup Kitchen", url: "https://www.neopets.com/soupkitchen.phtml" },
       { label: "Rich Slorg", url: "https://www.neopets.com/shop_of_offers.phtml?slorg_payout=yes" },
       { label: "Second-Hand Shoppe", url: "https://www.neopets.com/thriftshoppe/index.phtml" },
-      { label: "Rubbish Dump", url: "https://www.neopets.com/medieval/rubbishdump.phtml" }
+      { label: "Rubbish Dump", url: "https://www.neopets.com/medieval/rubbishdump.phtml" },
+      { label: "Snowager", url: "https://www.neopets.com/winter/snowager.phtml" },
+      { label: "Wishing Well", url: "https://www.neopets.com/wishing.phtml" },
+      { label: "Igloo Garage Sale", url: "https://www.neopets.com/winter/igloo.phtml" },
+      { label: "Almost Abandoned Attic", url: "https://www.neopets.com/halloween/garage.phtml" },
+      { label: "Tarla's Shop of Mystery", url: "https://www.neopets.com/winter/shopofmystery.phtml" },
+      { label: "The Neggery", url: "https://www.neopets.com/winter/neggery.phtml" },
+      { label: "Toy Repair Shop", url: "https://www.neopets.com/winter/brokentoys.phtml" },
+      { label: "Smuggler's Cove", url: "https://www.neopets.com/pirates/smugglerscove.phtml" }
     ],
   },
   {
@@ -49,7 +63,20 @@ export const DAILIES = [
       { label: "Scratchcard \u2014 Desert", url: "https://www.neopets.com/desert/sc/kiosk.phtml" },
       { label: "Scratchcard \u2014 Haunted", url: "https://www.neopets.com/halloween/scratch.phtml" },
       { label: "Scratchcard \u2014 Ice Caves", url: "https://www.neopets.com/winter/kiosk.phtml" },
-      { label: "Faerie Caverns", url: "https://www.neopets.com/faerieland/caverns/index.phtml" }
+      { label: "Faerie Caverns", url: "https://www.neopets.com/faerieland/caverns/index.phtml" },
+      { label: "Bagatelle", url: "https://www.neopets.com/halloween/bagatelle.phtml" },
+      { label: "Coconut Shy", url: "https://www.neopets.com/halloween/coconutshy.phtml" },
+      { label: "Cork Gun Gallery", url: "https://www.neopets.com/halloween/corkgun.phtml" },
+      { label: "Test Your Strength", url: "https://www.neopets.com/halloween/strtest/index.phtml" },
+      { label: "Grarrl Keno", url: "https://www.neopets.com/prehistoric/keno.phtml" },
+      { label: "Gormball", url: "https://www.neopets.com/space/gormball.phtml" },
+      { label: "Scorchy Slots", url: "https://www.neopets.com/games/slots.phtml" },
+      { label: "Neopian Lottery", url: "https://www.neopets.com/games/lottery.phtml" },
+      { label: "Merry Go Round", url: "https://www.neopets.com/worlds/roo/merrygoround.phtml" },
+      { label: "Cheeseroller", url: "https://www.neopets.com/medieval/cheeseroller.phtml" },
+      { label: "Kiss the Mortog", url: "https://www.neopets.com/medieval/kissthemortog.phtml" },
+      { label: "Turdle Racing", url: "https://www.neopets.com/medieval/turdleracing.phtml" },
+      { label: "x2 or Nothing", url: "https://www.neopets.com/medieval/doubleornothing.phtml" }
     ],
   },
   {
@@ -80,7 +107,22 @@ export const DAILIES = [
       { label: "Faerie Crossword", url: "https://www.neopets.com/games/crossword/index.phtml" },
       { label: "Daily Puzzle", url: "https://www.neopets.com/community/" },
       { label: "Blue Grundo Plushie", url: "https://www.neopets.com/faerieland/tdmbgpop.phtml" },
-      { label: "Quest Log", url: "https://www.neopets.com/questlog/" }
+      { label: "Quest Log", url: "https://www.neopets.com/questlog/" },
+      { label: "Alien Aisha Vending Machine", url: "https://www.neopets.com/vending.phtml" },
+      { label: "Turmaculus", url: "https://www.neopets.com/medieval/turmaculus.phtml" },
+      { label: "Island Mystic", url: "https://www.neopets.com/island/mystichut.phtml" },
+      { label: "Lever of Doom", url: "https://www.neopets.com/space/strangelever.phtml" },
+      { label: "NeoCola Machine", url: "https://www.neopets.com/moon/neocola.phtml" },
+      { label: "Magma Pool", url: "https://www.neopets.com/magma/pool.phtml" },
+      { label: "Tangor's Workshop", url: "https://www.neopets.com/magma/workshop.phtml" },
+      { label: "The Coincidence", url: "https://www.neopets.com/magma/portal/ship.phtml" },
+      { label: "Qasalan Expellibox", url: "https://www.neopets.com/games/giveaway/giveaway_game.phtml" },
+      { label: "Pick Your Own", url: "https://www.neopets.com/medieval/pickyourown_index.phtml" },
+      { label: "Tiki Tours", url: "https://www.neopets.com/island/tikitours.phtml" },
+      { label: "Gourmet Club", url: "https://www.neopets.com/gourmet_club.phtml" },
+      { label: "Buried Treasure", url: "https://www.neopets.com/pirates/buriedtreasure/index.phtml" },
+      { label: "The Kadoatery", url: "https://www.neopets.com/games/kadoatery/index.phtml" },
+      { label: "Neolodge", url: "https://www.neopets.com/neolodge.phtml" }
     ],
   },
   {
@@ -88,6 +130,26 @@ export const DAILIES = [
     items: [
       { label: "Lab Ray", url: "https://www.neopets.com/lab.phtml" },
       { label: "Petpet Lab Ray", url: "https://www.neopets.com/petpetlab.phtml" }
+    ],
+  },
+  {
+    title: "Training",
+    items: [
+      { label: "Mystery Island Training", url: "https://www.neopets.com/island/training.phtml" },
+      { label: "Ninja Training School", url: "https://www.neopets.com/island/fight_training.phtml" },
+      { label: "Pirate Academy", url: "https://www.neopets.com/pirates/academy.phtml" },
+      { label: "Employment Agency", url: "https://www.neopets.com/faerieland/employ/employment.phtml" }
+    ],
+  },
+  {
+    title: "Contests",
+    items: [
+      { label: "Lenny Conundrum", url: "https://www.neopets.com/games/conundrum.phtml" },
+      { label: "Mystery Pic", url: "https://www.neopets.com/games/mysterypic.phtml" },
+      { label: "Cliffhanger", url: "https://www.neopets.com/games/cliffhanger/cliffhanger.phtml" },
+      { label: "Caption Competition", url: "https://www.neopets.com/games/new_caption.phtml" },
+      { label: "Story Telling", url: "https://www.neopets.com/art/storytell.phtml" },
+      { label: "Better Than You", url: "https://www.neopets.com/games/betterthanyou.phtml" }
     ],
   },
   {

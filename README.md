@@ -128,11 +128,17 @@ with two tabs:
   reorder them. Opening a favourite **always re-fetches**, ignoring the cache: a saved item is one
   you are watching, so a day-old price is the wrong answer. It uses the same popover as a badge
   click.
-- **Dailies** — grouped quick links: food club, the bargain stocks list, all seven wheels, free
-  stuff, games of chance, the daily prize spots, both lab rays and the quest givers. Groups collapse, with a
-  chevron showing their state. Hovering a daily reveals a ♥ — favourited ones are pinned to a
-  group at the top of the list, while staying in their original group so the list does not
-  reshuffle under you as you star things.
+- **Dailies** — 110 quick links in nine groups: money makers, all seven wheels, free stuff, games
+  of chance, the daily prize spots, both lab rays, training schools, contests and the quest givers.
+  Groups collapse, with a chevron showing their state. Hovering a daily reveals a ♥ — favourited
+  ones are pinned to a group at the top, draggable to reorder, while staying in their original
+  group so the list does not reshuffle under you as you star things.
+
+  Every URL is taken verbatim from a published guide — [Jelly Neo's](https://www.jellyneo.net/?go=dailies)
+  and [The Daily Neopets'](https://thedailyneopets.com/dailies) — and generated from those pages
+  rather than typed. The second is curated, since it also lists its own games nav and site sections.
+  Where they disagreed, the conflict was resolved by checking: TDN gives the Lab Ray as
+  `lab2.phtml`, Jelly Neo as `lab.phtml`, and `lab2.phtml` redirects to `destination=/lab.phtml`.
 
 Every daily URL is taken verbatim from [Jelly Neo's dailies guide](https://www.jellyneo.net/?go=dailies)
 and `src/lib/dailies.js` is generated from that page rather than written from memory — the same

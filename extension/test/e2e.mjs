@@ -272,6 +272,15 @@ await page.mouse.move(0, 0);
  * Opens the panel if it is not already open. Toggling blindly makes each
  * section depend on what the last one left behind, which has bitten twice.
  */
+const reopenPanel = async () => {
+  // Opening is what reloads favourites from storage, so a test that writes
+  // storage directly has to close the panel first for the change to show.
+  const open = await page.evaluate(() => !!document.querySelector('[data-neosnipe="popover-host"]')
+    ?.shadowRoot?.querySelector('.ns-panel'));
+  if (open) { await page.locator('.neosnipe-launcher').click(); await page.waitForTimeout(300); }
+  await ensurePanelOpen();
+};
+
 const ensurePanelOpen = async () => {
   await page.keyboard.press('Escape'); // any popover covering the bar
   await page.waitForTimeout(300);
@@ -462,6 +471,49 @@ await inShadow((root) => {
 await page.waitForTimeout(400);
 check('unfavouriting removes the pinned group',
   await inShadow((root) => root.querySelector('.ns-group .ns-group-title').textContent.trim()) !== 'Favourites');
+
+// Pinned dailies reorder by dragging, like item favourites.
+await opts.evaluate(() => chrome.storage.local.set({
+  dailyFavorites: [
+    { label: 'First Daily', url: 'https://www.neopets.com/wishing.phtml' },
+    { label: 'Second Daily', url: 'https://www.neopets.com/neolodge.phtml' },
+  ],
+}));
+await reopenPanel();
+await inShadow((root) => {
+  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /dailies/i.test(t.textContent)).click();
+});
+await page.waitForTimeout(400);
+
+const pinnedBefore = await inShadow((root) =>
+  [...root.querySelectorAll('.ns-group--pinned .ns-daily')].map((a) => a.textContent.trim()));
+check('two pinned dailies are listed in order',
+  pinnedBefore.join(',') === 'First Daily,Second Daily', JSON.stringify(pinnedBefore));
+
+check('only pinned dailies are draggable', await inShadow((root) => {
+  const pinned = root.querySelector('.ns-group--pinned .ns-daily-row');
+  const other = [...root.querySelectorAll('.ns-daily-row')]
+    .find((r) => !r.closest('.ns-group--pinned'));
+  return pinned.getAttribute('draggable') === 'true' && other.getAttribute('draggable') === 'false';
+}));
+
+await page.locator('.ns-group--pinned .ns-daily-row').first()
+  .dragTo(page.locator('.ns-group--pinned .ns-daily-row').nth(1));
+await page.waitForTimeout(600);
+
+const pinnedAfter = await inShadow((root) =>
+  [...root.querySelectorAll('.ns-group--pinned .ns-daily')].map((a) => a.textContent.trim()));
+check('dragging reorders the pinned dailies',
+  pinnedAfter.join(',') === 'Second Daily,First Daily', JSON.stringify(pinnedAfter));
+
+const storedDailies = await opts.evaluate(() => chrome.storage.local.get('dailyFavorites'));
+check('the pinned order is persisted',
+  (storedDailies.dailyFavorites || []).map((d) => d.label).join(',') === 'Second Daily,First Daily',
+  JSON.stringify((storedDailies.dailyFavorites || []).map((d) => d.label)));
+
+// Reset for the checks below.
+await opts.evaluate(() => chrome.storage.local.remove('dailyFavorites'));
+
 check('every daily link points at neopets.com', dailies.allNeopets);
 check('food club and bargain stocks are there',
   dailies.hasFoodClub && dailies.hasBargainStocks);
@@ -475,6 +527,28 @@ const labs = await inShadow((root) => {
     petpet: links.find((a) => /petpet lab/i.test(a.textContent.trim()))?.href,
   };
 });
+check('the list grew with the second guide',
+  dailies.shown > 90 && dailies.groups >= 9, `${dailies.shown} links in ${dailies.groups} groups`);
+
+const newer = await inShadow((root) => {
+  const links = [...root.querySelectorAll('.ns-daily')];
+  const by = (name) => links.find((a) => a.textContent.trim() === name)?.href;
+  return {
+    snowager: by('Snowager'),
+    turmaculus: by('Turmaculus'),
+    coincidence: by('The Coincidence'),
+    training: [...root.querySelectorAll('.ns-group-title')].map((t) => t.textContent.trim()),
+  };
+});
+check('dailies from the second guide are present',
+  newer.snowager === 'https://www.neopets.com/winter/snowager.phtml'
+  && newer.turmaculus === 'https://www.neopets.com/medieval/turmaculus.phtml'
+  && newer.coincidence === 'https://www.neopets.com/magma/portal/ship.phtml',
+  JSON.stringify(newer.snowager));
+check('the new Training and Contests groups exist',
+  newer.training.includes('Training') && newer.training.includes('Contests'),
+  JSON.stringify(newer.training));
+
 check('both labs are listed',
   labs.group && labs.lab === 'https://www.neopets.com/lab.phtml'
   && labs.petpet === 'https://www.neopets.com/petpetlab.phtml', JSON.stringify(labs));

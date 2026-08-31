@@ -8,7 +8,7 @@ import {
 import { PENDING_KEY } from '../content/foodclub-fill.js';
 import {
   listFavourites, toggleFavourite, favouriteId, saveFavourites,
-  listDailyFavourites, toggleDailyFavourite,
+  listDailyFavourites, toggleDailyFavourite, saveDailyFavourites,
   listDoneBets, setDoneBets,
 } from '../lib/favorites.js';
 
@@ -291,14 +291,28 @@ export const placeBet = (bet) => fillBet(bet, { submit: true });
 
 // --- reordering favourites -------------------------------------------------
 
-/** Moves a favourite and persists the new order. */
+const reorder = (list, from, to) => {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return null;
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+};
+
+/** Moves an item favourite and persists the new order. */
 export async function moveFavourite(from, to) {
-  const list = [...state.favourites];
-  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
-  const [moved] = list.splice(from, 1);
-  list.splice(to, 0, moved);
-  state.favourites = list;
-  await saveFavourites(list);
+  const next = reorder(state.favourites, from, to);
+  if (!next) return;
+  state.favourites = next;
+  await saveFavourites(next);
+}
+
+/** Same, for the favourited dailies pinned at the top of that tab. */
+export async function moveDailyFavourite(from, to) {
+  const next = reorder(state.dailyFavourites, from, to);
+  if (!next) return;
+  state.dailyFavourites = next;
+  await saveDailyFavourites(next);
 }
 
 export { RISK_LEVELS, BET_URL, SETS_URL };
