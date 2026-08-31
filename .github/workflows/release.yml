@@ -32,10 +32,12 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Parsing and detection tests
+      - name: Unit tests
         run: |
           npm run test:jellyneo
           npm run test:detect
+          npm run test:foodclub
+          npm run test:foodclub-fill
 
       # The Chrome check loads a real extension, which needs a headed browser
       # (--headless=new); xvfb keeps that working on a runner with no display.
