@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { mdiRefresh } from '@mdi/js';
 import { searchesFor } from '../lib/neopets-search.js';
-import { state, retry, close } from './store.js';
+import { state, retry, close, openShops } from './store.js';
 import PriceCard from './PriceCard.vue';
 import HistoryTabs from './HistoryTabs.vue';
 
@@ -58,6 +58,16 @@ const open = computed({
             class="ns-search-btn"
             :title="s.title"
           >{{ s.label }}</a>
+
+          <!-- Not a link: the SSW is a JSON endpoint, so this opens a popover
+               with the results rather than navigating anywhere. -->
+          <button
+            type="button"
+            class="ns-search-btn ns-search-btn--ssw"
+            :class="{ 'ns-search-btn--on': state.shops.open }"
+            title="Search the Super Shop Wizard and show the results here"
+            @click="openShops($event.currentTarget)"
+          >Super Wiz</button>
         </div>
 
         <!-- The title links to Jelly Neo and the heart sits beside it, so the
@@ -89,6 +99,10 @@ const open = computed({
   white-space: nowrap;
 }
 .ns-search-btn:hover { background: #dfe9fd; border-color: #a9c3f7; }
-.ns-search-btn--premium { color: #7a4c04; background: #fff5dd; border-color: #f0d79a; }
-.ns-search-btn--premium:hover { background: #ffeec4; border-color: #e5c273; }
+.ns-search-btn--ssw {
+  color: #7a4c04; background: #fff5dd; border-color: #f0d79a;
+  font: inherit; font-size: 10.5px; font-weight: 600; cursor: pointer;
+}
+.ns-search-btn--ssw:hover { background: #ffeec4; border-color: #e5c273; }
+.ns-search-btn--on { background: #f7b731; border-color: #d2870f; color: #4a2d02; }
 </style>

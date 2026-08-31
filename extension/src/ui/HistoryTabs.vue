@@ -1,14 +1,13 @@
 <script setup>
 import { computed } from 'vue';
-import { state, selectTab, retryTradingPost, retryShops } from './store.js';
+import { state, selectTab, retryTradingPost } from './store.js';
+import ShopsList from './ShopsList.vue';
 
 const props = defineProps({ data: { type: Object, required: true } });
 
 const np = (n) => (n === null || n === undefined ? '—' : `${n.toLocaleString('en-US')} NP`);
 const priceHistory = computed(() => (props.data.history || []).filter((h) => h.date));
 const lots = computed(() => state.tp.data?.lots || []);
-// The cheapest handful is what anyone actually wants; the rest is scrolling.
-const shops = computed(() => (state.ssw.data?.listings || []).slice(0, 25));
 </script>
 
 <template>
@@ -48,38 +47,8 @@ const shops = computed(() => (state.ssw.data?.listings || []).slice(0, 25));
         <p v-else class="ns-empty">No price history.</p>
       </template>
 
-      <!-- Super Shop Wizard: live listings, cheapest first -->
-      <template v-else-if="state.tab === 'shops'">
-        <div v-if="state.ssw.loading" class="ns-tp-loading">
-          <v-progress-circular indeterminate size="22" width="2" />
-          <span>Asking the Super Shop Wizard…</span>
-        </div>
-
-        <v-alert v-else-if="state.ssw.error" type="warning" variant="tonal" density="compact" class="ns-tp-error">
-          <div>{{ state.ssw.error }}</div>
-          <v-btn size="x-small" variant="text" class="mt-1" @click="retryShops">Retry</v-btn>
-        </v-alert>
-
-        <template v-else-if="state.ssw.data">
-          <div class="ns-tp-stats">
-            <span>{{ state.ssw.data.rowCount.toLocaleString('en-US') }} shops</span>
-            <span v-if="shops.length">cheapest {{ shops[0].priceText }}</span>
-          </div>
-          <v-table v-if="shops.length" density="compact" class="ns-rows">
-            <tbody>
-              <tr v-for="s in shops" :key="s.owner + s.price">
-                <td class="ns-shop-owner">
-                  <a v-if="s.href" :href="s.href" target="_blank" rel="noopener">{{ s.owner }}</a>
-                  <span v-else>{{ s.owner }}</span>
-                </td>
-                <td class="ns-num">{{ s.priceText }}</td>
-                <td class="ns-num ns-shop-stock">{{ s.amount ? `x${s.amount}` : '' }}</td>
-              </tr>
-            </tbody>
-          </v-table>
-          <p v-else class="ns-empty">No shops are stocking this right now.</p>
-        </template>
-      </template>
+      <!-- Super Shop Wizard: the same list the Shops popover shows -->
+      <ShopsList v-else-if="state.tab === 'shops'" :limit="25" />
 
       <template v-else>
         <div v-if="state.tp.loading" class="ns-tp-loading">

@@ -128,12 +128,18 @@ The bottom of each price popover has **where to buy it**: Shop Wizard, Trading P
 House, each opening a search for that exact item in a new tab. Those URL shapes are taken verbatim
 from the "Find This Item" links on a Jelly Neo item page rather than written from memory.
 
-The **Super Shop Wizard is a tab, not a button**, because it has no page you can link to with a
-query — it is a JSON endpoint the SSW interface calls
-(`/np-templates/views/shops/ssw/ssw_query.php`). The Shops tab queries it from the content script,
-same-origin with your session, and lists the cheapest shops with stock counts, each linking
-straight into that shop with the item selected. Premium is not detected or configured: the
-endpoint's own `error` field says whether it will answer, and that message is shown as-is.
+The **Super Shop Wizard** has no page you can link to with a query — it is a JSON endpoint the SSW
+interface calls (`/np-templates/views/shops/ssw/ssw_query.php`). So it appears two ways, both
+querying that endpoint from the content script, same-origin with your session:
+
+- the **Shops tab**, alongside price and trading post history;
+- a **Super Wiz button** beside the search buttons, which opens a second popover next to the item
+  card with more rows and the item card still visible behind it.
+
+Both render `ShopsList.vue` and share one `state.ssw`, so opening one after the other costs no
+second request. Rows are listed cheapest first with stock counts, each linking straight into that
+shop with the item selected. Premium is not detected or configured: the endpoint's own `error`
+field says whether it will answer, and that message is shown as-is.
 
 - **Favourites** — click the ♥ on any item's price popover to save it here, and drag the rows to
   reorder them. Opening a favourite **always re-fetches**, ignoring the cache: a saved item is one

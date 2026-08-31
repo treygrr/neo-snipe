@@ -25,8 +25,10 @@ export const state = reactive({
   tab: 'price',
   // Trading post history is loaded on demand, the first time its tab is opened.
   tp: { loading: false, data: null, error: null },
-  // Super Shop Wizard, same: only asked for when its tab is opened.
+  // Super Shop Wizard, same: only asked for when its tab or popover is opened.
   ssw: { loading: false, data: null, error: null },
+  // The second popover, opened from the item popover's Super Wiz button.
+  shops: { open: false, anchor: null },
 
   // Food Club.
   fc: {
@@ -71,6 +73,8 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   Object.assign(state, { open: true, anchor, item, data: null, error: null, loading: true, tab: 'price' });
   state.tp = { loading: false, data: null, error: null };
   state.ssw = { loading: false, data: null, error: null };
+  // A different item now, so any open shops popover is about the wrong thing.
+  state.shops = { open: false, anchor: null };
   state.refreshing = refresh;
 
   const res = await sendMessage({ type: LOOKUP, item, refresh });
@@ -139,6 +143,20 @@ export async function loadShops() {
   }
 }
 
+/** Opens the shops popover beside whatever button was clicked. */
+export function openShops(anchor) {
+  if (state.shops.open && state.shops.anchor === anchor) {
+    state.shops.open = false;
+    return;
+  }
+  state.shops = { open: true, anchor };
+  loadShops();
+}
+
+export function closeShops() {
+  state.shops.open = false;
+}
+
 export function retryShops() {
   state.ssw = { loading: false, data: null, error: null };
   loadShops();
@@ -165,6 +183,8 @@ export function retry() {
 
 export function close() {
   state.open = false;
+  // The shops popover belongs to this item, so it goes too.
+  state.shops.open = false;
 }
 
 // --- favourites and the panel ---------------------------------------------

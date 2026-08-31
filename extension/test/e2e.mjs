@@ -386,13 +386,16 @@ check('the title itself links to Jelly Neo',
 // --- where-to-buy buttons at the bottom of the card ------------------------
 const searchRow = await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  const btns = [...root.querySelectorAll('.ns-search-btn')];
+  // Links go somewhere; the SSW is a button because it has no page to go to.
+  const links = [...root.querySelectorAll('a.ns-search-btn')];
+  const buttons = [...root.querySelectorAll('button.ns-search-btn')];
   const card = root.querySelector('.ns-card')?.getBoundingClientRect();
   const row = root.querySelector('.ns-search')?.getBoundingClientRect();
   return {
-    labels: btns.map((b) => b.textContent.trim()),
-    hrefs: btns.map((b) => b.href),
-    targets: btns.map((b) => b.target),
+    labels: links.map((b) => b.textContent.trim()),
+    hrefs: links.map((b) => b.href),
+    targets: links.map((b) => b.target),
+    buttons: buttons.map((b) => b.textContent.trim()),
     belowTheCard: card && row ? row.top >= card.top : null,
   };
 });
@@ -407,11 +410,54 @@ check('the searches use the resolved item name',
   searchRow.hrefs.every((h) => h.includes('Faerie+Paint+Brush')));
 check('they open in a new tab', searchRow.targets.every((t) => t === '_blank'));
 check('the row sits at the bottom of the card', searchRow.belowTheCard === true);
-// It has no linkable page, so it is the Shops tab rather than a button here.
-check('the Super Shop Wizard is not one of these buttons',
-  !searchRow.labels.includes('Super Wiz'));
+check('the Super Wiz is a button, not a link', searchRow.buttons.join(',') === 'Super Wiz');
 
+// --- the Super Wiz button opens a second popover ---------------------------
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('button.ns-search-btn').click();
+});
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const card = root.querySelector('.ns-shops-card');
+  return card && !/Asking the Super/.test(card.textContent);
+}, null, { timeout: 15000 }).catch(() => {});
 
+const shopsPopover = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const card = root.querySelector('.ns-shops-card');
+  const rows = card ? [...card.querySelectorAll('.ns-rows tbody tr')] : [];
+  return {
+    open: !!card,
+    title: card?.querySelector('.ns-shops-title')?.textContent.trim(),
+    item: card?.querySelector('.ns-shops-item')?.textContent.trim(),
+    rows: rows.length,
+    firstPrice: rows[0]?.querySelectorAll('td')[1]?.textContent.trim(),
+    firstHref: rows[0]?.querySelector('a')?.href,
+    // Both popovers on screen at once: this one is in addition to the item card.
+    itemStillOpen: !!root.querySelector('.ns-card'),
+  };
+});
+check('Super Wiz opens a second popover with results',
+  shopsPopover.open && shopsPopover.rows > 0 && shopsPopover.firstPrice === '6,750 NP',
+  JSON.stringify({ rows: shopsPopover.rows, first: shopsPopover.firstPrice }));
+check('it names the item it searched for', shopsPopover.item === 'Faerie Paint Brush',
+  shopsPopover.item);
+check('the item popover stays open behind it', shopsPopover.itemStillOpen === true);
+check('its rows link into the shop', /browseshop\.phtml\?owner=/.test(shopsPopover.firstHref || ''),
+  shopsPopover.firstHref);
+check('it shows more rows than the tab does', shopsPopover.rows > 25, `${shopsPopover.rows} rows`);
+
+// Closing it leaves the item popover alone.
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-shops-head .v-btn').click();
+});
+await page.waitForTimeout(400);
+check('closing the shops popover keeps the item popover', await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  return !root.querySelector('.ns-shops-card') && !!root.querySelector('.ns-card');
+}));
 
 check('the old Jelly Neo action button is gone', await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
