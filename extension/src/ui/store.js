@@ -35,8 +35,10 @@ export const state = reactive({
     loadedAt: null,
   },
 
-  // The bottom-right panel.
+  // The panel. `panelAnchor` is 'bottom' when opened from the in-page bar and
+  // 'top' when opened from the toolbar button, so it appears under the button.
   panelOpen: false,
+  panelAnchor: 'bottom',
   panelTab: 'favourites',
   favourites: [],
   dailyFavourites: [],
@@ -171,7 +173,13 @@ export function openFavourite(anchor, favourite) {
 let onPanelChange = null;
 export function watchPanel(fn) { onPanelChange = fn; }
 
-export function togglePanel() {
+export function togglePanel({ anchor = 'bottom' } = {}) {
+  // Re-clicking a different opener moves the panel rather than closing it.
+  if (state.panelOpen && state.panelAnchor !== anchor) {
+    state.panelAnchor = anchor;
+    return;
+  }
+  state.panelAnchor = anchor;
   state.panelOpen = !state.panelOpen;
   if (state.panelOpen) loadFavourites();
   onPanelChange?.(state.panelOpen);

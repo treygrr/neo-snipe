@@ -1,4 +1,4 @@
-import { LOOKUP, TP_LOOKUP } from './lib/messages.js';
+import { LOOKUP, TP_LOOKUP, HELLO, OPEN_PANEL } from './lib/messages.js';
 import { api, hasJellyNeoAccess } from './lib/ext-api.js';
 import { dedupe } from './lib/queue.js';
 import { lookupItem, lookupTradingPost, NotFoundError, ScrapeError } from './lib/jellyneo.js';
@@ -110,7 +110,23 @@ async function tradingPost(itemId) {
   });
 }
 
-api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+// The toolbar button does nothing off Neopets. Rather than take the "tabs"
+// permission to read every tab's URL, the button starts disabled and each
+// content script enables it for its own tab as it loads.
+api.action?.disable?.();
+
+api.action?.onClicked?.addListener((tab) => {
+  if (!tab?.id) return;
+  api.tabs.sendMessage(tab.id, { type: OPEN_PANEL, from: 'toolbar' })
+    .catch(() => { /* no content script here: nothing to open */ });
+});
+
+api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === HELLO) {
+    if (sender.tab?.id != null) api.action?.enable?.(sender.tab.id);
+    sendResponse({ ok: true });
+    return false;
+  }
   if (msg?.type === LOOKUP) {
     lookup(msg.item, { refresh: msg.refresh === true }).then(sendResponse);
     return true; // keep the message channel open for the async response

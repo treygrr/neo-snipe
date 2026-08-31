@@ -566,6 +566,74 @@ check('the pending bet is cleared after filling', cleared.pendingBet === undefin
 await page.goto('https://www.neopets.com/inventory.phtml');
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 
+// --- the toolbar button ------------------------------------------------------
+// It must do nothing away from Neopets. Rather than take the "tabs" permission
+// to read every tab's URL, the button starts disabled and each content script
+// enables it for its own tab — so tabs are identified here by who answers.
+const elsewhere = await ctx.newPage();
+await elsewhere.route('**/*', (r) => r.fulfill({ contentType: 'text/html', body: '<h1>not neopets</h1>' }));
+await elsewhere.goto('https://example.com/');
+await elsewhere.waitForTimeout(500);
+
+const buttonState = await sw.evaluate(async () => {
+  const out = [];
+  for (const t of await chrome.tabs.query({})) {
+    let hasContentScript = false;
+    try { await chrome.tabs.sendMessage(t.id, { type: 'neosnipe:hello' }); hasContentScript = true; }
+    catch { /* no content script here */ }
+    out.push({ id: t.id, hasContentScript, enabled: await chrome.action.isEnabled(t.id) });
+  }
+  return out;
+});
+check('the toolbar button is enabled on Neopets',
+  buttonState.some((t) => t.hasContentScript && t.enabled));
+check('the toolbar button is disabled everywhere else',
+  buttonState.filter((t) => !t.hasContentScript).every((t) => !t.enabled),
+  JSON.stringify(buttonState.map((t) => `${t.hasContentScript ? 'neo' : 'other'}:${t.enabled}`)));
+await elsewhere.close();
+
+// Clicking it opens the panel under the button, at the top right.
+await sw.evaluate(async (tabId) => {
+  await chrome.tabs.sendMessage(tabId, { type: 'neosnipe:open-panel', from: 'toolbar' });
+}, buttonState.find((t) => t.hasContentScript).id);
+await page.waitForTimeout(1200);
+
+const fromToolbar = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const el = root.querySelector('.ns-panel');
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return {
+    anchored: [...el.classList].find((c) => c.startsWith('ns-panel--')),
+    top: Math.round(r.top),
+    fromRight: Math.round(innerWidth - r.right),
+    onScreen: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0,
+  };
+});
+check('the toolbar opens the panel under the button, top right',
+  fromToolbar?.anchored === 'ns-panel--top' && fromToolbar.top < 40
+  && fromToolbar.fromRight < 40 && fromToolbar.onScreen, JSON.stringify(fromToolbar));
+
+// The in-page bar still opens it above itself.
+await page.locator('.neosnipe-launcher').click();
+await page.waitForTimeout(600);
+check('the in-page bar still anchors the panel above itself',
+  await page.evaluate(() => {
+    const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+    return root.querySelector('.ns-panel')?.classList.contains('ns-panel--bottom');
+  }));
+
+check('the launcher shows the app icon', await page.evaluate(() => {
+  const icon = document.querySelector('.neosnipe-launcher-icon');
+  return !!icon && getComputedStyle(icon).backgroundImage.startsWith('url("data:image/svg+xml');
+}));
+
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-panel-head .v-btn')?.click();
+});
+await page.waitForTimeout(300);
+
 // --- hover-only badges -------------------------------------------------------
 // Park the mouse away from the badges first, or the one we just clicked is
 // still in :hover and reads as fully opaque.

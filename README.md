@@ -153,6 +153,11 @@ discipline as the Neopets selectors, and for the same reason.
   filled, rather than being guessed at. The sets come from someone's personal pet page: if they
   change its layout the tab says so instead of showing nothing.
 
+The panel opens two ways: from the bar, where it sits above it, and from the **toolbar button**,
+where it drops under the button at the top right. That button is disabled everywhere except
+Neopets — and rather than take the broad `tabs` permission just to read each tab's URL, it starts
+disabled and each content script enables it for its own tab as it loads.
+
 Like the badges, the bar itself is plain DOM. It appears on every page, so it must not pull in Vue
 or Vuetify; clicking it is what loads the panel.
 

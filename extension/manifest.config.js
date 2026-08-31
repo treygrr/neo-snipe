@@ -22,6 +22,11 @@ export default function makeManifest(target = 'chrome') {
     // what exempts those requests from CORS; content scripts cannot do this.
     host_permissions: ['https://items.jellyneo.net/*'],
     background: { service_worker: 'src/background.js', type: 'module' },
+    // No default_popup: the click opens the panel in the page instead.
+    action: {
+      default_title: 'neo-snipe — favourites, dailies and Food Club',
+      default_icon: { 16: 'icons/icon-16.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' },
+    },
     content_scripts: [
       {
         matches: ['*://*.neopets.com/*'],

@@ -2,6 +2,11 @@ import { readSettings } from './ext-api.js';
 
 export const LOOKUP = 'neosnipe:lookup';
 export const TP_LOOKUP = 'neosnipe:trading-post';
+// The content script announces itself so the toolbar button can be enabled for
+// that tab only — which avoids asking for the broad "tabs" permission just to
+// find out what page a tab is on.
+export const HELLO = 'neosnipe:hello';
+export const OPEN_PANEL = 'neosnipe:open-panel';
 
 export const DEFAULTS = {
   hoverOnly: true,

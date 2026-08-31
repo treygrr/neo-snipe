@@ -2,7 +2,8 @@ import { findItemElements, describeItem, MARK } from './detect.js';
 import { addBadge, setBadgeState } from './badge.js';
 import { addLauncher, setLauncherOpen } from './launcher.js';
 import { applyPendingBet, onBetPage } from './foodclub-fill.js';
-import { getSettings } from '../lib/messages.js';
+import { getSettings, HELLO, OPEN_PANEL } from '../lib/messages.js';
+import { api, sendMessage } from '../lib/ext-api.js';
 
 /**
  * Shared content-script body. `loadUi` differs per browser: Chrome imports the
@@ -26,9 +27,9 @@ export function run(loadUi) {
     return uiPromise;
   }
 
-  async function openPanel() {
+  async function openPanel({ anchor = 'bottom' } = {}) {
     const store = await ui();
-    store.togglePanel();
+    store.togglePanel({ anchor });
   }
 
   async function activate(btn, item) {
@@ -69,6 +70,16 @@ export function run(loadUi) {
   });
 
   addLauncher(() => { openPanel().catch((err) => console.error('[neo-snipe] panel failed', err)); });
+
+  // Tell the worker we are here, so the toolbar button lights up for this tab.
+  sendMessage({ type: HELLO }).catch(() => {});
+
+  api.runtime.onMessage.addListener((msg) => {
+    if (msg?.type !== OPEN_PANEL) return false;
+    // From the toolbar, so drop the panel under the button.
+    openPanel({ anchor: 'top' }).catch((err) => console.error('[neo-snipe] panel failed', err));
+    return false;
+  });
 
   // If the panel sent us here to place a bet, fill the form (never submit it).
   if (onBetPage()) {

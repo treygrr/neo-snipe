@@ -1,7 +1,19 @@
 // The bottom-right bar. Plain DOM for the same reason the badges are: it sits
 // on every Neopets page, so it must not pull in Vue or Vuetify. Clicking it is
 // what loads the panel.
+import iconSvg from '../../icons/icon.svg?raw';
+
 const CLASS = 'neosnipe-launcher';
+
+// The app icon, as a data URI. A data-URI SVG is its own document, so its
+// gradient ids cannot collide with anything Neopets has defined — inlining the
+// markup into the page would risk exactly that.
+//
+// At this size the fine detail turns to mud, the same way it does at 16px, so
+// the same `.detail` hook the icon build uses is switched off here too.
+const ICON_URL = `data:image/svg+xml,${encodeURIComponent(
+  iconSvg.replace('<defs>', '<style>.detail{display:none}</style><defs>'),
+)}`;
 
 const CSS = `
 .${CLASS} {
@@ -17,11 +29,18 @@ const CSS = `
 .${CLASS}:hover, .${CLASS}:focus-visible {
   box-shadow: 0 4px 14px rgba(0,0,0,.24); transform: translateY(-1px);
 }
-.${CLASS}[data-open="1"] { background: #1f6feb; color: #fff; border-color: #1f6feb; }
-.${CLASS} svg { width: 14px; height: 14px; fill: currentColor; }
+.${CLASS}[data-open="1"] {
+  background: #e8f0fe; border-color: #1f6feb; color: #14459c;
+  box-shadow: 0 2px 10px rgba(31,111,235,.35);
+}
+.${CLASS}-icon {
+  width: 20px; height: 20px; flex: 0 0 auto;
+  background: url("${ICON_URL}") center / contain no-repeat;
+  border-radius: 5px;
+}
 `;
 
-const ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3a6.5 6.5 0 0 1 5.25 10.33l5.46 5.46-1.42 1.42-5.46-5.46A6.5 6.5 0 1 1 9.5 3zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z"/></svg>`;
+
 
 let button = null;
 
@@ -36,7 +55,11 @@ export function addLauncher(onActivate) {
   button = document.createElement('button');
   button.type = 'button';
   button.className = CLASS;
-  button.innerHTML = `${ICON}<span>neo-snipe</span>`;
+  const icon = document.createElement('span');
+  icon.className = `${CLASS}-icon`;
+  const label = document.createElement('span');
+  label.textContent = 'neo-snipe';
+  button.append(icon, label);
   button.title = 'neo-snipe — favourites and dailies';
   button.setAttribute('aria-label', button.title);
 

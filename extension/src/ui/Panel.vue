@@ -32,7 +32,7 @@ function open(event, favourite) {
 </script>
 
 <template>
-  <div v-if="state.panelOpen" class="ns-panel">
+  <div v-if="state.panelOpen" class="ns-panel" :class="`ns-panel--${state.panelAnchor}`">
     <v-card class="ns-panel-card" elevation="10">
       <div class="ns-panel-head">
         <span class="ns-panel-title">neo-snipe</span>
@@ -136,9 +136,12 @@ function open(event, favourite) {
      from there put the panel far above the viewport. */
   position: fixed;
   right: 16px;
-  bottom: 58px;
   pointer-events: auto;
 }
+/* Above the in-page bar. */
+.ns-panel--bottom { bottom: 58px; }
+/* Under the toolbar button, which is always at the top right of the window. */
+.ns-panel--top { top: 12px; }
 .ns-panel-card {
   /* 1.5x the original 320px. Capped so it still fits a narrow window. */
   width: 480px;
