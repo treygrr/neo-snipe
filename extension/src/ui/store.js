@@ -1,7 +1,10 @@
 import { reactive } from 'vue';
 import { LOOKUP, TP_LOOKUP, ERROR_TEXT } from '../lib/messages.js';
 import { sendMessage } from '../lib/ext-api.js';
-import { listFavourites, toggleFavourite, favouriteId } from '../lib/favorites.js';
+import {
+  listFavourites, toggleFavourite, favouriteId,
+  listDailyFavourites, toggleDailyFavourite,
+} from '../lib/favorites.js';
 
 // One popover, one piece of state — badges write into this rather than each
 // owning a Vue instance.
@@ -20,6 +23,7 @@ export const state = reactive({
   panelOpen: false,
   panelTab: 'favourites',
   favourites: [],
+  dailyFavourites: [],
   // True while a favourite is being re-fetched, so the popover can say so.
   refreshing: false,
 });
@@ -105,7 +109,17 @@ export function close() {
 // --- favourites and the panel ---------------------------------------------
 
 export async function loadFavourites() {
-  state.favourites = await listFavourites();
+  const [items, dailies] = await Promise.all([listFavourites(), listDailyFavourites()]);
+  state.favourites = items;
+  state.dailyFavourites = dailies;
+}
+
+export function isDailyFavourite(url) {
+  return state.dailyFavourites.some((d) => d.url === url);
+}
+
+export async function toggleDaily(daily) {
+  state.dailyFavourites = await toggleDailyFavourite(daily);
 }
 
 export function isFavourite(item) {

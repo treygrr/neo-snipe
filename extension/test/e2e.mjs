@@ -344,6 +344,84 @@ const dailies = await page.evaluate(() => {
   };
 });
 check('dailies are grouped', dailies.groups >= 5, `${dailies.groups} groups`);
+
+// --- chevrons reflect open/closed, and dailies can be favourited -----------
+const inShadow = (fn, arg) => page.evaluate(([f, a]) => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  // eslint-disable-next-line no-new-func
+  return new Function('root', 'arg', `return (${f})(root, arg)`)(root, a);
+}, [fn.toString(), arg]);
+
+const chevronState = await inShadow((root) => {
+  const heads = [...root.querySelectorAll('.ns-group-head')];
+  return heads.slice(0, 4).map((h) => ({
+    title: h.querySelector('.ns-group-title').textContent.trim(),
+    expanded: h.getAttribute('aria-expanded'),
+    rotated: getComputedStyle(h.querySelector('.ns-chevron')).transform !== 'none',
+    bodyVisible: h.parentElement.querySelector('.ns-group-body').offsetParent !== null,
+  }));
+});
+check('every group head has a chevron', chevronState.every((g) => g.rotated !== undefined));
+check('open groups rotate their chevron and show their body',
+  chevronState.every((g) => (g.expanded === 'true') === g.bodyVisible)
+  && chevronState.some((g) => g.expanded === 'true' && g.rotated)
+  && chevronState.some((g) => g.expanded === 'false' && !g.rotated),
+  JSON.stringify(chevronState.map((g) => `${g.title}:${g.expanded}/${g.rotated ? 'rot' : 'flat'}`)));
+
+// Collapsing a group must flip both the attribute and the chevron.
+const beforeToggle = chevronState.find((g) => g.expanded === 'true').title;
+await inShadow((root, title) => {
+  [...root.querySelectorAll('.ns-group-head')]
+    .find((h) => h.querySelector('.ns-group-title').textContent.trim() === title).click();
+}, beforeToggle);
+await page.waitForTimeout(350);
+const afterToggle = await inShadow((root, title) => {
+  const h = [...root.querySelectorAll('.ns-group-head')]
+    .find((x) => x.querySelector('.ns-group-title').textContent.trim() === title);
+  return {
+    expanded: h.getAttribute('aria-expanded'),
+    rotated: getComputedStyle(h.querySelector('.ns-chevron')).transform !== 'none',
+    bodyVisible: h.parentElement.querySelector('.ns-group-body').offsetParent !== null,
+  };
+}, beforeToggle);
+check('collapsing a group updates chevron and hides the body',
+  afterToggle.expanded === 'false' && !afterToggle.rotated && !afterToggle.bodyVisible,
+  JSON.stringify(afterToggle));
+
+// Favourite a daily.
+const favedDaily = await inShadow((root) => {
+  const row = root.querySelector('.ns-daily-row');
+  const label = row.querySelector('.ns-daily').textContent.trim();
+  row.querySelector('.ns-daily-fav').click();
+  return label;
+});
+await page.waitForTimeout(400);
+const dailyStore = await opts.evaluate(() => chrome.storage.local.get('dailyFavorites'));
+check('a daily can be favourited', (dailyStore.dailyFavorites || []).length === 1,
+  JSON.stringify((dailyStore.dailyFavorites || []).map((d) => d.label)));
+
+const pinned = await inShadow((root) => {
+  const first = root.querySelector('.ns-group');
+  return {
+    title: first.querySelector('.ns-group-title').textContent.trim(),
+    pinnedClass: first.classList.contains('ns-group--pinned'),
+    firstItem: first.querySelector('.ns-daily')?.textContent.trim(),
+    total: root.querySelectorAll('.ns-group').length,
+  };
+});
+check('favourited dailies appear in a pinned group at the top',
+  pinned.title === 'Favourites' && pinned.pinnedClass && pinned.firstItem === favedDaily,
+  JSON.stringify(pinned));
+check('the daily also stays in its original group', pinned.total === dailies.groups + 1,
+  `${pinned.total} groups`);
+
+// Unfavouriting removes the pinned group again.
+await inShadow((root) => {
+  root.querySelector('.ns-group--pinned .ns-daily-fav').click();
+});
+await page.waitForTimeout(400);
+check('unfavouriting removes the pinned group',
+  await inShadow((root) => root.querySelector('.ns-group .ns-group-title').textContent.trim()) !== 'Favourites');
 check('every daily link points at neopets.com', dailies.allNeopets);
 check('food club and bargain stocks are there',
   dailies.hasFoodClub && dailies.hasBargainStocks);

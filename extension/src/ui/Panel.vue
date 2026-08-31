@@ -1,20 +1,33 @@
 <script setup>
-import { ref } from 'vue';
-import { mdiClose, mdiOpenInNew, mdiHeartOutline, mdiHeartRemove, mdiRefresh } from '@mdi/js';
-import { state, closePanel, openFavourite, removeFavouriteAt } from './store.js';
+import { computed, ref } from 'vue';
+import { mdiClose, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove } from '@mdi/js';
+import {
+  state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily,
+} from './store.js';
 import { DAILIES } from '../lib/dailies.js';
 
-const openGroups = ref(new Set(['Money makers', 'Wheels']));
+const FAVOURITES_GROUP = 'Favourites';
+
+const openGroups = ref(new Set([FAVOURITES_GROUP, 'Money makers', 'Wheels']));
 const toggleGroup = (title) => {
   const next = new Set(openGroups.value);
   next.has(title) ? next.delete(title) : next.add(title);
   openGroups.value = next;
 };
 
+// Favourited dailies get pinned to the top, and also stay in their own group
+// so the list does not reshuffle as you star things.
+const dailyGroups = computed(() => (
+  state.dailyFavourites.length
+    ? [{ title: FAVOURITES_GROUP, items: state.dailyFavourites }, ...DAILIES]
+    : DAILIES
+));
+
 // The clicked row is the popover's anchor, so it appears beside the favourite.
 function open(event, favourite) {
   openFavourite(event.currentTarget, favourite);
 }
+
 </script>
 
 <template>
@@ -66,20 +79,43 @@ function open(event, favourite) {
 
         <!-- Dailies -->
         <template v-else>
-          <div v-for="group in DAILIES" :key="group.title" class="ns-group">
-            <button type="button" class="ns-group-head" @click="toggleGroup(group.title)">
-              <span>{{ group.title }}</span>
+          <div
+            v-for="group in dailyGroups"
+            :key="group.title"
+            class="ns-group"
+            :class="{ 'ns-group--pinned': group.title === FAVOURITES_GROUP }"
+          >
+            <button
+              type="button"
+              class="ns-group-head"
+              :aria-expanded="openGroups.has(group.title)"
+              @click="toggleGroup(group.title)"
+            >
+              <v-icon
+                :icon="mdiChevronRight"
+                size="14"
+                class="ns-chevron"
+                :class="{ 'ns-chevron--open': openGroups.has(group.title) }"
+              />
+              <span class="ns-group-title">{{ group.title }}</span>
               <span class="ns-group-count">{{ group.items.length }}</span>
             </button>
+
             <div v-show="openGroups.has(group.title)" class="ns-group-body">
-              <a
-                v-for="item in group.items"
-                :key="item.url"
-                :href="item.url"
-                target="_blank"
-                rel="noopener"
-                class="ns-daily"
-              >{{ item.label }}</a>
+              <div v-for="item in group.items" :key="item.url" class="ns-daily-row">
+                <a :href="item.url" target="_blank" rel="noopener" class="ns-daily">{{ item.label }}</a>
+                <v-btn
+                  :icon="isDailyFavourite(item.url) ? mdiHeart : mdiHeartOutline"
+                  :color="isDailyFavourite(item.url) ? 'red' : undefined"
+                  size="x-small"
+                  variant="text"
+                  class="ns-daily-fav"
+                  :class="{ 'ns-daily-fav--on': isDailyFavourite(item.url) }"
+                  :aria-label="`${isDailyFavourite(item.url) ? 'Unfavourite' : 'Favourite'} ${item.label}`"
+                  :title="isDailyFavourite(item.url) ? 'Remove from favourites' : 'Add to favourites'"
+                  @click.prevent.stop="toggleDaily(item)"
+                />
+              </div>
             </div>
           </div>
         </template>
@@ -129,17 +165,36 @@ function open(event, favourite) {
 .ns-fav:hover .ns-fav-remove, .ns-fav-remove:focus-visible { opacity: .6; }
 
 .ns-group-head {
-  display: flex; align-items: center; justify-content: space-between; width: 100%;
-  padding: 7px 12px; background: none; border: 0; cursor: pointer;
+  display: flex; align-items: center; gap: 4px; width: 100%;
+  padding: 7px 12px 7px 8px; background: none; border: 0; cursor: pointer;
   font: inherit; font-size: 11.5px; font-weight: 600; text-align: left;
   color: inherit; border-top: 1px solid rgba(0, 0, 0, .06);
 }
 .ns-group-head:hover { background: rgba(0, 0, 0, .04); }
+.ns-group-title { flex: 1 1 auto; }
 .ns-group-count { font-size: 10px; opacity: .5; font-weight: 400; }
+
+.ns-chevron { transition: transform .15s ease; opacity: .55; }
+.ns-chevron--open { transform: rotate(90deg); }
+
+.ns-group--pinned .ns-group-head { border-top: 0; }
+.ns-group--pinned + .ns-group .ns-group-head { border-top-width: 2px; }
+
 .ns-group-body { padding-bottom: 4px; }
+
+.ns-daily-row { display: flex; align-items: center; }
+.ns-daily-row:hover { background: rgba(0, 0, 0, .04); }
 .ns-daily {
-  display: block; padding: 4px 12px 4px 22px; font-size: 11.5px;
+  flex: 1 1 auto; min-width: 0; display: block;
+  padding: 4px 4px 4px 26px; font-size: 11.5px;
   color: inherit; text-decoration: none; opacity: .85;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ns-daily:hover { background: rgba(0, 0, 0, .04); opacity: 1; text-decoration: underline; }
+.ns-daily-row:hover .ns-daily { opacity: 1; text-decoration: underline; }
+
+/* Hidden until you go looking, unless it is already on. */
+.ns-daily-fav { opacity: 0; margin-right: 4px; }
+.ns-daily-row:hover .ns-daily-fav,
+.ns-daily-fav:focus-visible,
+.ns-daily-fav--on { opacity: 1; }
 </style>
