@@ -12,10 +12,19 @@ const lots = computed(() => state.tp.data?.lots || []);
 const wizListings = computed(() => state.wiz.data?.listings || []);
 
 // Results are reused rather than re-searched, so say how old they are.
+// The stats line has ~300px at 10px type, so it is one sentence that can
+// ellipsize rather than four chips that wrap onto a second and third row.
+const wizSummary = computed(() => {
+  const shops = state.wiz.data?.listings.length ?? 0;
+  const from = state.wiz.searches > 1 ? ` from ${state.wiz.searches} searches` : '';
+  const cheapest = wizListings.value.length ? ` · cheapest ${wizListings.value[0].priceText}` : '';
+  return `${shops} shops${from}${cheapest}`;
+});
+
 const searchedAgo = computed(() => {
-  if (!state.wiz.at) return '';
+  if (!state.wiz.at) return 'again';
   const mins = Math.floor((Date.now() - state.wiz.at) / 60000);
-  return mins < 1 ? 'just searched' : `searched ${mins}m ago`;
+  return mins < 1 ? 'now' : `${mins}m`;
 });
 </script>
 
@@ -73,16 +82,13 @@ const searchedAgo = computed(() => {
 
         <template v-else-if="state.wiz.data">
           <div class="ns-tp-stats">
-            <span>{{ state.wiz.data.listings.length }} shops</span>
-            <span v-if="state.wiz.searches > 1">from {{ state.wiz.searches }} searches</span>
-            <span v-if="wizListings.length">cheapest {{ wizListings[0].priceText }}</span>
-            <span class="ns-wiz-age">{{ searchedAgo }}</span>
+            <span class="ns-stat-line">{{ wizSummary }}</span>
             <button
               type="button"
               class="ns-research"
-              title="Search again — new shops are added to this list"
+              :title="`Searched ${searchedAgo === 'now' ? 'just now' : searchedAgo + ' ago'} — search again to add any shops this missed`"
               @click="retryWizard"
-            ><v-icon :icon="mdiRefresh" size="12" /> again</button>
+            ><v-icon :icon="mdiRefresh" size="12" /> {{ searchedAgo }}</button>
           </div>
           <v-table v-if="wizListings.length" density="compact" class="ns-rows">
             <tbody>
@@ -173,9 +179,8 @@ const searchedAgo = computed(() => {
 .ns-shop-owner { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
 .ns-shop-owner a { color: inherit; }
 .ns-shop-stock { opacity: .55; font-size: 10px; }
-.ns-wiz-age { margin-left: auto; }
 .ns-research {
-  font: inherit; font-size: 10px; cursor: pointer; color: inherit;
+  flex: none; font: inherit; font-size: 10px; cursor: pointer; color: inherit;
   display: inline-flex; align-items: center; gap: 2px;
   background: none; border: 1px solid rgba(0, 0, 0, .2); border-radius: 4px; padding: 0 5px;
 }
@@ -187,8 +192,13 @@ const searchedAgo = computed(() => {
 }
 
 .ns-tp-stats {
-  display: flex; flex-wrap: wrap; gap: 8px;
+  /* The wizard rows keep to one line via .ns-stat-line below; wrapping is
+     left on for the TP tab, whose three chips have no such line. */
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   font-size: 10px; opacity: .65; padding: 6px 8px 2px;
+}
+.ns-stat-line {
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ns-tp-loading {
   display: flex; flex-direction: column; align-items: center; gap: 8px;

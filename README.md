@@ -177,7 +177,10 @@ result for 15 minutes per item, with an *again* button to force a fresh search.
 The regular wizard returns only about twenty shops, and a different slice each time, so searching
 again **adds** to the list rather than replacing it: one row per shop owner, a shop seen twice
 keeping its newer price, still sorted cheapest first. The header says how many searches the list
-came from. Being told to slow down is reported as that, rather than as an empty shop list.
+came from — as one line that ellipsizes rather than a set of chips, which at 10px in a 340px card
+wrapped onto three rows and pushed the button off on its own. The *again* button doubles as the
+freshness readout, showing `now` or `12m`. Being told to slow down is reported as that, rather than
+as an empty shop list.
 
 Like the SSW it is an endpoint rather than a page, but it answers with an HTML fragment instead of
 JSON, so `wizard.js` parses markup where `ssw.js` reads fields.

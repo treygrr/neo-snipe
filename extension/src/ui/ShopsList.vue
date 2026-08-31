@@ -5,9 +5,9 @@ import { state, retryShops } from './store.js';
 
 // Results are reused rather than re-fetched, so say how old they are.
 const searchedAgo = computed(() => {
-  if (!state.ssw.at) return '';
+  if (!state.ssw.at) return 'again';
   const mins = Math.floor((Date.now() - state.ssw.at) / 60000);
-  return mins < 1 ? 'just now' : `${mins}m ago`;
+  return mins < 1 ? 'now' : `${mins}m`;
 });
 
 const props = defineProps({
@@ -16,6 +16,14 @@ const props = defineProps({
 });
 
 const shops = computed(() => (state.ssw.data?.listings || []).slice(0, props.limit));
+
+// One line that can ellipsize, rather than chips that wrap in a 340px card.
+const summary = computed(() => {
+  const total = state.ssw.data?.rowCount ?? 0;
+  const shown = total > shops.value.length ? ` (showing ${shops.value.length})` : '';
+  const cheapest = shops.value.length ? ` · cheapest ${shops.value[0].priceText}` : '';
+  return `${total.toLocaleString('en-US')} shops${shown}${cheapest}`;
+});
 </script>
 
 <template>
@@ -31,13 +39,13 @@ const shops = computed(() => (state.ssw.data?.listings || []).slice(0, props.lim
 
   <template v-else-if="state.ssw.data">
     <div class="ns-tp-stats">
-      <span>{{ state.ssw.data.rowCount.toLocaleString('en-US') }} shops</span>
-      <span v-if="shops.length">cheapest {{ shops[0].priceText }}</span>
-      <span v-if="state.ssw.data.rowCount > shops.length">showing {{ shops.length }}</span>
-      <span class="ns-more">{{ searchedAgo }}</span>
-      <button type="button" class="ns-research" title="Search again" @click="retryShops">
-        <v-icon :icon="mdiRefresh" size="12" /> again
-      </button>
+      <span class="ns-stat-line">{{ summary }}</span>
+      <button
+        type="button"
+        class="ns-research"
+        :title="`Searched ${searchedAgo === 'now' ? 'just now' : searchedAgo + ' ago'} — search again`"
+        @click="retryShops"
+      ><v-icon :icon="mdiRefresh" size="12" /> {{ searchedAgo }}</button>
     </div>
 
     <v-table v-if="shops.length" density="compact" class="ns-rows">
@@ -63,12 +71,16 @@ const shops = computed(() => (state.ssw.data?.listings || []).slice(0, props.lim
 }
 .ns-tp-error { margin: 8px; font-size: 11px; }
 .ns-tp-stats {
-  display: flex; flex-wrap: wrap; gap: 8px;
+  /* The wizard rows keep to one line via .ns-stat-line below; wrapping is
+     left on for the TP tab, whose three chips have no such line. */
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   font-size: 10px; opacity: .65; padding: 6px 8px 2px;
 }
-.ns-more { margin-left: auto; }
+.ns-stat-line {
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .ns-research {
-  font: inherit; font-size: 10px; cursor: pointer; color: inherit;
+  flex: none; font: inherit; font-size: 10px; cursor: pointer; color: inherit;
   display: inline-flex; align-items: center; gap: 2px;
   background: none; border: 1px solid rgba(0, 0, 0, .2); border-radius: 4px; padding: 0 5px;
 }

@@ -273,6 +273,22 @@ const wiz = await page.evaluate(() => {
   return {
     rows: rows.length,
     stats: root.querySelector('.ns-tab-window .ns-tp-stats')?.textContent.replace(/\s+/g, ' ').trim(),
+    freshness: root.querySelector('.ns-tab-window .ns-research')?.title,
+    // One line, not three. Children are centred and differ in height, so
+    // their tops differ even unwrapped; what marks a single line is that the
+    // whole row is no taller than its tallest child.
+    statsWrapped: (() => {
+      const el = root.querySelector('.ns-tab-window .ns-tp-stats');
+      if (!el) return true;
+      const boxes = [...el.children].map((c) => c.getBoundingClientRect());
+      if (!boxes.length) return true;
+      const span = Math.max(...boxes.map((b) => b.bottom)) - Math.min(...boxes.map((b) => b.top));
+      return span > Math.max(...boxes.map((b) => b.height)) + 1;
+    })(),
+    statsOverflows: (() => {
+      const el = root.querySelector('.ns-tab-window .ns-tp-stats');
+      return el ? el.scrollWidth > el.clientWidth + 1 : false;
+    })(),
     first: rows[0] && {
       owner: rows[0].querySelector('.ns-shop-owner')?.textContent.trim(),
       price: rows[0].querySelectorAll('td')[1]?.textContent.trim(),
@@ -288,8 +304,11 @@ check('the wizard results render cheapest first',
   JSON.stringify(wiz.first));
 check('wizard rows link into the shop',
   /browseshop\.phtml\?owner=.+buy_obj_info_id=/.test(wiz.first?.href || ''), wiz.first?.href);
-check('it says how fresh the result is', /just searched|searched \d+m ago/.test(wiz.stats || ''),
-  wiz.stats);
+check('it says how fresh the result is', /Searched just now|Searched \d+m ago/.test(wiz.freshness || ''),
+  wiz.freshness);
+check('the wizard stats stay on one line',
+  !wiz.statsWrapped && !wiz.statsOverflows,
+  `wrapped=${wiz.statsWrapped} overflow=${wiz.statsOverflows} — ${wiz.stats}`);
 
 // Switching away and back must not spend another search.
 await page.evaluate(() => {
