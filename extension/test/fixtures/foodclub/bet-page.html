@@ -1,0 +1,41 @@
+<!-- /pirates/foodclub.phtml?type=bet -->
+<p id="maxbet-line">You can only place up to 10540 NeoPoints per bet, which is 50 + 2 for every day you have been playing Neopets (5245 days). Be sure to read through the rules before placing your bets!</p>
+<form method="post" action="process_foodclub.phtml" name="bet_form"><table border="0" cellpadding="2" cellspacing="2" width="500" bgcolor="black"><tbody><tr bgcolor="darkred"><td align="center" colspan="2"><font size="4" color="white"><b>Place A Bet</b></font></td></tr><tr bgcolor="silver"><td align="center"><b>Arena Name</b></td><td align="center"><b>Winning Pirate</b></td></tr>
+<script language="javascript">
+pirate_odds[12]	= 2;
+pirate_odds[3]	= 13;
+pirate_odds[6]	= 3;
+pirate_odds[13]	= 2;
+</script>
+<tr bgcolor="white"><td><input type="checkbox" name="matches[]" value="1" onclick="if(this.checked) { add_odds(1, this.form.winner1.options[this.form.winner1.selectedIndex].value); calc_odds(); } else { reset_odds(1); }"> <b>Shipwreck</b></td><td align="center"><select name="winner1" onchange="add_odds(1, this.options[this.selectedIndex].value);"><option value="">Who would you like to bet for?</option><option value="12">Ol' Stripey &nbsp; (2:1)</option><option value="3">Orvinn the First Mate &nbsp; (13:1)</option><option value="6">Peg Leg Percival &nbsp; (3:1)</option><option value="13">Ned the Skipper &nbsp; (2:1)</option></select></td></tr>
+<script language="javascript">
+pirate_odds[2]	= 13;
+pirate_odds[1]	= 2;
+pirate_odds[19]	= 7;
+pirate_odds[14]	= 6;
+</script>
+<tr bgcolor="white"><td><input type="checkbox" name="matches[]" value="2" onclick="if(this.checked) { add_odds(2, this.form.winner2.options[this.form.winner2.selectedIndex].value); calc_odds(); } else { reset_odds(2); }"> <b>Lagoon</b></td><td align="center"><select name="winner2" onchange="add_odds(2, this.options[this.selectedIndex].value);"><option value="">Who would you like to bet for?</option><option value="2">Young Sproggie &nbsp; (13:1)</option><option value="1">Scurvy Dan the Blade &nbsp; (2:1)</option><option value="19">Buck Cutlass &nbsp; (7:1)</option><option value="14">Fairfax the Deckhand &nbsp; (6:1)</option></select></td></tr>
+<script language="javascript">
+pirate_odds[4]	= 9;
+pirate_odds[10]	= 13;
+pirate_odds[18]	= 7;
+pirate_odds[20]	= 2;
+</script>
+<tr bgcolor="white"><td><input type="checkbox" name="matches[]" value="3" onclick="if(this.checked) { add_odds(3, this.form.winner3.options[this.form.winner3.selectedIndex].value); calc_odds(); } else { reset_odds(3); }"> <b>Treasure Island</b></td><td align="center"><select name="winner3" onchange="add_odds(3, this.options[this.selectedIndex].value);"><option value="">Who would you like to bet for?</option><option value="4">Lucky McKyriggan &nbsp; (9:1)</option><option value="10">Squire Venable &nbsp; (13:1)</option><option value="18">Admiral Blackbeard &nbsp; (7:1)</option><option value="20">The Tailhook Kid &nbsp; (2:1)</option></select></td></tr>
+<script language="javascript">
+pirate_odds[15]	= 3;
+pirate_odds[11]	= 13;
+pirate_odds[17]	= 3;
+pirate_odds[8]	= 5;
+</script>
+<tr bgcolor="white"><td><input type="checkbox" name="matches[]" value="4" onclick="if(this.checked) { add_odds(4, this.form.winner4.options[this.form.winner4.selectedIndex].value); calc_odds(); } else { reset_odds(4); }"> <b>Hidden Cove</b></td><td align="center"><select name="winner4" onchange="add_odds(4, this.options[this.selectedIndex].value);"><option value="">Who would you like to bet for?</option><option value="15">Gooblah the Grarrl &nbsp; (3:1)</option><option value="11">Captain Crossblades &nbsp; (13:1)</option><option value="17">Federismo Corvallio &nbsp; (3:1)</option><option value="8">Puffo the Waister &nbsp; (5:1)</option></select></td></tr>
+<script language="javascript">
+pirate_odds[16]	= 2;
+pirate_odds[9]	= 13;
+pirate_odds[7]	= 3;
+pirate_odds[5]	= 5;
+</script>
+<tr bgcolor="white"><td><input type="checkbox" name="matches[]" value="5" onclick="if(this.checked) { add_odds(5, this.form.winner5.options[this.form.winner5.selectedIndex].value); calc_odds(); } else { reset_odds(5); }"> <b>Harpoon Harry's</b></td><td align="center"><select name="winner5" onchange="add_odds(5, this.options[this.selectedIndex].value);"><option value="">Who would you like to bet for?</option><option value="16">Franchisco Corvallio &nbsp; (2:1)</option><option value="9">Stuff-A-Roo &nbsp; (13:1)</option><option value="7">Bonnie Pip Culliford &nbsp; (3:1)</option><option value="5">Sir Edmund Ogletree &nbsp; (5:1)</option></select></td></tr></tbody></table><p></p><table border="0" cellpadding="2" cellspacing="2" width="500" bgcolor="black"><tbody><tr bgcolor="silver"><td align="center" colspan="3"><b>Winnings Calculator</b><br><font size="-2">This is an estimate based on the current odds, which may fluctuate throughout the day!</font></td></tr><tr bgcolor="white"><td align="center"><b>Bet Amount</b></td><td align="center"><b>Total Odds</b></td><td align="center"><b>Total Payoff</b></td></tr><tr bgcolor="white"><td align="center"><input type="text" name="bet_amount" value="0" onblur="set_winnings(this.value);" size="8" maxlength="8"></td><td align="center"><input type="text" name="total_odds" value="0" onfocus="this.blur();" size="3"></td><td align="center"><input type="text" name="winnings" value="0" onfocus="this.blur();" size="8"></td></tr></tbody></table><p><script language="javascript">
+max_bet = 10540
+</script>
+</p><p><input type="hidden" name="type" value="bet"><input type="submit" value="Place this bet!"></p></form>

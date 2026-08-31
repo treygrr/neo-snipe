@@ -2,8 +2,9 @@
 import { computed, ref } from 'vue';
 import { mdiClose, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove } from '@mdi/js';
 import {
-  state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily,
+  state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily, loadFoodClub,
 } from './store.js';
+import FoodClub from './FoodClub.vue';
 import { DAILIES } from '../lib/dailies.js';
 
 const FAVOURITES_GROUP = 'Favourites';
@@ -44,6 +45,7 @@ function open(event, favourite) {
           Favourites<span v-if="state.favourites.length" class="ns-count">{{ state.favourites.length }}</span>
         </v-tab>
         <v-tab value="dailies" class="ns-panel-tab">Dailies</v-tab>
+        <v-tab value="foodclub" class="ns-panel-tab" @click="loadFoodClub()">Food Club</v-tab>
       </v-tabs>
 
       <div class="ns-panel-body">
@@ -77,8 +79,11 @@ function open(event, favourite) {
           </div>
         </template>
 
+        <!-- Food Club -->
+        <FoodClub v-else-if="state.panelTab === 'foodclub'" />
+
         <!-- Dailies -->
-        <template v-else>
+        <template v-else-if="state.panelTab === 'dailies'">
           <div
             v-for="group in dailyGroups"
             :key="group.title"

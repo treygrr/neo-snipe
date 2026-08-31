@@ -1,6 +1,7 @@
 import { findItemElements, describeItem, MARK } from './detect.js';
 import { addBadge, setBadgeState } from './badge.js';
 import { addLauncher, setLauncherOpen } from './launcher.js';
+import { applyPendingBet, onBetPage } from './foodclub-fill.js';
 import { getSettings } from '../lib/messages.js';
 
 /**
@@ -68,6 +69,11 @@ export function run(loadUi) {
   });
 
   addLauncher(() => { openPanel().catch((err) => console.error('[neo-snipe] panel failed', err)); });
+
+  // If the panel sent us here to place a bet, fill the form (never submit it).
+  if (onBetPage()) {
+    applyPendingBet().catch((err) => console.error('[neo-snipe] could not fill the bet', err));
+  }
 
   scan();
   observer.observe(document.body, { childList: true, subtree: true });

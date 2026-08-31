@@ -81,6 +81,23 @@ await page.route('**://images.neopets.com/**', (route) =>
     body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
   }));
 
+// Food Club pages, served from what the live site returned. Registered after
+// the catch-all so they take precedence.
+const fc = (f) => readFileSync(resolve('test/fixtures/foodclub', f), 'utf8');
+await page.route('**://www.neopets.com/pirates/foodclub.phtml*', (route) => route.fulfill({
+  contentType: 'text/html',
+  // The real page computes odds in its own script; stub those so the form behaves.
+  body: `<!doctype html><html><body><script>
+      window.calls = [];
+      function add_odds(a, p) { window.calls.push(['add_odds', a, p]); }
+      function calc_odds() { window.calls.push(['calc_odds']); }
+      function reset_odds(a) { window.calls.push(['reset_odds', a]); }
+      function set_winnings(v) { window.calls.push(['set_winnings', v]); }
+    </script>${fc('bet-page.html')}</body></html>`,
+}));
+await page.route('**://www.neopets.com/~Shrmsh', (route) =>
+  route.fulfill({ contentType: 'text/html', body: `<!doctype html><html><body>${fc('sets-page.html')}</body></html>` }));
+
 await page.goto('https://www.neopets.com/inventory.phtml');
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 await page.waitForTimeout(900); // let the delayed inventory chunk load + be scanned
@@ -489,6 +506,75 @@ await page.evaluate(() => {
 await page.waitForTimeout(300);
 check('closing the panel un-highlights the launcher',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
+
+// --- Food Club: read the round, pick a risk level, fill a bet ---------------
+await page.locator('.neosnipe-launcher').click();
+await page.waitForTimeout(300);
+await inShadow((root) => {
+  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /food club/i.test(t.textContent)).click();
+});
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  return root.querySelector('.ns-bet') || root.querySelector('.ns-fc-error');
+}, null, { timeout: 15000 }).catch(() => {});
+
+const fcState = await inShadow((root) => ({
+  error: root.querySelector('.ns-fc-error')?.textContent?.trim() || null,
+  maxBet: root.querySelector('.ns-fc-max')?.textContent?.trim(),
+  amount: root.querySelector('.ns-fc-input')?.value,
+  levels: [...root.querySelectorAll('.ns-fc-level')].map((b) => b.textContent.trim()),
+  bets: root.querySelectorAll('.ns-bet').length,
+  firstBetOdds: root.querySelector('.ns-bet-odds')?.textContent?.trim(),
+}));
+check('Food Club reads your max bet from the bet page',
+  fcState.maxBet === 'of 10,540 max' && fcState.amount === '10540', JSON.stringify(fcState.maxBet));
+check('all four risk levels are offered',
+  fcState.levels.length === 4 && fcState.levels.includes('Beginner') && fcState.levels.includes('Adventurous'),
+  JSON.stringify(fcState.levels));
+check('bets render with real odds and a payout',
+  fcState.bets > 0 && /\d+:1 · wins [\d,]+ NP/.test(fcState.firstBetOdds || ''),
+  `${fcState.bets} bets, first: ${fcState.firstBetOdds}`);
+
+// Switching level changes the set.
+const beginnerCount = await inShadow((root) => {
+  [...root.querySelectorAll('.ns-fc-level')].find((b) => /beginner/i.test(b.textContent)).click();
+  return root.querySelectorAll('.ns-bet').length;
+});
+await page.waitForTimeout(300);
+check('switching risk level re-renders the set', beginnerCount > 0, `${beginnerCount} bets`);
+
+// Fill: stores the bet, navigates to the bet page, fills the real form.
+await inShadow((root) => root.querySelector('.ns-bet .v-btn').click());
+await page.waitForURL(/foodclub\.phtml/, { timeout: 15000 }).catch(() => {});
+await page.waitForTimeout(2500);
+
+const filled = await page.evaluate(() => {
+  const form = document.querySelector('form[name="bet_form"]');
+  if (!form) return { noForm: true };
+  return {
+    url: location.href,
+    selects: [1, 2, 3, 4, 5].map((n) => form.querySelector(`select[name="winner${n}"]`).value),
+    checked: [...form.querySelectorAll('input[name="matches[]"]')].map((c) => c.checked),
+    amount: form.querySelector('input[name="bet_amount"]').value,
+    calcRan: (window.calls || []).some(([f]) => f === 'calc_odds'),
+    notice: !!document.querySelector('[data-neosnipe="fc-notice"]'),
+  };
+});
+check('Fill sends you to the bet page and fills the form',
+  /foodclub\.phtml/.test(filled.url || '') && filled.checked?.some(Boolean)
+  && filled.selects?.some((v) => v !== ''), JSON.stringify(filled?.selects));
+check('the filled amount matches the stake', filled.amount === '10540', filled.amount);
+check("the page's own odds calculation was triggered", filled.calcRan === true);
+check('it tells you to press Place Bet yourself', filled.notice === true);
+
+// Nothing was submitted: still on the bet form, not the processor.
+check('the bet was not submitted', !/process_foodclub/.test(filled.url || ''), filled.url);
+
+const cleared = await opts.evaluate(() => chrome.storage.local.get('pendingBet'));
+check('the pending bet is cleared after filling', cleared.pendingBet === undefined);
+
+await page.goto('https://www.neopets.com/inventory.phtml');
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 
 // --- hover-only badges -------------------------------------------------------
 // Park the mouse away from the badges first, or the one we just clicked is

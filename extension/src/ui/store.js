@@ -1,6 +1,10 @@
 import { reactive } from 'vue';
 import { LOOKUP, TP_LOOKUP, ERROR_TEXT } from '../lib/messages.js';
-import { sendMessage } from '../lib/ext-api.js';
+import { sendMessage, api } from '../lib/ext-api.js';
+import {
+  BET_URL, SETS_URL, RISK_LEVELS, parseBetPage, parseSets, resolveBet, payout, FoodClubError,
+} from '../lib/foodclub.js';
+import { PENDING_KEY } from '../content/foodclub-fill.js';
 import {
   listFavourites, toggleFavourite, favouriteId,
   listDailyFavourites, toggleDailyFavourite,
@@ -18,6 +22,18 @@ export const state = reactive({
   tab: 'price',
   // Trading post history is loaded on demand, the first time its tab is opened.
   tp: { loading: false, data: null, error: null },
+
+  // Food Club.
+  fc: {
+    loading: false,
+    error: null,
+    maxBet: null,
+    arenas: [],
+    sets: {},
+    level: 'standard',
+    amount: null,
+    loadedAt: null,
+  },
 
   // The bottom-right panel.
   panelOpen: false,
@@ -165,3 +181,75 @@ export function closePanel() {
   state.panelOpen = false;
   onPanelChange?.(false);
 }
+
+// --- Food Club -------------------------------------------------------------
+// Both pages are on neopets.com, so the content script fetches them
+// same-origin with your session; the service worker could not.
+
+async function fetchDoc(url) {
+  const res = await fetch(url, { credentials: 'include' });
+  if (!res.ok) throw new FoodClubError(`Neopets returned ${res.status} for ${url}`);
+  return new DOMParser().parseFromString(await res.text(), 'text/html');
+}
+
+export async function loadFoodClub({ force = false } = {}) {
+  // Odds change every round, so this is never cached for long.
+  if (state.fc.loading) return;
+  if (!force && state.fc.loadedAt && Date.now() - state.fc.loadedAt < 60_000) return;
+
+  state.fc.loading = true;
+  state.fc.error = null;
+  try {
+    const [betDoc, setsDoc] = await Promise.all([fetchDoc(BET_URL), fetchDoc(SETS_URL)]);
+    const { maxBet, arenas } = parseBetPage(betDoc);
+    const sets = parseSets(setsDoc);
+
+    state.fc.maxBet = maxBet;
+    state.fc.arenas = arenas;
+    state.fc.sets = sets;
+    state.fc.amount = state.fc.amount ?? maxBet;
+    state.fc.loadedAt = Date.now();
+    if (!sets[state.fc.level]) state.fc.level = Object.keys(sets)[0];
+  } catch (err) {
+    state.fc.error = err instanceof FoodClubError
+      ? err.message
+      : 'Could not read Food Club. Are you logged in to Neopets?';
+  } finally {
+    state.fc.loading = false;
+  }
+}
+
+export function setFoodClubLevel(level) {
+  state.fc.level = level;
+}
+
+export function setFoodClubAmount(value) {
+  const n = Number(String(value).replace(/[^\d]/g, ''));
+  state.fc.amount = Number.isFinite(n) ? Math.max(0, Math.min(n, state.fc.maxBet || n)) : 0;
+}
+
+/** The bets for the selected level, resolved against this round's odds. */
+export function currentBets() {
+  const bets = state.fc.sets[state.fc.level] || [];
+  return bets.map((bet) => {
+    const r = resolveBet(bet, state.fc.arenas);
+    return { ...r, payout: payout(r.totalOdds, state.fc.amount) };
+  });
+}
+
+/**
+ * Stashes the bet and sends you to the Food Club page, where the content
+ * script fills the form. It never submits — that click stays yours.
+ */
+export async function fillBet(bet) {
+  await api.storage.local.set({
+    [PENDING_KEY]: {
+      picks: bet.picks.map((p) => ({ arena: p.arena, pirateId: p.pirateId })),
+      amount: state.fc.amount,
+      at: Date.now(),
+    },
+  });
+  window.location.href = BET_URL;
+}
+
+export { RISK_LEVELS, BET_URL, SETS_URL };

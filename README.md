@@ -132,6 +132,22 @@ Every daily URL is taken verbatim from [Jelly Neo's dailies guide](https://www.j
 and `src/lib/dailies.js` is generated from that page rather than written from memory — the same
 discipline as the Neopets selectors, and for the same reason.
 
+- **Food Club** — reads the current round straight off `/pirates/foodclub.phtml?type=bet`: your
+  per-bet maximum, every arena's pirates and their odds. It shows the four daily sets published on
+  [~Shrmsh](https://www.neopets.com/~Shrmsh) — Beginner, Standard, Aggressive, Adventurous — each
+  bet resolved against this round's odds with its payout at your chosen stake.
+
+  **It never places a bet.** The bet form is a `POST` to `process_foodclub.phtml`, so a link cannot
+  place one, and inventing a GET endpoint for something that spends real Neopoints is not a risk
+  worth taking. **Fill** takes you to the bet page with the arenas, pirates and amount filled in;
+  you press Neopets' own Place Bet. `total_odds` and `winnings` are computed by the page's own
+  script, so the filler drives those handlers rather than assigning values, which would otherwise
+  post `total_odds=0`.
+
+  A pirate whose name is not in the current round is shown struck through and its bet cannot be
+  filled, rather than being guessed at. The sets come from someone's personal pet page: if they
+  change its layout the tab says so instead of showing nothing.
+
 Like the badges, the bar itself is plain DOM. It appears on every page, so it must not pull in Vue
 or Vuetify; clicking it is what loads the panel.
 
@@ -233,6 +249,8 @@ their robots.txt and terms before taking it further than personal use.
 cd extension
 npm run test:jellyneo                        # Jelly Neo parsing, from saved pages — no network
 npm run test:detect                          # detection against real Neopets markup
+npm run test:foodclub                        # Food Club odds, sets and bet resolution
+npm run test:foodclub-fill                   # filling Neopets' bet form, in a real browser
 npm run build   && npm run test:e2e            # the real thing, in real Chrome
 npm run build:safari  && npm run test:safari   # the Safari bundle, in WebKit
 npm run build:firefox && npm run test:firefox  # the Firefox bundle, in Gecko
