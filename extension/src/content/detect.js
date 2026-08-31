@@ -126,8 +126,26 @@ export function itemNameFor(el) {
 // other skips the search and returns a confidently wrong item, so we always
 // resolve by name and image hash.
 
+/**
+ * What the shop is asking, where a page says so. Main shops carry it as
+ * `data-price` on the item and as "Cost: 387 NP" beneath it; most other
+ * surfaces (inventory, the safety deposit box) have no price at all and
+ * return null rather than a guess.
+ */
+export function itemPriceFor(el) {
+  const attr = Number(String(el.dataset?.price ?? '').replace(/[^\d]/g, ''));
+  if (Number.isFinite(attr) && attr > 0) return attr;
+
+  const container = el.closest?.('.shop-item, td, li');
+  const cost = (container?.textContent || '').match(/Cost:\s*([\d,]+)\s*NP/i);
+  if (!cost) return null;
+
+  const n = Number(cost[1].replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function describeItem(el) {
   const name = itemNameFor(el);
   if (!name) return null;
-  return { name, imageHash: imageHashOf(itemImageUrl(el)) };
+  return { name, imageHash: imageHashOf(itemImageUrl(el)), price: itemPriceFor(el) };
 }

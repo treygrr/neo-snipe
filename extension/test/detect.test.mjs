@@ -68,7 +68,20 @@ test('main shop: inline background-image, name in data-name', async () => {
   // this item. Jelly Neo's id for it is 2243, and Jelly Neo's 8668 is a White
   // Chocolate Aisha. Harvesting it here once made shop lookups return the
   // wrong item, so detection must not surface any id at all.
-  assert.deepEqual(Object.keys(items[0]).sort(), ['imageHash', 'name', 'tag']);
+  assert.deepEqual(Object.keys(items[0]).sort(), ['imageHash', 'name', 'price', 'tag']);
+  assert.ok(!JSON.stringify(items).includes('8668'), 'no Neopets id may reach the lookup');
+
+  // What the shop is asking, from data-price.
+  assert.equal(items[0].price, 387);
+  assert.deepEqual(items.map((i) => i.price), [387, 1023, 1812, 2142]);
+});
+
+test('a surface with no prices reports none, rather than guessing', async () => {
+  for (const surface of ['inventory', 'sdb']) {
+    const items = await detectIn(fixture(surface));
+    assert.ok(items.length, `${surface} has items`);
+    for (const item of items) assert.equal(item.price, null, `${surface}: ${item.name}`);
+  }
 });
 
 test('safety deposit box: plain <img>, name in alt', async () => {

@@ -2,11 +2,12 @@
 import { computed } from 'vue';
 import { mdiHeart, mdiHeartOutline, mdiOpenInNew, mdiSwapHorizontal, mdiGavel } from '@mdi/js';
 import { searchesFor } from '../lib/neopets-search.js';
-import { state, isFavourite, toggleCurrentFavourite } from './store.js';
+import { state, isFavourite, toggleCurrentFavourite, shopMargin } from './store.js';
 
 const props = defineProps({ data: { type: Object, required: true } });
 
 const faved = computed(() => isFavourite(state.item));
+const margin = computed(() => shopMargin());
 
 const ICONS = { swap: mdiSwapHorizontal, gavel: mdiGavel };
 const searches = computed(() => searchesFor(props.data.name).map((s) => ({ ...s, path: ICONS[s.icon] })));
@@ -68,6 +69,17 @@ const rarityColor = computed(() => {
       </div>
     </div>
 
+    <!-- Only where the page told us what the shop is asking. -->
+    <div v-if="margin" class="ns-margin" :class="{ 'ns-margin--good': margin.clears }">
+      <span class="ns-margin-sum">
+        {{ np(margin.ask) }} here · {{ margin.profit >= 0 ? '+' : '' }}{{ np(margin.profit) }}
+      </span>
+      <span class="ns-margin-note">
+        <template v-if="margin.clears">clears your {{ np(state.settings.minMargin) }}</template>
+        <template v-else>under your {{ np(state.settings.minMargin) }}</template>
+      </span>
+    </div>
+
     <p v-if="data.description" class="ns-desc">{{ data.description }}</p>
 
     <div class="ns-where">
@@ -113,6 +125,14 @@ const rarityColor = computed(() => {
 .ns-price { margin: 10px 0 6px; }
 .ns-price-value { font-size: 20px; font-weight: 700; line-height: 1.1; }
 .ns-price-date { font-size: 11px; opacity: .65; }
+.ns-margin {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  margin: 0 0 8px; padding: 5px 8px; border-radius: 5px;
+  background: rgba(0, 0, 0, .05); font-size: 11px;
+}
+.ns-margin--good { background: #e8f5e9; color: #1b5e20; }
+.ns-margin-sum { font-weight: 600; }
+.ns-margin-note { opacity: .7; font-size: 10px; }
 .ns-desc { font-size: 11.5px; opacity: .8; margin: 0 0 8px; font-style: italic; }
 .ns-where { display: flex; gap: 6px; margin: 8px 0 2px; }
 .ns-where-btn {

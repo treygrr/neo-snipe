@@ -840,6 +840,38 @@ check('the new order is persisted',
   (storedOrder.favorites || []).map((f) => f.name).join(',') === 'Beta Item,Alpha Item',
   JSON.stringify((storedOrder.favorites || []).map((f) => f.name)));
 
+// --- the shop margin: what this shop asks vs what Jelly Neo says it is worth
+// The shop fixture asks 387 NP; every Jelly Neo lookup here returns the Faerie
+// Paint Brush at 1,300,000 NP, so the spread clears any sane threshold.
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+await page.locator('.shop-item .neosnipe-badge').first().click();
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return !!root?.querySelector('.ns-card');
+}, null, { timeout: 15000 }).catch(() => {});
+
+const shopMarginRow = await inShadow((root) => {
+  const el = root.querySelector('.ns-margin');
+  return el && { text: el.textContent.replace(/\s+/g, ' ').trim(), good: el.classList.contains('ns-margin--good') };
+});
+check('a shop item shows what it is asking against what it is worth',
+  /387 NP here/.test(shopMarginRow?.text || ''), JSON.stringify(shopMarginRow?.text));
+check('a spread over the threshold is marked as clearing it',
+  shopMarginRow?.good === true && /clears/.test(shopMarginRow?.text || ''),
+  JSON.stringify(shopMarginRow?.text));
+
+// An inventory item has no asking price, so there is nothing to compare.
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+await page.locator('.grid-item .neosnipe-badge').first().click();
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return !!root?.querySelector('.ns-card');
+}, null, { timeout: 15000 }).catch(() => {});
+check('an item with no asking price shows no margin at all',
+  await inShadow((root) => !root.querySelector('.ns-margin')));
+
 // --- Food Club: read the round, pick a risk level, place a bet --------------
 await ensurePanelOpen();
 await inShadow((root) => {
@@ -1081,8 +1113,9 @@ const settingsView = await inShadow((root) => ({
 }));
 check('the cog opens a settings view', settingsView.shown && settingsView.tabsHidden,
   JSON.stringify(settingsView));
-check('it offers detection, premium and hover toggles',
-  settingsView.toggles.length === 3 && /Detect/.test(settingsView.toggles[0]),
+check('it offers detection, premium, hover and the margin',
+  settingsView.toggles.length === 4 && /Detect/.test(settingsView.toggles[0])
+  && /margin/i.test(settingsView.toggles[3]),
   JSON.stringify(settingsView.toggles));
 
 // Detection is on by default, so the manual toggle is shown but not editable.

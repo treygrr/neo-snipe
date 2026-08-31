@@ -176,6 +176,17 @@ enough to change what the app loads.
 A small **neo-snipe** bar sits in the bottom-right of every Neopets page. Clicking it opens a panel
 with three tabs:
 
+On a page that shows what an item costs — main shops carry it as `data-price`, and as
+"Cost: 387 NP" under the item — the popover adds a **margin line**: what this shop is asking, and
+how far Jelly Neo's estimate is above or below it. It turns green when the spread clears the
+**worth-buying margin** in settings (1,000 NP by default). Surfaces with no price, like your own
+inventory or the safety deposit box, show no line rather than a guessed one.
+
+It stays a readout, not a recommendation: the comparison is against Jelly Neo's *estimate*, so a
+green line means the spread beats your threshold, not that anyone will pay it. Nothing is bought,
+and nothing is looked up until you click a badge — the same one-click-one-lookup rule as everything
+else here, which is also what keeps this from becoming a shop scanner.
+
 Under the item information sit two icons: **⇄ Trading Post** and **⚖ Auction House**, each opening
 a search for that exact item in a new tab. Those URL shapes are taken verbatim from the "Find This
 Item" links on a Jelly Neo item page rather than written from memory. Both shop wizards are tabs

@@ -68,7 +68,7 @@ export const state = reactive({
   panelAnchor: 'bottom',
   // 'tabs' or 'settings' — the cog swaps the panel body.
   panelView: 'tabs',
-  settings: { hoverOnly: true, premium: false, premiumAuto: true },
+  settings: { hoverOnly: true, premium: false, premiumAuto: true, minMargin: 1000 },
   // What the nav said, or null if no page has told us yet.
   premiumDetected: null,
   io: { status: null, message: '', text: '' },
@@ -274,6 +274,23 @@ export function retry() {
 
 export function close() {
   state.open = false;
+}
+
+/**
+ * The spread between what this shop is asking and what Jelly Neo says the item
+ * is worth — only where the page showed a price, which is main shops and user
+ * shops rather than your own inventory.
+ *
+ * `worth` is Jelly Neo's estimate, so `clears` means the spread beats your
+ * threshold, not that anyone will pay it.
+ */
+export function shopMargin() {
+  const ask = state.item?.price;
+  const worth = state.data?.estimatedPrice;
+  if (!ask || !worth) return null;
+
+  const profit = worth - ask;
+  return { ask, worth, profit, clears: profit >= (state.settings.minMargin || 0) };
 }
 
 // --- favourites and the panel ---------------------------------------------

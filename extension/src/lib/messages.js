@@ -15,6 +15,9 @@ export const DEFAULTS = {
   premiumAuto: true,
   // Only consulted when premiumAuto is off.
   premium: false,
+  // What a shop item has to beat Jelly Neo's estimate by before the popover
+  // calls it worth buying.
+  minMargin: 1000,
 };
 
 export async function getSettings() {

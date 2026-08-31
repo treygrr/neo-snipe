@@ -85,6 +85,22 @@ async function pickFile(event) {
           <em>Keeps the 🔍 out of the way until you go looking for it.</em>
         </span>
       </label>
+
+      <label class="ns-set-row ns-set-row--field">
+        <input
+          class="ns-set-num"
+          inputmode="numeric"
+          :value="state.settings.minMargin"
+          @input="setSetting('minMargin', Math.max(0, Number($event.target.value.replace(/[^\d]/g, '')) || 0))"
+        >
+        <span>
+          <strong>Worth-buying margin</strong>
+          <em>
+            In a shop, the popover marks an item green when Jelly Neo's estimate beats the asking
+            price by this much.
+          </em>
+        </span>
+      </label>
     </section>
 
     <section class="ns-set-block">
@@ -133,6 +149,12 @@ async function pickFile(event) {
 .ns-set-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 9px; cursor: pointer; }
 .ns-set-row input { margin: 1px 0 0; width: 13px; height: 13px; flex: 0 0 auto; cursor: pointer; }
 /* Shown but not editable while detection is doing the deciding. */
+/* A number field, not a 13px checkbox, so it overrides the rule above. */
+.ns-set-row--field input.ns-set-num {
+  width: 64px; height: auto; flex: 0 0 auto; cursor: text;
+  font: inherit; font-size: 11px; text-align: right;
+  padding: 2px 5px; border: 1px solid rgba(0, 0, 0, .25); border-radius: 4px;
+}
 .ns-set-row--off { opacity: .55; cursor: default; }
 .ns-set-row--off input { cursor: not-allowed; }
 .ns-set-row strong { display: block; font-size: 11.5px; font-weight: 600; }
