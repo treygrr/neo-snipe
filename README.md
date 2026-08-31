@@ -382,9 +382,15 @@ their robots.txt and terms before taking it further than personal use.
 
 ```bash
 cd extension
-npm run test:jellyneo                        # Jelly Neo parsing, from saved pages — no network
+npm run test:unit                            # every parser suite — no network, no browser
+npm run test:jellyneo                        # or one at a time: Jelly Neo parsing
 npm run test:detect                          # detection against real Neopets markup
-npm run test:foodclub                        # Food Club odds, sets and bet resolution
+npm run test:foodclub                        # Food Club odds, sets, bet resolution and placing
+npm run test:wizard                          # Shop Wizard parsing and result merging
+npm run test:ssw                             # Super Shop Wizard responses
+npm run test:premium                         # reading Premium out of the site nav
+npm run test:settings                        # settings export and import
+npm run test:search                          # trading post and auction search URLs
 npm run test:icons                           # the shipped PNGs match icons/icon.svg
 npm run build   && npm run test:e2e            # the real thing, in real Chrome
 npm run build:safari  && npm run test:safari   # the Safari bundle, in WebKit

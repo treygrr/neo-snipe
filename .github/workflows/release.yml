@@ -32,13 +32,10 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
 
+      # Every test/*.test.mjs, so a new suite is covered without editing this
+      # list — which is how the deleted Fill suite stayed here after it went.
       - name: Unit tests
-        run: |
-          npm run test:jellyneo
-          npm run test:detect
-          npm run test:foodclub
-          npm run test:foodclub-fill
-          npm run test:icons
+        run: npm run test:unit
 
       # The Chrome check loads a real extension, which needs a headed browser
       # (--headless=new); xvfb keeps that working on a runner with no display.
