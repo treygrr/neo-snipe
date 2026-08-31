@@ -5,7 +5,10 @@
 // from a real request and response, saved in test/fixtures/ssw/.
 //
 // Premium only. There is no reliable way to know that in advance, so the
-// endpoint's own `error` field is what tells us.
+// endpoint's own `error` field is what tells us — verified live against the
+// same account before and after subscribing: without Premium it answers
+// {"data":{"error":"Access denied."}}, with it, 130 listings. Unlike the
+// regular wizard it needs no referrer.
 
 const ENDPOINT = 'https://www.neopets.com/np-templates/views/shops/ssw/ssw_query.php';
 
@@ -45,7 +48,8 @@ export function parseSswResponse(json) {
   const data = json?.data;
   if (!data) throw new SswError('The Super Shop Wizard returned something unexpected.');
 
-  // How the endpoint reports a refusal, including not having Premium.
+  // How the endpoint reports a refusal. "Access denied." is what a non-Premium
+  // account gets; the message is shown as-is rather than guessed at.
   if (data.error) throw new SswError(String(data.error));
 
   const rows = Math.min(

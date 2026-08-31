@@ -65,3 +65,10 @@ test('an empty result set is not an error', () => {
   assert.equal(r.listings.length, 0);
   assert.equal(r.rowCount, 0);
 });
+
+test('a non-Premium account is told what it was told', () => {
+  // Captured live: this is verbatim what the endpoint returns without Premium.
+  const denied = { data: { error: 'Access denied.' }, req: {} };
+  assert.throws(() => parseSswResponse(denied),
+    (e) => e instanceof SswError && e.message === 'Access denied.');
+});
