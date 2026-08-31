@@ -65,4 +65,5 @@ jobs:
             | Firefox | `about:debugging` → Load Temporary Add-on → then **grant access** in options |
             | Safari | Needs macOS + Xcode to wrap it in an app — see the README |
 
-            No server to run and nothing else to install.
+            Updating from an earlier version? Back your settings up first: panel → cog →
+            Backup → **Save file**. See the README for what each browser keeps.
