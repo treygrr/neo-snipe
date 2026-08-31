@@ -65,6 +65,9 @@ const optsUi = await opts.evaluate(() => ({
 check('options page renders Vuetify', optsUi.switches === 1 && optsUi.buttons.length === 2,
   JSON.stringify(optsUi));
 
+// Premium gates the Super Shop Wizard; the checks below exercise it.
+await opts.evaluate(() => chrome.storage.sync.set({ premium: true }));
+
 // --- content script on a neopets.com page -----------------------------------
 const page = await ctx.newPage();
 page.on('console', (m) => console.log(`    [page:${m.type()}] ${m.text()}`));
@@ -716,7 +719,7 @@ check('the refetched result is not marked cached',
 
 await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  root.querySelector('.ns-panel-head .v-btn').click();
+  root.querySelector('.ns-panel-head .ns-close').click();
 });
 await page.waitForTimeout(300);
 check('closing the panel un-highlights the launcher',
@@ -873,6 +876,101 @@ check('using Fill marks that bet done', (doneAfterFill.fcDone?.ids || []).length
 
 await betTab.close();
 
+// --- settings: the cog, the premium toggle, export and import --------------
+await ensurePanelOpen();
+await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(400);
+
+const settingsView = await inShadow((root) => ({
+  shown: !!root.querySelector('.ns-settings'),
+  tabsHidden: !root.querySelector('.ns-panel-tabs'),
+  toggles: [...root.querySelectorAll('.ns-set-row strong')].map((e) => e.textContent.trim()),
+  premiumOn: root.querySelector('.ns-set-row input')?.checked,
+}));
+check('the cog opens a settings view', settingsView.shown && settingsView.tabsHidden,
+  JSON.stringify(settingsView));
+check('it offers the premium and hover toggles',
+  settingsView.toggles.length === 2 && /Premium/.test(settingsView.toggles[0]),
+  JSON.stringify(settingsView.toggles));
+check('the premium toggle reflects the saved setting', settingsView.premiumOn === true);
+
+await inShadow((root) => [...root.querySelectorAll('.ns-set-actions .v-btn')]
+  .find((b) => b.textContent.trim() === 'Export').click());
+await page.waitForTimeout(700);
+
+const exported = await inShadow((root) => root.querySelector('.ns-set-box')?.value || '');
+let parsed = null;
+try { parsed = JSON.parse(exported); } catch { /* stays null */ }
+check('export produces valid JSON naming the app and version',
+  parsed?.app === 'neo-snipe' && Number.isInteger(parsed.version),
+  parsed ? `v${parsed.version}` : `not JSON: ${exported.slice(0, 40)}`);
+check('the export carries settings and both lists',
+  parsed?.settings?.premium === true && Array.isArray(parsed.favourites)
+  && Array.isArray(parsed.dailyFavourites), JSON.stringify(parsed?.settings));
+check('cached prices are left out of the export',
+  !JSON.stringify(parsed || {}).includes('p2:'));
+
+const edited = JSON.stringify({
+  ...parsed,
+  settings: { ...parsed.settings, hoverOnly: false },
+  favourites: [{ name: 'Imported Item', imageHash: 'imported', imageUrl: null, addedAt: 1 }],
+  dailyFavourites: [{ label: 'Wishing Well', url: 'https://www.neopets.com/wishing.phtml' }],
+});
+const typeIntoBox = (text) => page.evaluate((t) => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const box = root.querySelector('.ns-set-box');
+  Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(box, t);
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+}, text);
+const pressImport = () => inShadow((root) => [...root.querySelectorAll('.ns-set-actions .v-btn')]
+  .find((b) => b.textContent.trim() === 'Import').click());
+
+await typeIntoBox(edited);
+await page.waitForTimeout(200);
+await pressImport();
+await page.waitForTimeout(800);
+
+const afterImport = await opts.evaluate(async () => ({
+  local: await chrome.storage.local.get(['favorites', 'dailyFavorites']),
+  sync: await chrome.storage.sync.get(['hoverOnly', 'premium']),
+}));
+check('import replaces the favourites',
+  (afterImport.local.favorites || []).map((f) => f.name).join(',') === 'Imported Item',
+  JSON.stringify((afterImport.local.favorites || []).map((f) => f.name)));
+check('import replaces the favourited dailies',
+  (afterImport.local.dailyFavorites || []).map((d) => d.label).join(',') === 'Wishing Well');
+check('import applies the settings', afterImport.sync.hoverOnly === false,
+  JSON.stringify(afterImport.sync));
+
+// A file from a newer build is refused rather than half-applied.
+await typeIntoBox(JSON.stringify({ app: 'neo-snipe', version: 99, settings: { premium: false } }));
+await page.waitForTimeout(200);
+await pressImport();
+await page.waitForTimeout(600);
+const refusal = await inShadow((root) => ({
+  message: root.querySelector('.ns-set-msg')?.textContent.trim(),
+  bad: !!root.querySelector('.ns-set-msg--bad'),
+  stillPremium: root.querySelector('.ns-set-row input')?.checked,
+}));
+check('a newer export is refused, leaving settings untouched',
+  refusal.bad && /newer version/i.test(refusal.message || '') && refusal.stillPremium === true,
+  JSON.stringify(refusal.message));
+
+// Turning Premium off hides the Super Shop Wizard.
+await inShadow((root) => root.querySelector('.ns-set-row input').click());
+await page.waitForTimeout(600);
+check('turning Premium off hides the Shops tab and Super Wiz button',
+  await inShadow((root) => {
+    const tabs = [...root.querySelectorAll('.ns-tab')].map((t) => t.textContent.trim());
+    return !tabs.includes('Shops') && !root.querySelector('.ns-search-btn--ssw');
+  }));
+
+// Put it back, and leave the panel on its tabs.
+await inShadow((root) => root.querySelector('.ns-set-row input').click());
+await page.waitForTimeout(300);
+await inShadow((root) => root.querySelector('.ns-cog').click());
+await page.waitForTimeout(300);
+
 // --- the toolbar button ------------------------------------------------------
 // It must do nothing away from Neopets. Rather than take the "tabs" permission
 // to read every tab's URL, the button starts disabled and each content script
@@ -937,7 +1035,7 @@ check('the launcher shows the app icon', await page.evaluate(() => {
 
 await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  root.querySelector('.ns-panel-head .v-btn')?.click();
+  root.querySelector('.ns-panel-head .ns-close')?.click();
 });
 await page.waitForTimeout(300);
 

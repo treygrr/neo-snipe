@@ -1,6 +1,6 @@
 {
   "name": "neo-snipe-extension",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -24,7 +24,8 @@
     "icons": "node scripts/make-icons.mjs",
     "test:icons": "node --test test/icons.test.mjs",
     "test:search": "node --test test/neopets-search.test.mjs",
-    "test:ssw": "node --test test/ssw.test.mjs"
+    "test:ssw": "node --test test/ssw.test.mjs",
+    "test:settings": "node --test test/settings-io.test.mjs"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",

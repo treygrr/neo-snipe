@@ -10,6 +10,9 @@ export const OPEN_PANEL = 'neosnipe:open-panel';
 
 export const DEFAULTS = {
   hoverOnly: true,
+  // Gates the Super Shop Wizard, which only answers for Premium accounts.
+  // Off by default: showing it to everyone means a tab that only ever errors.
+  premium: false,
 };
 
 export async function getSettings() {

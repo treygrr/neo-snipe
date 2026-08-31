@@ -24,7 +24,8 @@ const lots = computed(() => state.tp.data?.lots || []);
     >
       <v-tab value="price" class="ns-tab" title="Price history">Price</v-tab>
       <v-tab value="tp" class="ns-tab" title="Trading post history">TP</v-tab>
-      <v-tab value="shops" class="ns-tab" title="Shops, via the Super Shop Wizard">Shops</v-tab>
+      <v-tab v-if="state.settings.premium" value="shops" class="ns-tab"
+             title="Shops, via the Super Shop Wizard">Shops</v-tab>
     </v-tabs>
 
     <!-- Fixed height so the popover never jumps between tabs; content scrolls. -->

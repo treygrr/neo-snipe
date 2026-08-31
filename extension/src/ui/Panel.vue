@@ -1,10 +1,11 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { mdiClose, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove } from '@mdi/js';
+import { mdiClose, mdiCog, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove } from '@mdi/js';
 import {
   state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily, loadFoodClub,
-  moveFavourite, moveDailyFavourite,
+  moveFavourite, moveDailyFavourite, showSettings,
 } from './store.js';
+import SettingsView from './SettingsView.vue';
 import FoodClub from './FoodClub.vue';
 import { DAILIES } from '../lib/dailies.js';
 
@@ -80,10 +81,22 @@ const isDragOver = (i, kind) => dragOver.value === i && dragKind.value === kind 
       <div class="ns-panel-head">
         <span class="ns-panel-title">neo-snipe</span>
         <v-spacer />
-        <v-btn :icon="mdiClose" size="x-small" variant="text" aria-label="Close" @click="closePanel" />
+        <v-btn
+          :icon="mdiCog"
+          size="x-small"
+          variant="text"
+          class="ns-cog"
+          :class="{ 'ns-cog--on': state.panelView === 'settings' }"
+          :aria-label="state.panelView === 'settings' ? 'Back' : 'Settings'"
+          :title="state.panelView === 'settings' ? 'Back' : 'Settings'"
+          @click="showSettings(state.panelView !== 'settings')"
+        />
+        <v-btn :icon="mdiClose" size="x-small" variant="text" class="ns-close"
+               aria-label="Close" @click="closePanel" />
       </div>
 
-      <v-tabs v-model="state.panelTab" density="compact" height="32" class="ns-panel-tabs">
+      <v-tabs v-if="state.panelView !== 'settings'" v-model="state.panelTab"
+              density="compact" height="32" class="ns-panel-tabs">
         <v-tab value="favourites" class="ns-panel-tab">
           Favourites<span v-if="state.favourites.length" class="ns-count">{{ state.favourites.length }}</span>
         </v-tab>
@@ -92,8 +105,10 @@ const isDragOver = (i, kind) => dragOver.value === i && dragKind.value === kind 
       </v-tabs>
 
       <div class="ns-panel-body">
+        <SettingsView v-if="state.panelView === 'settings'" />
+
         <!-- Favourites -->
-        <template v-if="state.panelTab === 'favourites'">
+        <template v-else-if="state.panelTab === 'favourites'">
           <p v-if="!state.favourites.length" class="ns-panel-empty">
             No favourites yet. Click the ♥ on any item's price popover to save it here.
           </p>
@@ -225,6 +240,7 @@ const isDragOver = (i, kind) => dragOver.value === i && dragKind.value === kind 
   padding: 6px 6px 6px 12px; border-bottom: 1px solid rgba(0, 0, 0, .12);
 }
 .ns-panel-title { font-weight: 600; font-size: 13px; }
+.ns-cog--on { color: #1f6feb; }
 
 .ns-panel-tabs { min-height: 32px; border-bottom: 1px solid rgba(0, 0, 0, .12); }
 .ns-panel-tab { font-size: 11px; text-transform: none; letter-spacing: 0; min-width: 0; padding: 0 12px; }

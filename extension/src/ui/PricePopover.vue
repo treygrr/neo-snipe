@@ -62,6 +62,7 @@ const open = computed({
           <!-- Not a link: the SSW is a JSON endpoint, so this opens a popover
                with the results rather than navigating anywhere. -->
           <button
+            v-if="state.settings.premium"
             type="button"
             class="ns-search-btn ns-search-btn--ssw"
             :class="{ 'ns-search-btn--on': state.shops.open }"

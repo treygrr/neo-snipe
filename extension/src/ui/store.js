@@ -7,6 +7,9 @@ import {
 } from '../lib/foodclub.js';
 import { PENDING_KEY } from '../content/foodclub-fill.js';
 import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
+import { collectSettings, toJson, parseExport, applyImport, ImportError } from '../lib/settings-io.js';
+import { getSettings } from '../lib/messages.js';
+import { writeSettings } from '../lib/ext-api.js';
 import {
   listFavourites, toggleFavourite, favouriteId, saveFavourites,
   listDailyFavourites, toggleDailyFavourite, saveDailyFavourites,
@@ -48,6 +51,10 @@ export const state = reactive({
   // 'top' when opened from the toolbar button, so it appears under the button.
   panelOpen: false,
   panelAnchor: 'bottom',
+  // 'tabs' or 'settings' — the cog swaps the panel body.
+  panelView: 'tabs',
+  settings: { hoverOnly: true, premium: false },
+  io: { status: null, message: '', text: '' },
   panelTab: 'favourites',
   favourites: [],
   dailyFavourites: [],
@@ -188,6 +195,52 @@ export function close() {
 }
 
 // --- favourites and the panel ---------------------------------------------
+
+export async function loadSettings() {
+  Object.assign(state.settings, await getSettings());
+}
+
+export async function setSetting(key, value) {
+  state.settings[key] = value;
+  await writeSettings({ [key]: value });
+  // Turning Premium off hides the Shops tab; do not leave it selected.
+  if (key === 'premium' && !value && state.tab === 'shops') state.tab = 'price';
+}
+
+export function showSettings(show) {
+  state.panelView = show ? 'settings' : 'tabs';
+  if (show) {
+    state.io = { status: null, message: '', text: '' };
+    loadSettings();
+  }
+}
+
+/** Fills the box with everything worth keeping, ready to copy or save. */
+export async function exportSettings() {
+  state.io = { status: 'ok', message: 'Copy this, or save it to a file.', text: toJson(await collectSettings()) };
+  return state.io.text;
+}
+
+export async function importSettings(text) {
+  try {
+    const parsed = parseExport(text);
+    const counts = await applyImport(parsed);
+    await loadSettings();
+    await loadFavourites();
+    state.io = {
+      status: 'ok',
+      message: `Imported ${counts.favourites} favourites, ${counts.dailyFavourites} dailies`
+        + ` and ${counts.settings} settings.`,
+      text,
+    };
+  } catch (err) {
+    state.io = {
+      status: 'error',
+      message: err instanceof ImportError ? err.message : 'Could not import that file.',
+      text,
+    };
+  }
+}
 
 export async function loadFavourites() {
   const [items, dailies] = await Promise.all([listFavourites(), listDailyFavourites()]);

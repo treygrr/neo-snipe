@@ -136,7 +136,9 @@ querying that endpoint from the content script, same-origin with your session:
 - a **Super Wiz button** beside the search buttons, which opens a second popover next to the item
   card with more rows and the item card still visible behind it.
 
-Both render `ShopsList.vue` and share one `state.ssw`, so opening one after the other costs no
+Both are hidden unless *I have Neopets Premium* is on in settings — off by default, since the
+endpoint only answers for Premium accounts and a tab that always errors is worse than no tab. Both
+render `ShopsList.vue` and share one `state.ssw`, so opening one after the other costs no
 second request. Rows are listed cheapest first with stock counts, each linking straight into that
 shop with the item selected. Premium is not detected or configured: the endpoint's own `error`
 field says whether it will answer, and that message is shown as-is.
@@ -181,6 +183,15 @@ discipline as the Neopets selectors, and for the same reason.
   A pirate whose name is not in the current round is shown struck through and its bet cannot be
   filled, rather than being guessed at. The sets come from someone's personal pet page: if they
   change its layout the tab says so instead of showing nothing.
+
+A **cog** beside the panel's close button opens settings: an *I have Neopets Premium* toggle
+(which gates the Super Shop Wizard), the hover-only badge toggle, and **export/import**.
+
+Export writes your settings, favourites and favourited dailies as JSON — to the clipboard, a file,
+or a box you can copy from. Import reads one back. Cached prices and Food Club done-marks are
+deliberately left out: the first is a throwaway copy of Jelly Neo, the second is scoped to a round
+that will be over by the time anyone imports it. The file carries a version, so a build refuses one
+written by something newer rather than half-applying it, and ignores keys it does not recognise.
 
 The panel opens two ways: from the bar, where it sits above it, and from the **toolbar button**,
 where it drops under the button at the top right. That button is disabled everywhere except
