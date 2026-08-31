@@ -57,11 +57,15 @@ reach Jelly Neo.
 You should not have to install the extension by hand every time:
 
 ```bash
-npm run dev:browser              # a browser with the extension already loaded
-npm run dev:browser -- --fixture # offline test page, no Neopets login needed
+npm run fixture                  # offline test page, no login and no network
+npm run dev:browser              # real neopets.com, login persists between runs
 npm run dev:browser -- --fresh   # wipe the saved profile
 npm run dev                      # Vite with hot reload, run alongside
 ```
+
+`npm run fixture` is the fast loop for UI work: it builds if needed, then opens a browser with the
+extension loaded on the same saved markup the tests use — all five item surfaces on one page, with
+Jelly Neo answered from fixtures. No Neopets account, no network.
 
 `dev:browser` launches Chromium with the built extension side-loaded and a persistent profile, so
 your Neopets login survives between runs. It reports whether the extension actually loaded rather

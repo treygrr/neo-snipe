@@ -23,9 +23,18 @@ const useFirefox = has('--firefox');
 const dist = join(root, useFirefox ? 'dist-firefox' : 'dist');
 const profile = join(root, '.dev-profile' + (useFirefox ? '-firefox' : ''));
 
+// Build on demand rather than making you remember to, so `npm run fixture`
+// works from a clean checkout.
 if (!existsSync(join(dist, 'manifest.json'))) {
-  console.error(`\n  ${dist} has no manifest.json — run \`npm run ${useFirefox ? 'build:firefox' : 'build'}\` first.\n`);
-  process.exit(1);
+  const script = useFirefox ? 'build:firefox' : 'build';
+  console.log(`  No build in ${dist.replace(root + '/', '')}/ yet — running \`npm run ${script}\`...`);
+  const { execFileSync } = await import('node:child_process');
+  try {
+    execFileSync('npm', ['run', script], { cwd: root, stdio: 'inherit' });
+  } catch {
+    console.error(`\n  \`npm run ${script}\` failed — fix the build, then try again.\n`);
+    process.exit(1);
+  }
 }
 if (has('--fresh')) rmSync(profile, { recursive: true, force: true });
 
@@ -120,8 +129,13 @@ if (has('--fixture')) {
 
 console.log(`  Extension: ${sw ? 'loaded' : 'FAILED TO LOAD'} from ${dist.replace(root + '/', '')}/`);
 if (sw) {
-  const active = await page.evaluate(() => document.documentElement.dataset.neosnipe || null).catch(() => null);
-  console.log(`  Content script on this page: ${active === 'active' ? 'running' : 'not running (is this a neopets.com page?)'}`);
+  // The content script runs at document_idle, so give it a moment rather than
+  // reporting a false alarm.
+  const active = await page
+    .waitForFunction(() => document.documentElement.dataset.neosnipe === 'active', null, { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  console.log(`  Content script on this page: ${active ? 'running' : 'not running (is this a neopets.com page?)'}`);
 }
 console.log('  Run `npm run dev` in another terminal for hot reload.');
 console.log('  Close the browser window to stop.\n');
