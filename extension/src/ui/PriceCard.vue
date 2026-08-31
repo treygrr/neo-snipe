@@ -1,11 +1,15 @@
 <script setup>
 import { computed } from 'vue';
-import { mdiHeart, mdiHeartOutline, mdiOpenInNew } from '@mdi/js';
+import { mdiHeart, mdiHeartOutline, mdiOpenInNew, mdiSwapHorizontal, mdiGavel } from '@mdi/js';
+import { searchesFor } from '../lib/neopets-search.js';
 import { state, isFavourite, toggleCurrentFavourite } from './store.js';
 
 const props = defineProps({ data: { type: Object, required: true } });
 
 const faved = computed(() => isFavourite(state.item));
+
+const ICONS = { swap: mdiSwapHorizontal, gavel: mdiGavel };
+const searches = computed(() => searchesFor(props.data.name).map((s) => ({ ...s, path: ICONS[s.icon] })));
 
 const np = (n) => (n === null || n === undefined ? '—' : `${n.toLocaleString('en-US')} NP`);
 const rarityColor = computed(() => {
@@ -66,6 +70,21 @@ const rarityColor = computed(() => {
 
     <p v-if="data.description" class="ns-desc">{{ data.description }}</p>
 
+    <div class="ns-where">
+      <a
+        v-for="s in searches"
+        :key="s.id"
+        :href="s.href"
+        target="_blank"
+        rel="noopener"
+        class="ns-where-btn"
+        :title="s.title"
+        :aria-label="s.title"
+      >
+        <v-icon :icon="s.path" size="15" />
+      </a>
+    </div>
+
     <div class="ns-meta">
       <span v-if="data.neopetsEstValue">NP est. value {{ np(data.neopetsEstValue) }}</span>
       <span v-if="data.cached" class="ns-cached">cached</span>
@@ -95,6 +114,14 @@ const rarityColor = computed(() => {
 .ns-price-value { font-size: 20px; font-weight: 700; line-height: 1.1; }
 .ns-price-date { font-size: 11px; opacity: .65; }
 .ns-desc { font-size: 11.5px; opacity: .8; margin: 0 0 8px; font-style: italic; }
+.ns-where { display: flex; gap: 6px; margin: 8px 0 2px; }
+.ns-where-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 5px;
+  color: #14459c; background: #eef3fe; border: 1px solid #cddcfb; text-decoration: none;
+}
+.ns-where-btn:hover { background: #dfe9fd; border-color: #a9c3f7; }
+
 .ns-meta {
   display: flex; justify-content: space-between; gap: 8px;
   font-size: 10.5px; opacity: .6; margin-top: 8px;

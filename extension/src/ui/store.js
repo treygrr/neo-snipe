@@ -31,8 +31,6 @@ export const state = reactive({
   tp: { loading: false, data: null, error: null },
   // Super Shop Wizard, same: only asked for when its tab or popover is opened.
   ssw: { loading: false, data: null, error: null },
-  // The second popover, opened from the item popover's Super Wiz button.
-  shops: { open: false, anchor: null },
   // The regular Shop Wizard. Searches are rate-limited, so this is only ever
   // filled by clicking its tab, and reused for a while afterwards.
   wiz: { loading: false, data: null, error: null, at: null },
@@ -85,7 +83,6 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   state.tp = { loading: false, data: null, error: null };
   state.ssw = { loading: false, data: null, error: null };
   // A different item now, so any open shops popover is about the wrong thing.
-  state.shops = { open: false, anchor: null };
   state.wiz = { loading: false, data: null, error: null, at: null };
   state.refreshing = refresh;
 
@@ -153,20 +150,6 @@ export async function loadShops() {
   } finally {
     if (id === requestId) state.ssw.loading = false;
   }
-}
-
-/** Opens the shops popover beside whatever button was clicked. */
-export function openShops(anchor) {
-  if (state.shops.open && state.shops.anchor === anchor) {
-    state.shops.open = false;
-    return;
-  }
-  state.shops = { open: true, anchor };
-  loadShops();
-}
-
-export function closeShops() {
-  state.shops.open = false;
 }
 
 export function retryShops() {
@@ -248,8 +231,6 @@ export function retry() {
 
 export function close() {
   state.open = false;
-  // The shops popover belongs to this item, so it goes too.
-  state.shops.open = false;
 }
 
 // --- favourites and the panel ---------------------------------------------

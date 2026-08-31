@@ -124,9 +124,10 @@ Set `SAFARI_BUNDLE_ID` to use your own bundle identifier.
 A small **neo-snipe** bar sits in the bottom-right of every Neopets page. Clicking it opens a panel
 with two tabs:
 
-The bottom of each price popover has **where to buy it**: Shop Wizard, Trading Post and Auction
-House, each opening a search for that exact item in a new tab. Those URL shapes are taken verbatim
-from the "Find This Item" links on a Jelly Neo item page rather than written from memory.
+Under the item information sit two icons: **⇄ Trading Post** and **⚖ Auction House**, each opening
+a search for that exact item in a new tab. Those URL shapes are taken verbatim from the "Find This
+Item" links on a Jelly Neo item page rather than written from memory. Both shop wizards are tabs
+rather than icons, since neither has a page a link can reach.
 
 The popover's **Wiz** tab runs the regular Shop Wizard. Neopets limits how often you may search,
 so it runs **only when you open that tab** — never on opening a popover — and the result is kept
@@ -139,17 +140,9 @@ JSON, so `wizard.js` parses markup where `ssw.js` reads fields. Both request sha
 traffic.
 
 The **Super Shop Wizard** has no page you can link to with a query — it is a JSON endpoint the SSW
-interface calls (`/np-templates/views/shops/ssw/ssw_query.php`). So it appears two ways, both
-querying that endpoint from the content script, same-origin with your session:
-
-- the **Shops tab**, alongside price and trading post history;
-- a **Super Wiz button** beside the search buttons, which opens a second popover next to the item
-  card with more rows and the item card still visible behind it.
-
-Both are hidden unless *I have Neopets Premium* is on in settings — off by default, since the
-endpoint only answers for Premium accounts and a tab that always errors is worse than no tab. Both
-render `ShopsList.vue` and share one `state.ssw`, so opening one after the other costs no
-second request. Rows are listed cheapest first with stock counts, each linking straight into that
+interface calls (`/np-templates/views/shops/ssw/ssw_query.php`). It is the **SSW tab**, querying that endpoint from
+the content script, same-origin with your session. Hidden unless *I have Neopets Premium* is on in settings — off by default, since the
+endpoint only answers for Premium accounts and a tab that always errors is worse than no tab. Rows are listed cheapest first with stock counts, each linking straight into that
 shop with the item selected. Premium is not detected or configured: the endpoint's own `error`
 field says whether it will answer, and that message is shown as-is.
 

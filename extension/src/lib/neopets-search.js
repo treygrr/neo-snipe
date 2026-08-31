@@ -8,14 +8,10 @@ const q = (name) => encodeURIComponent(String(name ?? '').trim()).replace(/%20/g
 
 export const SEARCHES = [
   {
-    id: 'wizard',
-    label: 'Shop Wiz',
-    title: 'Search the Shop Wizard',
-    url: (name) => `${base}/shops/wizard.phtml?string=${q(name)}`,
-  },
-  {
     id: 'trading',
     label: 'Trades',
+    // Two arrows swapping: a trade is an exchange, not a purchase.
+    icon: 'swap',
     title: 'Search the Trading Post for this exact item',
     url: (name) =>
       `${base}/island/tradingpost.phtml?type=browse&criteria=item_exact&sort_by=newest&search_string=${q(name)}`,
@@ -23,6 +19,8 @@ export const SEARCHES = [
   {
     id: 'auctions',
     label: 'Auctions',
+    // An auctioneer's gavel.
+    icon: 'gavel',
     title: 'Search the Auction House for this exact item',
     url: (name) => `${base}/genie.phtml?type=process_genie&criteria=exact&auctiongenie=${q(name)}`,
   },

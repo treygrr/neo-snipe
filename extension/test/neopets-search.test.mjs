@@ -1,38 +1,41 @@
 // The search URLs are copied from Jelly Neo's "Find This Item" links; this
 // checks the builders still produce exactly those shapes.
+//
+// Only two are links. The Shop Wizard is a POST and the Super Shop Wizard is a
+// JSON endpoint, so both live in popover tabs instead.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SEARCHES, searchesFor } from '../src/lib/neopets-search.js';
 
 const NAME = 'Faerie Paint Brush';
+const byId = (id) => SEARCHES.find((s) => s.id === id);
 
 test('each search matches the URL Jelly Neo links to', () => {
-  const byId = Object.fromEntries(SEARCHES.map((s) => [s.id, s.url(NAME)]));
-
-  assert.equal(byId.wizard,
-    'https://www.neopets.com/shops/wizard.phtml?string=Faerie+Paint+Brush');
-  assert.equal(byId.trading,
+  assert.equal(byId('trading').url(NAME),
     'https://www.neopets.com/island/tradingpost.phtml?type=browse&criteria=item_exact&sort_by=newest&search_string=Faerie+Paint+Brush');
-  assert.equal(byId.auctions,
+  assert.equal(byId('auctions').url(NAME),
     'https://www.neopets.com/genie.phtml?type=process_genie&criteria=exact&auctiongenie=Faerie+Paint+Brush');
 });
 
-test('names with punctuation and spaces are encoded, not broken', () => {
-  const url = SEARCHES[0].url("Ol' Stripey & Co.");
-  assert.ok(url.startsWith('https://www.neopets.com/shops/wizard.phtml?string='));
-  assert.ok(!/ /.test(url), 'no raw spaces');
-  assert.ok(url.includes('%26'), 'an ampersand must not start a new parameter');
-  assert.ok(url.includes("%27") || url.includes("'"), 'apostrophe survives');
+test('only the trading post and auction house are links', () => {
+  assert.deepEqual(searchesFor(NAME).map((s) => s.id), ['trading', 'auctions']);
 });
 
-test('the Super Shop Wizard is not one of these links', () => {
-  // It has no linkable page — it is a JSON endpoint, handled in ssw.js.
-  assert.equal(searchesFor(NAME).length, 3);
-  assert.ok(!searchesFor(NAME).some((s) => s.id === 'super'));
+test('each link carries an icon name and a description', () => {
+  for (const s of searchesFor(NAME)) {
+    assert.ok(s.icon, `${s.id} has no icon`);
+    assert.ok(s.title.length > 10, `${s.id} has no usable title`);
+  }
+});
+
+test('names with punctuation and spaces are encoded, not broken', () => {
+  const url = byId('trading').url("Ol' Stripey & Co.");
+  assert.ok(!/ /.test(url), 'no raw spaces');
+  assert.ok(url.includes('%26'), 'an ampersand must not start a new parameter');
+  // The one it belongs to, and no others.
+  assert.equal(url.split('search_string=')[1].split('&').length, 1);
 });
 
 test('every search points at neopets.com', () => {
-  for (const s of searchesFor(NAME)) {
-    assert.match(s.href, /^https:\/\/www\.neopets\.com\//, s.id);
-  }
+  for (const s of searchesFor(NAME)) assert.match(s.href, /^https:\/\/www\.neopets\.com\//, s.id);
 });
