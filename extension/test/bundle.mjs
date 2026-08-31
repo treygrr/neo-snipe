@@ -1,14 +1,22 @@
-// Runs the *Safari* bundles in WebKit — Safari's own engine — with a stubbed
-// extension runtime. This cannot exercise Safari's extension host (permission
-// prompts, the real service worker), but it does cover what the Safari build
-// changes: no dynamic import, no fetched web-accessible resource, inlined CSS,
-// and Vuetify rendering under JavaScriptCore/WebKit rather than V8/Blink.
-import { webkit } from 'playwright';
+// Runs a flattened build in the engine that ships it — WebKit for Safari,
+// Gecko for Firefox — with a stubbed extension runtime.
+//
+// This cannot exercise a real extension host (permission prompts, the real
+// background page), but it does cover what these builds change: no dynamic
+// import, no fetched web-accessible resource, inlined CSS, and Vue + Vuetify
+// running under JavaScriptCore or SpiderMonkey rather than V8.
+//
+//   NS_TARGET=firefox node test/safari-webkit.mjs
+import { webkit, firefox } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { buildPage, ITEM_COUNT } from './page.mjs';
 
-const DIST = resolve('dist-safari');
+// Which flattened build to exercise, and in which engine.
+const TARGET = process.env.NS_TARGET === 'firefox'
+  ? { name: 'Firefox', dir: 'dist-firefox', engine: firefox }
+  : { name: 'Safari', dir: 'dist-safari', engine: webkit };
+const DIST = resolve(TARGET.dir);
 const FIXTURE = buildPage();
 const contentJs = readFileSync(resolve(DIST, 'content.js'), 'utf8');
 const backgroundJs = readFileSync(resolve(DIST, 'background.js'), 'utf8');
@@ -25,7 +33,7 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? '  ok  ' : ' FAIL '} ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
-const browser = await webkit.launch();
+const browser = await TARGET.engine.launch();
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.log(`    [pageerror] ${e.message.slice(0, 160)}`));
 page.on('console', (m) => { if (m.type() === 'error') console.log(`    [console] ${m.text().slice(0, 160)}`); });
@@ -98,7 +106,7 @@ check('extension API stub installed', await page.evaluate(() => !!globalThis.__n
 // The service worker equivalent, then the content script — both as classic
 // scripts, exactly as Safari loads them.
 await page.addScriptTag({ content: backgroundJs });
-check('background bundle runs under WebKit',
+check(`background bundle runs under ${TARGET.name}'s engine`,
   await page.evaluate(() => typeof browser !== 'undefined'));
 
 await page.addScriptTag({ content: contentJs });
@@ -108,7 +116,7 @@ check('content script activated',
   await page.evaluate(() => document.documentElement.dataset.neosnipe === 'active'));
 
 const badges = page.locator('.neosnipe-badge');
-check('badges injected under WebKit', await badges.count() === ITEM_COUNT + 1,
+check(`badges injected under ${TARGET.name}'s engine`, await badges.count() === ITEM_COUNT + 1,
   `${await badges.count()} badges (expected ${ITEM_COUNT + 1})`);
 
 check('no extension CSS reached the page', await page.evaluate(() => {
@@ -162,5 +170,5 @@ check('Vuetify overlay stayed inside the shadow root',
 await browser.close();
 
 const failed = results.filter((r) => !r.pass);
-console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+console.log(`\n${TARGET.name}: ${results.length - failed.length}/${results.length} checks passed`);
 process.exit(failed.length ? 1 : 0);

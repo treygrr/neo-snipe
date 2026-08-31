@@ -2,7 +2,7 @@
 
 Jelly Neo prices on every Neopets item, without leaving the page.
 
-A browser extension (Chrome and Safari) puts a small 🔍 badge in the bottom-right corner of every
+A browser extension (Chrome, Firefox and Safari) puts a small 🔍 badge in the bottom-right corner of every
 item on neopets.com. Clicking it looks the item up on Jelly Neo and shows the price, its history,
 and trading post activity in a popover.
 
@@ -38,6 +38,20 @@ the whole install. The options page has a **Test a lookup** button if you want t
 reach Jelly Neo.
 
 `npm run dev` runs Vite with HMR if you're iterating on the UI.
+
+### Firefox
+
+```bash
+cd extension
+npm run build:firefox
+```
+
+`about:debugging` → **This Firefox** → **Load Temporary Add-on** → pick any file in
+`extension/dist-firefox`. Then open the extension's options and click **Grant access to Jelly Neo**:
+Firefox treats MV3 host permissions as opt-in, so lookups fail until you do.
+
+Temporary add-ons are removed when Firefox restarts. A permanent install needs the package signed
+through addons.mozilla.org.
 
 ### Safari
 
@@ -106,13 +120,15 @@ for low-value items, and the popover shows that explanation rather than an empty
 Vue app — the popover — mounted lazily on the first badge click and reused after that. In the
 Chrome build the Vuetify bundle isn't even downloaded until you click something.
 
-**Why Safari gets a different build.** Safari can neither `fetch()` a web-accessible resource nor
-dynamically `import()` one from a content script — both fail on the `safari-web-extension://` URL.
-The Chrome build relies on both. So `vite build --mode safari` uses a statically-bundled content
-entry (`src/content/index.safari.js`), inlines the stylesheet into the bundle rather than fetching
-it, and flattens CRXJS's dynamic-import loaders into self-contained classic scripts. The cost is a
-~660KB content script that loads on every Neopets page instead of on first click; the Chrome build
-keeps the lazy path. Extension APIs go through `src/lib/ext-api.js`, which prefers Safari's
+**Why Safari and Firefox get a different build.** Safari can neither `fetch()` a web-accessible
+resource nor dynamically `import()` one from a content script, and Firefox has long-standing
+trouble with dynamic import there too. The Chrome build relies on both. So `--mode safari` and
+`--mode firefox` use a statically-bundled content entry (`src/content/index.safari.js`), inline the
+stylesheet rather than fetching it, and flatten CRXJS's dynamic-import loaders into self-contained
+classic scripts. Firefox additionally has no MV3 service worker, so its background becomes an event
+page (`background.scripts`), and its host permissions are opt-in — hence the **Grant access** button
+in the options. The cost is a ~660KB content script on every Neopets page instead of on first
+click; the Chrome build keeps the lazy path. Extension APIs go through `src/lib/ext-api.js`, which prefers Safari's
 standard `browser` namespace and falls back to `chrome`, and falls back from `storage.sync` to
 `storage.local` since Safari can refuse sync when iCloud is unavailable.
 
@@ -150,8 +166,9 @@ their robots.txt and terms before taking it further than personal use.
 cd extension
 npm run test:jellyneo                        # Jelly Neo parsing, from saved pages — no network
 npm run test:detect                          # detection against real Neopets markup
-npm run build  && npm run test:e2e           # the real thing, in real Chrome
-npm run build:safari && npm run test:safari  # the Safari bundles, in WebKit
+npm run build   && npm run test:e2e            # the real thing, in real Chrome
+npm run build:safari  && npm run test:safari   # the Safari bundle, in WebKit
+npm run build:firefox && npm run test:firefox  # the Firefox bundle, in Gecko
 ```
 
 Nothing needs a server or the network: both end-to-end suites serve Jelly Neo from saved pages, so
@@ -162,11 +179,15 @@ neopets.com origin so the content script matches, then checks badge injection, t
 CSS reaches the page, that Vuetify overlays stay inside the shadow root, hover-only badges, a live
 priced popover, and the Jelly-Neo-unreachable error path.
 
-`test:safari` runs the Safari bundles in WebKit — Safari's own engine — with a stubbed extension
-runtime. It covers what the Safari build changes: that the popover mounts with no dynamic import
-and no fetched stylesheet, that the inlined CSS is adopted, and that Vuetify renders under
-JavaScriptCore. It cannot exercise Safari's extension host (permission prompts, the real service
-worker); that part needs the manual steps above.
+`test:safari` and `test:firefox` run the flattened bundles in the engine that actually ships them —
+WebKit and Gecko — with a stubbed extension runtime (`test/bundle.mjs`, one harness, two targets).
+They cover what those builds change: the popover mounts with no dynamic import and no fetched
+stylesheet, the inlined CSS is adopted, and Vue and Vuetify run under JavaScriptCore and
+SpiderMonkey rather than V8. They cannot exercise a real extension host (permission prompts, the
+real background page); that part needs the manual steps above.
+
+`npx web-ext lint --source-dir extension/dist-firefox` validates the Firefox package with Mozilla's
+own linter.
 
 ## Layout
 
@@ -178,5 +199,5 @@ worker); that part needs the manual steps above.
 | `extension/src/content/` | Detection, badge injection, shadow-root mount. `run.js` is shared; `index.js` / `index.safari.js` are the per-browser entries. |
 | `extension/src/lib/ext-api.js` | `browser` / `chrome` shim and storage fallback. |
 | `extension/src/ui/` | Vue components, Vuetify config, popover state. |
-| `extension/vite-plugin-neosnipe.js` | Keeps Vuetify's CSS out of the Neopets page; flattens the Safari bundles. |
+| `extension/vite-plugin-neosnipe.js` | Keeps Vuetify's CSS out of the Neopets page; flattens and prunes the Safari and Firefox bundles. |
 | `extension/scripts/build-safari-app.sh` | Safari bundle → Xcode wrapper → compiled app. |

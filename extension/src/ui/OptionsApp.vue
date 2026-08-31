@@ -2,13 +2,27 @@
 import { onMounted, reactive, ref } from 'vue';
 import { mdiCheckCircle, mdiAlertCircle, mdiDeleteSweep } from '@mdi/js';
 import { DEFAULTS, getSettings } from '../lib/messages.js';
-import { writeSettings, sendMessage } from '../lib/ext-api.js';
+import { writeSettings, sendMessage, hasJellyNeoAccess, requestJellyNeoAccess } from '../lib/ext-api.js';
 
 const form = reactive({ ...DEFAULTS });
 const saved = ref(false);
 const test = reactive({ state: null, message: '' });
 
-onMounted(async () => Object.assign(form, await getSettings()));
+const granted = ref(true);
+
+onMounted(async () => {
+  Object.assign(form, await getSettings());
+  granted.value = await hasJellyNeoAccess();
+});
+
+/**
+ * Firefox treats MV3 host permissions as opt-in, so a fresh install cannot
+ * reach Jelly Neo until this is granted. The request must come from a click.
+ */
+async function grantAccess() {
+  granted.value = await requestJellyNeoAccess();
+  if (granted.value) { test.state = 'ok'; test.message = 'Access granted — lookups will work now.'; }
+}
 
 async function save() {
   await writeSettings({ ...form });
@@ -51,6 +65,11 @@ async function clearCache() {
           fetched by the extension itself. Nothing else to install and nothing to run — each item is
           looked up the first time you click its badge, then cached for a day.
         </p>
+
+        <v-alert v-if="!granted" type="info" variant="tonal" density="compact" class="mb-4">
+          <div class="mb-2">This extension needs permission to read prices from items.jellyneo.net.</div>
+          <v-btn size="small" color="primary" @click="grantAccess">Grant access to Jelly Neo</v-btn>
+        </v-alert>
 
         <v-switch
           v-model="form.hoverOnly"

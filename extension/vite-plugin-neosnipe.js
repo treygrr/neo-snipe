@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { build as esbuild } from 'esbuild';
 
 const CSS_OUT = 'neosnipe-content.css';
@@ -17,11 +17,12 @@ const CSS_PLACEHOLDER = '/*__NEOSNIPE_CSS__*/';
  * Chrome: publish the stylesheet as a web-accessible file the content script
  * fetches at mount time.
  *
- * Safari: it can neither `fetch()` a web-accessible resource nor dynamically
- * `import()` one from a content script — both fail on the
- * safari-web-extension:// URL. So the stylesheet is inlined into the bundle,
- * and CRXJS's dynamic-import loaders for the content script and service worker
- * are replaced with self-contained scripts.
+ * Safari and Firefox: neither reliably supports dynamically `import()`-ing an
+ * extension resource from a content script, and Safari cannot `fetch()` one
+ * either. So the stylesheet is inlined into the bundle and CRXJS's
+ * dynamic-import loaders are replaced with self-contained classic scripts.
+ * Firefox additionally has no MV3 service worker, so its background becomes an
+ * event page (`background.scripts`).
  */
 export default function neosnipe({ target = 'chrome', outDir = 'dist' } = {}) {
   return {
@@ -51,10 +52,10 @@ export default function neosnipe({ target = 'chrome', outDir = 'dist' } = {}) {
         }
         const css = sheets.map((f) => readFileSync(f, 'utf8')).join('\n');
 
-        if (target === 'safari') {
-          await packageForSafari.call(this, { dist, manifest, css });
-        } else {
+        if (target === 'chrome') {
           packageForChrome.call(this, { dist, manifest, css });
+        } else {
+          await packageFlattened.call(this, { dist, manifest, css, target });
         }
 
         writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -77,7 +78,7 @@ function packageForChrome({ dist, manifest, css }) {
   this.info?.(`published the stylesheet as ${CSS_OUT} for the shadow root`);
 }
 
-async function packageForSafari({ dist, manifest, css }) {
+async function packageFlattened({ dist, manifest, css, target }) {
   // Replace each CRXJS loader with a self-contained classic script.
   const contentLoader = manifest.content_scripts?.[0]?.js?.[0];
   if (contentLoader) {
@@ -88,14 +89,21 @@ async function packageForSafari({ dist, manifest, css }) {
   const swLoader = manifest.background?.service_worker;
   if (swLoader) {
     await flatten(dist, swLoader, 'background.js');
-    // Classic script, so no module imports for Safari to choke on.
-    manifest.background = { service_worker: 'background.js' };
+    // Classic script either way, so there are no module imports to choke on.
+    // Firefox has no MV3 service worker, so it gets a persistent-off event page.
+    manifest.background = target === 'firefox'
+      ? { scripts: ['background.js'] }
+      : { service_worker: 'background.js' };
   }
 
   // Nothing is loaded from the extension origin at runtime any more.
   delete manifest.web_accessible_resources;
 
-  this.info?.('inlined the stylesheet and flattened the loaders for Safari');
+  // Flattening leaves the original CRXJS chunks behind as dead weight.
+  const removed = pruneUnreachable(dist, manifest);
+
+  this.info?.(`inlined the stylesheet and flattened the loaders for ${target}`
+    + (removed ? `, pruned ${removed} unreachable file(s)` : ''));
 }
 
 /**
@@ -131,6 +139,88 @@ async function flatten(dist, loaderPath, outName, css) {
 
   writeFileSync(join(dist, outName), code);
   rmSync(join(dist, loaderPath), { force: true });
+}
+
+/**
+ * Deletes files nothing can reach. Roots are whatever the manifest names;
+ * from there we follow HTML src/href and static JS imports. Anything still
+ * unreferenced was superseded by the flattened bundles.
+ */
+function pruneUnreachable(dist, manifest) {
+  const rel = (f) => relative(dist, f).split(sep).join('/');
+
+  const roots = new Set();
+  for (const script of manifest.content_scripts || []) for (const j of script.js || []) roots.add(j);
+  for (const b of manifest.background?.scripts || []) roots.add(b);
+  if (manifest.background?.service_worker) roots.add(manifest.background.service_worker);
+  for (const icon of Object.values(manifest.icons || {})) roots.add(icon);
+  if (manifest.options_ui?.page) roots.add(manifest.options_ui.page);
+  for (const entry of manifest.web_accessible_resources || []) for (const r of entry.resources || []) roots.add(r);
+
+  const resolveRef = (from, ref) => {
+    if (!ref || /^(https?:|data:|chrome-extension:|#)/.test(ref)) return null;
+    // Vite emits root-absolute refs like "/assets/x.js"; those are relative to
+    // the extension root, not to the referring file.
+    const base = ref.startsWith('/') ? [] : from.split('/').slice(0, -1);
+    for (const part of ref.split('/')) {
+      // Skip '' so a leading slash does not become an empty path segment.
+      if (part === '..') base.pop();
+      else if (part !== '.' && part !== '') base.push(part);
+    }
+    return base.join('/');
+  };
+
+  const reachable = new Set();
+  const queue = [...roots];
+  while (queue.length) {
+    const file = queue.shift();
+    if (!file || reachable.has(file)) continue;
+    const full = join(dist, file);
+    if (!existsSync(full)) continue;
+    reachable.add(file);
+
+    if (/\.(html|js|css)$/.test(file)) {
+      const text = readFileSync(full, 'utf8');
+      const refs = [
+        ...text.matchAll(/(?:src|href)\s*=\s*["']([^"']+)["']/g),
+        ...text.matchAll(/\bfrom\s*["']([^"']+)["']/g),
+        ...text.matchAll(/\bimport\s*\(\s*["']([^"']+)["']/g),
+        ...text.matchAll(/\burl\(\s*["']?([^"')]+)/g),
+      ].map((m) => resolveRef(file, m[1]));
+      for (const r of refs) if (r) queue.push(r);
+    }
+  }
+
+  let removed = 0;
+  for (const full of walk(dist)) {
+    const name = rel(full);
+    if (name === 'manifest.json' || reachable.has(name)) continue;
+    rmSync(full, { force: true });
+    removed++;
+  }
+
+  // Deleting something still referenced would break a page silently, so prove
+  // every surviving reference still resolves.
+  const dangling = [];
+  for (const file of reachable) {
+    if (!/\.(html|js|css)$/.test(file)) continue;
+    const text = readFileSync(join(dist, file), 'utf8');
+    for (const m of [
+      ...text.matchAll(/(?:src|href)\s*=\s*["']([^"']+)["']/g),
+      ...text.matchAll(/\bfrom\s*["']([^"']+)["']/g),
+    ]) {
+      // Minified bundles produce plenty of regex noise, so only verify refs
+      // that actually look like an emitted asset.
+      if (!/\.(js|css|html|png|svg|woff2?)$/i.test(m[1])) continue;
+      const target = resolveRef(file, m[1]);
+      if (target && !existsSync(join(dist, target))) dangling.push(`${file} -> ${m[1]}`);
+    }
+  }
+  if (dangling.length) {
+    throw new Error(`pruning removed files that are still referenced:\n  ${dangling.join('\n  ')}`);
+  }
+
+  return removed;
 }
 
 function walk(dir) {

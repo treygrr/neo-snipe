@@ -1,5 +1,5 @@
 import { LOOKUP, TP_LOOKUP } from './lib/messages.js';
-import { api } from './lib/ext-api.js';
+import { api, hasJellyNeoAccess } from './lib/ext-api.js';
 import { dedupe } from './lib/queue.js';
 import { lookupItem, lookupTradingPost, NotFoundError, ScrapeError } from './lib/jellyneo.js';
 
@@ -50,6 +50,10 @@ async function lookup(item) {
   const cached = await readCache(k);
   if (cached) return { ok: true, data: { ...cached, cached: true } };
 
+  // Firefox will not have granted host access on a fresh install, and the
+  // resulting fetch failure is indistinguishable from being offline.
+  if (!(await hasJellyNeoAccess())) return { ok: false, error: 'no_permission' };
+
   return dedupe(k, async () => {
     const raced = await readCache(k);
     if (raced) return { ok: true, data: { ...raced, cached: true } };
@@ -71,6 +75,8 @@ async function tradingPost(itemId) {
   const k = `tp:${itemId}`;
   const cached = await readCache(k);
   if (cached) return { ok: true, data: { ...cached, cached: true } };
+
+  if (!(await hasJellyNeoAccess())) return { ok: false, error: 'no_permission' };
 
   return dedupe(k, async () => {
     try {

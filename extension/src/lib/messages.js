@@ -18,4 +18,5 @@ export const ERROR_TEXT = {
   scrape_failed: "Jelly Neo's layout changed — the parser needs updating.",
   no_item_id: 'No Jelly Neo item id, so trading post history is unavailable.',
   internal: 'Something went wrong looking this up.',
+  no_permission: 'Access to Jelly Neo has not been granted yet — open the extension options to allow it.',
 };

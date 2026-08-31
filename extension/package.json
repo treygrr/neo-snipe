@@ -9,10 +9,13 @@
     "preview": "vite preview",
     "test:e2e": "node test/e2e.mjs",
     "build:safari": "vite build --mode safari",
-    "test:safari": "node test/safari-webkit.mjs",
+    "test:safari": "node test/bundle.mjs",
     "build:safari-app": "bash scripts/build-safari-app.sh",
     "test:detect": "node --test test/detect.test.mjs",
-    "test:jellyneo": "node --test test/jellyneo.test.mjs"
+    "test:jellyneo": "node --test test/jellyneo.test.mjs",
+    "build:firefox": "vite build --mode firefox",
+    "test:firefox": "NS_TARGET=firefox node test/bundle.mjs",
+    "build:all": "npm run build && npm run build:firefox && npm run build:safari"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",

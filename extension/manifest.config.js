@@ -2,8 +2,13 @@ import { defineManifest } from '@crxjs/vite-plugin';
 import pkg from './package.json' with { type: 'json' };
 
 /**
- * @param {'chrome'|'safari'} target
- * Safari needs the statically-bundled content entry; everything else is shared.
+ * @param {'chrome'|'safari'|'firefox'} target
+ *
+ * Safari and Firefox both need the statically-bundled content entry: neither
+ * reliably supports dynamic import() from a content script. The build keeps
+ * `service_worker` here so CRXJS bundles the background entry; the packaging
+ * plugin rewrites it to `background.scripts` for Firefox, which has no
+ * service-worker support in MV3.
  */
 export default function makeManifest(target = 'chrome') {
   return defineManifest({
@@ -20,7 +25,7 @@ export default function makeManifest(target = 'chrome') {
     content_scripts: [
       {
         matches: ['*://*.neopets.com/*'],
-        js: [target === 'safari' ? 'src/content/index.safari.js' : 'src/content/index.js'],
+        js: [target === 'chrome' ? 'src/content/index.js' : 'src/content/index.safari.js'],
         run_at: 'document_idle',
         all_frames: true, // some Neopets pages still render inside frames
       },
@@ -30,5 +35,9 @@ export default function makeManifest(target = 'chrome') {
       // Safari does not support open_in_tab and warns about it at conversion.
       ...(target === 'safari' ? {} : { open_in_tab: true }),
     },
+    // Firefox needs a stable id to be installable and signable.
+    ...(target === 'firefox'
+      ? { browser_specific_settings: { gecko: { id: 'neo-snipe@treygrr', strict_min_version: '128.0' } } }
+      : {}),
   });
 }

@@ -4,12 +4,12 @@ import { crx } from '@crxjs/vite-plugin';
 import makeManifest from './manifest.config.js';
 import neosnipe from './vite-plugin-neosnipe.js';
 
-// `vite build` produces the Chrome extension in dist/.
-// `vite build --mode safari` produces the Safari-compatible build in dist-safari/,
-// which the Xcode wrapper in safari/ is generated from.
+// `vite build`               → Chrome,  in dist/
+// `vite build --mode safari`  → Safari,  in dist-safari/ (wrapped by safari/)
+// `vite build --mode firefox` → Firefox, in dist-firefox/
 export default defineConfig(({ mode }) => {
-  const target = mode === 'safari' ? 'safari' : 'chrome';
-  const outDir = target === 'safari' ? 'dist-safari' : 'dist';
+  const target = ['safari', 'firefox'].includes(mode) ? mode : 'chrome';
+  const outDir = target === 'chrome' ? 'dist' : `dist-${target}`;
 
   return {
     plugins: [vue(), crx({ manifest: makeManifest(target) }), neosnipe({ target, outDir })],

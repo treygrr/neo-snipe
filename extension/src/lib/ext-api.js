@@ -14,6 +14,27 @@ export function sendMessage(message) {
 
 export const getURL = (path) => api.runtime.getURL(path);
 
+/** The one host we ever fetch from. */
+export const JELLYNEO_ORIGIN = 'https://items.jellyneo.net/*';
+
+/**
+ * Firefox treats MV3 host permissions as opt-in, so a fresh install cannot
+ * fetch until the user grants them. Chrome grants them at install, where this
+ * simply returns true.
+ */
+export async function hasJellyNeoAccess() {
+  try {
+    if (!api.permissions?.contains) return true;
+    return await api.permissions.contains({ origins: [JELLYNEO_ORIGIN] });
+  } catch {
+    return true; // if we cannot tell, let the fetch itself be the judge
+  }
+}
+
+export async function requestJellyNeoAccess() {
+  return api.permissions.request({ origins: [JELLYNEO_ORIGIN] });
+}
+
 /**
  * Safari can refuse storage.sync (it needs iCloud, and returns an error when
  * that is unavailable), so fall back to local rather than losing settings.
