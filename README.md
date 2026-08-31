@@ -52,7 +52,25 @@ npm run build
 the whole install. The options page has a **Test a lookup** button if you want to confirm it can
 reach Jelly Neo.
 
-`npm run dev` runs Vite with HMR if you're iterating on the UI.
+### Working on it
+
+You should not have to install the extension by hand every time:
+
+```bash
+npm run dev:browser              # a browser with the extension already loaded
+npm run dev:browser -- --fixture # offline test page, no Neopets login needed
+npm run dev:browser -- --fresh   # wipe the saved profile
+npm run dev                      # Vite with hot reload, run alongside
+```
+
+`dev:browser` launches Chromium with the built extension side-loaded and a persistent profile, so
+your Neopets login survives between runs. `--fixture` serves the same saved markup the tests use —
+all five item surfaces on one page, with Jelly Neo answered from fixtures — so you can work on the
+UI with no login and no network.
+
+Note that recent Google Chrome refuses `--load-extension`, so this uses Playwright's bundled
+Chromium. Firefox cannot side-load at all from Playwright; use `npm run test:firefox`, or load
+`dist-firefox/manifest.json` through `about:debugging` in your own Firefox.
 
 ### Firefox
 

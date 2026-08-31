@@ -297,7 +297,25 @@ check('the heart saves a favourite', (stored.favorites || []).length === 1,
 // Open the panel from the launcher.
 await page.locator('.neosnipe-launcher').click();
 await page.waitForTimeout(500);
-check('launcher opens the panel', await sr('.ns-panel') !== null);
+// Not just "the element exists": it rendered off-screen once, and an
+// existence check happily passed while nothing was visible.
+const panelBox = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const el = root.querySelector('.ns-panel');
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return {
+    x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
+    onScreen: r.width > 100 && r.height > 100
+      && r.top >= 0 && r.left >= 0
+      && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1,
+    // Bottom-right, where it is supposed to be.
+    bottomRight: r.right > innerWidth * 0.6 && r.bottom > innerHeight * 0.5,
+  };
+});
+check('launcher opens the panel, visible on screen',
+  panelBox?.onScreen === true, JSON.stringify(panelBox));
+check('panel is anchored bottom-right', panelBox?.bottomRight === true);
 check('launcher shows it is open',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 1);
 

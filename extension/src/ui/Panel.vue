@@ -90,7 +90,10 @@ function open(event, favourite) {
 
 <style scoped>
 .ns-panel {
-  position: absolute;
+  /* Fixed, not absolute: the nearest positioned ancestor is Vuetify's
+     .v-application__wrap, which we collapse to height 0, so `bottom` measured
+     from there put the panel far above the viewport. */
+  position: fixed;
   right: 16px;
   bottom: 58px;
   pointer-events: auto;
