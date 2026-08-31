@@ -471,6 +471,16 @@ await page.waitForFunction(() => {
 check('opening a favourite refetches instead of using the cache',
   jellyNeoRequests > requestsBeforeRefresh,
   `${jellyNeoRequests - requestsBeforeRefresh} requests`);
+// The menu takes min-width from its activator unless told otherwise, so a
+// favourite row in the wide panel would stretch the popover.
+const popoverWidth = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const el = root.querySelector('.v-overlay__content');
+  return el ? Math.round(el.getBoundingClientRect().width) : null;
+});
+check('the popover keeps its own width when opened from the panel',
+  popoverWidth !== null && popoverWidth <= 345, `${popoverWidth}px`);
+
 check('the refetched result is not marked cached',
   !/cached/i.test(await sr('.ns-meta') || ''), await sr('.ns-meta'));
 
@@ -483,6 +493,11 @@ check('closing the panel un-highlights the launcher',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
 
 // --- Food Club: read the round, pick a risk level, fill a bet ---------------
+// The favourite's popover is still open over the launcher; dismiss it the way
+// a person would before reaching for the bar again.
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+
 await page.locator('.neosnipe-launcher').click();
 await page.waitForTimeout(300);
 await inShadow((root) => {

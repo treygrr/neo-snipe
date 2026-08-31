@@ -23,6 +23,7 @@ const open = computed({
       location="bottom end"
       offset="6"
       max-width="340"
+      :min-width="0"
     >
       <v-card class="ns-popover" elevation="8" width="340">
         <v-card-text class="ns-body">
