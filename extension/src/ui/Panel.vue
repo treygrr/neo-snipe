@@ -139,7 +139,13 @@ function open(event, favourite) {
   bottom: 58px;
   pointer-events: auto;
 }
-.ns-panel-card { width: 320px; display: flex; flex-direction: column; }
+.ns-panel-card {
+  /* 1.5x the original 320px. Capped so it still fits a narrow window. */
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+}
 
 .ns-panel-head {
   display: flex; align-items: center; gap: 6px;
