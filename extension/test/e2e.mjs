@@ -953,26 +953,33 @@ check('using Fill marks that bet done', (doneAfterFill.fcDone?.ids || []).length
 
 await betTab.close();
 
-// Place: the whole bet on the query string of the handler, in its own tab —
-// the same URL shape neofood.club's Place button builds.
+// Place: sent from the page itself, with a toast rather than a tab.
 const oddsShown = await inShadow((root) =>
   root.querySelector('.ns-bet .ns-bet-odds')?.textContent.trim() || '');
-const [placeTab] = await Promise.all([
-  ctx.waitForEvent('page', { timeout: 15000 }),
-  inShadow((root) => root.querySelector('.ns-bet .ns-btn-place').click()),
-]);
-await placeTab.waitForLoadState('domcontentloaded');
-const placeUrl = new URL(placeTab.url());
-const placeParams = placeUrl.searchParams;
 
-check('Place goes to the bet handler in a new tab, leaving this one alone',
-  placeUrl.pathname === '/pirates/process_foodclub.phtml' && /inventory\.phtml/.test(page.url()),
-  `${placeUrl.pathname} original=${page.url().split('/').pop()}`);
+// Watch what the page requests, since nothing navigates now.
+const placeRequests = [];
+page.on('request', (r) => {
+  if (r.url().includes('process_foodclub.phtml')) placeRequests.push(r.url());
+});
+
+const tabsBefore = ctx.pages().length;
+await inShadow((root) => root.querySelector('.ns-bet .ns-btn-place').click());
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return !!root?.querySelector('.ns-toast');
+}, null, { timeout: 15000 }).catch(() => {});
+
+check('Place opens no tab', ctx.pages().length === tabsBefore,
+  `${tabsBefore} -> ${ctx.pages().length}`);
+check('Place requests the bet handler itself', placeRequests.length === 1, `${placeRequests.length} requests`);
+
+const placeParams = new URL(placeRequests[0] || 'https://x/?').searchParams;
 check('the place URL names a winner per arena bet on, and matches them',
   [...placeParams.keys()].filter((k) => /^winner\d$/.test(k)).length
     === placeParams.getAll('matches[]').length
   && placeParams.getAll('matches[]').length > 0,
-  placeUrl.search);
+  placeRequests[0]?.split('?')[1]);
 check('the place URL carries the stake, the odds and the winnings',
   placeParams.get('bet_amount') === '10540'
   && Number(placeParams.get('total_odds')) > 0
@@ -984,8 +991,65 @@ check('the winnings sent are the stake at those odds, capped at 1M',
     === Math.min(Number(placeParams.get('total_odds')) * 10540, 1_000_000),
   `${placeParams.get('winnings')} for ${oddsShown}`);
 check('the odds sent are the odds shown on the bet',
-  oddsShown.startsWith(`${placeParams.get('total_odds')}:1`), `${oddsShown} vs ${placeParams.get('total_odds')}`);
-await placeTab.close();
+  oddsShown.startsWith(`${placeParams.get('total_odds')}:1`),
+  `${oddsShown} vs ${placeParams.get('total_odds')}`);
+
+const toast = await inShadow((root) => {
+  const t = root.querySelector('.ns-toast');
+  return t && {
+    text: t.textContent.replace(/\s+/g, ' ').trim(),
+    bad: t.classList.contains('ns-toast--bad'),
+    action: t.querySelector('.ns-toast-action')?.getAttribute('href'),
+  };
+});
+check('a toast says the bet was placed', /Bet placed/.test(toast?.text || '') && !toast?.bad,
+  JSON.stringify(toast?.text));
+check('the toast links to your bets', /type=current_bets/.test(toast?.action || ''), toast?.action);
+check('a placed bet is marked done',
+  await inShadow((root) => root.querySelector('.ns-bet').classList.contains('ns-bet--done')));
+
+check('the tab links to your bets and to collecting winnings',
+  await inShadow((root) => {
+    const hrefs = [...root.querySelectorAll('.ns-fc-links a')].map((a) => a.getAttribute('href'));
+    return hrefs.some((h) => /current_bets/.test(h)) && hrefs.some((h) => /type=collect/.test(h));
+  }));
+
+await inShadow((root) => root.querySelector('.ns-toast-x').click());
+await page.waitForTimeout(300);
+check('the toast can be dismissed',
+  await inShadow((root) => !root.querySelector('.ns-toast')));
+
+// A refused bet must not be marked done, and must say why. The delay also
+// gives the button's loading state something to be observed during.
+await page.route('**://www.neopets.com/pirates/process_foodclub.phtml*', async (route) => {
+  await new Promise((r) => setTimeout(r, 1200));
+  return route.fulfill({ contentType: 'text/html', body: '<p>You don\'t have enough Neopoints!</p>' });
+});
+
+await inShadow((root) => root.querySelectorAll('.ns-bet')[1].querySelector('.ns-btn-place').click());
+await page.waitForTimeout(500);
+
+check('the button shows a loading state while the bet is in flight',
+  await inShadow((root) => {
+    const btn = root.querySelectorAll('.ns-bet')[1].querySelector('.ns-btn-place');
+    return btn.classList.contains('v-btn--loading') || !!btn.querySelector('.v-progress-circular');
+  }));
+check('the other Place buttons are disabled while one is in flight',
+  await inShadow((root) => root.querySelector('.ns-bet .ns-btn-place').disabled === true));
+
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return !!root?.querySelector('.ns-toast--bad');
+}, null, { timeout: 15000 }).catch(() => {});
+
+const refusalToast = await inShadow((root) => root.querySelector('.ns-toast')?.textContent || '');
+check('a refused bet says why', /many Neopoints/i.test(refusalToast), JSON.stringify(refusalToast));
+check('a refused bet is not marked done',
+  await inShadow((root) => !root.querySelectorAll('.ns-bet')[1].classList.contains('ns-bet--done')));
+check('the buttons come back after a refusal',
+  await inShadow((root) => root.querySelectorAll('.ns-bet')[1]
+    .querySelector('.ns-btn-place').disabled === false));
+await page.unroute('**://www.neopets.com/pirates/process_foodclub.phtml*');
 
 // --- settings: the cog, the premium toggle, export and import --------------
 await ensurePanelOpen();

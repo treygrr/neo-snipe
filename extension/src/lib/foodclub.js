@@ -6,6 +6,8 @@
 // which takes the whole bet on the query string — see placeBetUrl.
 
 export const BET_URL = 'https://www.neopets.com/pirates/foodclub.phtml?type=bet';
+export const CURRENT_BETS_URL = 'https://www.neopets.com/pirates/foodclub.phtml?type=current_bets';
+export const COLLECT_URL = 'https://www.neopets.com/pirates/foodclub.phtml?type=collect';
 export const SETS_URL = 'https://www.neopets.com/~Shrmsh';
 
 export const ARENAS = ['Shipwreck', 'Lagoon', 'Treasure Island', 'Hidden Cove', "Harpoon Harry's"];
@@ -161,4 +163,25 @@ export function placeBetUrl({ picks, amount, totalOdds }) {
     'type=bet',
   ];
   return `https://www.neopets.com/pirates/process_foodclub.phtml?${params.join('&')}`;
+}
+
+/**
+ * What the bet handler said. Its success page has not been captured, so this
+ * does not try to recognise success — it looks for the ways Neopets says no,
+ * and treats anything else as placed. Whoever captures a real response should
+ * replace this with a positive check.
+ */
+const REFUSALS = [
+  [/you don't have enough neopoints|not enough neopoints/i, "You don't have that many Neopoints."],
+  [/maximum bet|you can only bet|too (much|high)/i, 'That is over your maximum bet.'],
+  [/already (placed|made).{0,20}bet|only place \d+ bets/i, 'That bet is already placed.'],
+  [/betting is closed|round (is )?(over|closed)|no longer accepting/i, 'Betting is closed for this round.'],
+  [/you must be logged in|login/i, 'Neopets says you are not logged in.'],
+  [/error/i, 'Neopets refused the bet.'],
+];
+
+export function placementRefusal(html) {
+  const text = String(html ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  for (const [re, message] of REFUSALS) if (re.test(text)) return message;
+  return null;
 }

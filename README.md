@@ -226,15 +226,27 @@ discipline as the Neopets selectors, and for the same reason.
   [~Shrmsh](https://www.neopets.com/~Shrmsh) — Beginner, Standard, Aggressive, Adventurous — each
   bet resolved against this round's odds with its payout at your chosen stake.
 
-  Each bet has two buttons, and both open **a new tab** so the panel and its set stay where they
-  are while you work through several. **Fill** loads the bet page with the form filled in, for you
-  to check and submit. **Place** skips the form: `process_foodclub.phtml` takes a whole bet on the
-  query string, so the bet goes straight there. That URL shape is
-  [neofood.club's](https://neofood.club) own, read out of its bundle rather than guessed —
-  `winner<n>` and `matches[]` for the arenas being bet on, then the stake, the odds, and the
-  winnings capped at the 1M NP Neopets will pay on one bet. Both mark the bet done, and you can
-  tick or untick that yourself; marks are stored against the round number, so they clear when a new
-  round opens rather than carrying over onto different bets.
+  Each bet has two buttons. **Place** places it without leaving the page: `process_foodclub.phtml`
+  takes a whole bet on the query string, so the panel requests that URL directly and reports the
+  result in a toast. The URL shape is [neofood.club's](https://neofood.club) own, read out of its
+  bundle rather than guessed — `winner<n>` and `matches[]` for the arenas being bet on, then the
+  stake, the odds, and the winnings capped at the 1M NP Neopets will pay on one bet. **Fill** still
+  opens the bet page in a new tab with the form filled in, for you to check and submit yourself.
+
+  The request goes from the panel, not the service worker: the panel lives in the Neopets page, so
+  it is same-origin and already carries your session, where the worker would need host access to
+  all of neopets.com — a far broader permission than placing one bet is worth.
+
+  A placed bet is marked done **only once Neopets has accepted it**, so a refused bet stays on the
+  list to try again, with the reason in the toast. While a bet is in flight its button spins and
+  the others are disabled, so a slow response cannot become two bets. Marks are stored against the
+  round number, so they clear when a new round opens rather than carrying over onto different bets;
+  you can tick or untick one yourself.
+
+  The handler's success page has not been captured, so the code does not claim to recognise
+  success — it recognises Neopets' refusals and treats anything else as placed. **Your bets** and
+  **Collect winnings** sit at the bottom of the tab, and the toast links to the first, so a placed
+  bet can always be confirmed at the source.
 
   Nothing now flags a bet for submission — Place does not go through the filler at all — but the
   filler keeps its guard: it posts the form only for a bet explicitly flagged `submit: true`, and a

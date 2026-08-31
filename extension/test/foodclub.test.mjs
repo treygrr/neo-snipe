@@ -7,7 +7,7 @@ import { parseHTML } from 'linkedom';
 
 import {
   parseBetPage, parseSets, resolveBet, payout, ARENAS, RISK_LEVELS, FoodClubError,
-  placeBetUrl, WINNINGS_CAP,
+  placeBetUrl, WINNINGS_CAP, placementRefusal,
 } from '../src/lib/foodclub.js';
 
 const doc = (f) => parseHTML(`<html><body>${readFileSync(resolve('test/fixtures/foodclub', f), 'utf8')}</body></html>`).document;
@@ -125,4 +125,15 @@ test('an unresolved or unpriced bet produces no URL to place', () => {
   assert.equal(placeBetUrl({ picks: [{ arena: 1, pirateId: null }], amount: 50, totalOdds: 4 }), null);
   assert.equal(placeBetUrl({ picks: PICKS, amount: 0, totalOdds: 4 }), null);
   assert.equal(placeBetUrl({ picks: PICKS, amount: 50, totalOdds: null }), null);
+});
+
+test('a refusal from the bet handler is reported in its own words', () => {
+  assert.match(placementRefusal('<p>You don\'t have enough Neopoints!</p>'), /Neopoints/);
+  assert.match(placementRefusal('<b>Betting is closed for this round.</b>'), /closed/i);
+  assert.match(placementRefusal('<div class="error">Error</div>'), /refused/i);
+});
+
+test('an ordinary response is not read as a refusal', () => {
+  assert.equal(placementRefusal('<html><body>Your bet has been placed! Good luck.</body></html>'), null);
+  assert.equal(placementRefusal(''), null);
 });

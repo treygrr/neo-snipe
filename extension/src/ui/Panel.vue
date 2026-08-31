@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { mdiClose, mdiCog, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove } from '@mdi/js';
 import {
   state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily, loadFoodClub,
-  moveFavourite, moveDailyFavourite, showSettings, isPremium,
+  moveFavourite, moveDailyFavourite, showSettings, isPremium, dismissToast,
 } from './store.js';
 import SettingsView from './SettingsView.vue';
 import FoodClub from './FoodClub.vue';
@@ -218,11 +218,33 @@ const isDragOver = (i, kind) => dragOver.value === i && dragKind.value === kind 
           </div>
         </template>
       </div>
+      <!-- Sits inside the card so it cannot escape the shadow root. -->
+      <div v-if="state.toast" class="ns-toast" :class="{ 'ns-toast--bad': state.toast.tone === 'bad' }"
+           role="status">
+        <span class="ns-toast-text">{{ state.toast.text }}</span>
+        <a v-if="state.toast.action" class="ns-toast-action" :href="state.toast.action.href"
+           target="_blank" rel="noopener">{{ state.toast.action.label }}</a>
+        <button type="button" class="ns-toast-x" aria-label="Dismiss" @click="dismissToast">×</button>
+      </div>
     </v-card>
   </div>
 </template>
 
 <style scoped>
+.ns-toast {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 3;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px 7px 10px; border-radius: 6px;
+  font-size: 11px; line-height: 1.3;
+  background: #2e7d32; color: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
+}
+.ns-toast--bad { background: #c62828; }
+.ns-toast-text { flex: 1; min-width: 0; }
+.ns-toast-action { color: #fff; font-weight: 600; white-space: nowrap; }
+.ns-toast-x {
+  flex: none; background: none; border: 0; color: inherit; cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 0 2px; opacity: .8;
+}
 .ns-panel {
   /* Fixed, not absolute: the nearest positioned ancestor is Vuetify's
      .v-application__wrap, which we collapse to height 0, so `bottom` measured
@@ -241,6 +263,8 @@ const isDragOver = (i, kind) => dragOver.value === i && dragKind.value === kind 
   max-width: calc(100vw - 32px);
   display: flex;
   flex-direction: column;
+  /* The toast is absolute against this card. */
+  position: relative;
 }
 
 .ns-panel-head {

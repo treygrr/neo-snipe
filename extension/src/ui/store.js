@@ -2,8 +2,9 @@ import { reactive } from 'vue';
 import { LOOKUP, TP_LOOKUP, ERROR_TEXT } from '../lib/messages.js';
 import { sendMessage, api } from '../lib/ext-api.js';
 import {
-  BET_URL, SETS_URL, RISK_LEVELS, parseBetPage, parseSets, parseRound, resolveBet, payout,
-  placeBetUrl,
+  BET_URL, SETS_URL, CURRENT_BETS_URL, COLLECT_URL,
+  RISK_LEVELS, parseBetPage, parseSets, parseRound, resolveBet, payout,
+  placeBetUrl, placementRefusal,
   betId, FoodClubError,
 } from '../lib/foodclub.js';
 import { PENDING_KEY } from '../content/foodclub-fill.js';
@@ -53,7 +54,12 @@ export const state = reactive({
     loadedAt: null,
     round: null,
     done: [],
+    // betId of the bet currently being placed, so only its button spins.
+    placing: null,
   },
+
+  // A short-lived message over the panel. `action` is an optional link.
+  toast: null,
 
   // The panel. `panelAnchor` is 'bottom' when opened from the in-page bar and
   // 'top' when opened from the toolbar button, so it appears under the button.
@@ -506,17 +512,54 @@ export async function fillBet(bet) {
   openBetTab(BET_URL);
 }
 
+let toastTimer = null;
+
+export function showToast(text, { tone = 'ok', action = null, ms = 6000 } = {}) {
+  state.toast = { text, tone, action, at: Date.now() };
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { state.toast = null; }, ms);
+}
+
+export function dismissToast() {
+  clearTimeout(toastTimer);
+  state.toast = null;
+}
+
 /**
- * Place goes straight to the handler with the bet on the query string, rather
- * than loading the form and driving it. Same tab-per-bet behaviour as Fill,
- * and the bet is marked done either way, since in both cases you dealt with it.
+ * Place sends the bet itself rather than opening a tab. The panel lives in the
+ * Neopets page, so this is a same-origin request carrying your session — the
+ * service worker could not do it without host access to neopets.com, which is
+ * a much broader permission than placing one bet is worth.
+ *
+ * The bet is marked done only once Neopets has accepted it, so a refused bet
+ * stays on the list to try again.
  */
 export async function placeBet(bet) {
   const url = placeBetUrl({ picks: bet.picks, amount: state.fc.amount, totalOdds: bet.totalOdds });
-  if (!url) return;
-  await toggleBetDone(bet, true);
-  openBetTab(url);
+  if (!url || state.fc.placing) return;
+
+  state.fc.placing = betId(bet);
+  try {
+    const res = await fetch(url, { credentials: 'include', referrer: BET_URL });
+    if (!res.ok) throw new Error(`Neopets returned ${res.status}`);
+
+    const refusal = placementRefusal(await res.text());
+    if (refusal) {
+      showToast(refusal, { tone: 'bad' });
+      return;
+    }
+
+    await toggleBetDone(bet, true);
+    showToast(`Bet placed — ${state.fc.amount.toLocaleString('en-US')} NP at ${bet.totalOdds}:1.`,
+      { action: { label: 'View bets', href: CURRENT_BETS_URL } });
+  } catch (err) {
+    showToast(`Could not place that bet: ${err.message}`, { tone: 'bad' });
+  } finally {
+    state.fc.placing = null;
+  }
 }
+
+export const isPlacing = (bet) => state.fc.placing === betId(bet);
 
 // --- reordering favourites -------------------------------------------------
 
@@ -544,4 +587,4 @@ export async function moveDailyFavourite(from, to) {
   await saveDailyFavourites(next);
 }
 
-export { RISK_LEVELS, BET_URL, SETS_URL };
+export { RISK_LEVELS, BET_URL, SETS_URL, CURRENT_BETS_URL, COLLECT_URL };
