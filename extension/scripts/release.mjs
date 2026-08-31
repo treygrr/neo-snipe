@@ -32,11 +32,30 @@ Browse to any page on neopets.com with items on it — inventory, a shop, the sa
 auctions, the trading post. Each item gets a small 🔍 badge in its bottom-right corner (by default
 it only appears when you hover the item). Click the badge to look the item up.
 
-The popover shows the current Jelly Neo price, and two tabs: **Price History** and **TP History**
-(trading post lots). Trading post history is fetched only when you open that tab.
+The popover shows the current Jelly Neo price, icons to open the item on the trading post and in
+auctions, and four tabs:
 
-Prices are cached for a day, so looking the same item up again is instant. The extension's options
-page has a **Test a lookup** button and a **Clear cached prices** button.
+- **Price** — Jelly Neo's price history.
+- **TP** — recent trading post lots.
+- **SW** — the Shop Wizard. It returns about twenty shops and a different slice each time, so the
+  *again* button adds to the list rather than replacing it.
+- **SSW** — the Super Shop Wizard, for Premium accounts.
+
+Nothing in a tab is fetched until you open that tab, since Neopets limits how often you may search.
+Wizard results are kept for 15 minutes per item; Jelly Neo prices for a day.
+
+## The panel
+
+The button at the bottom right opens a panel with three tabs:
+
+- **Favourites** — items you have hearted in a popover. Drag to reorder; opening one always fetches
+  a fresh price.
+- **Dailies** — quick links to the wheels, bargain stocks, lab rays and the rest. Heart the ones you
+  use to pin them to a group at the top, also drag-reorderable. Premium-only dailies are hidden
+  unless the account has Premium.
+- **Food Club** — the day's bets by risk level, with **Fill** and **Place** buttons.
+
+The cog holds the settings, including exporting them to a JSON file and importing it back.
 
 ## Notes
 
