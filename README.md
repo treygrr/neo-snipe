@@ -129,11 +129,14 @@ a search for that exact item in a new tab. Those URL shapes are taken verbatim f
 Item" links on a Jelly Neo item page rather than written from memory. Both shop wizards are tabs
 rather than icons, since neither has a page a link can reach.
 
-The popover's **Wiz** tab runs the regular Shop Wizard. Neopets limits how often you may search,
-so it runs **only when you open that tab** — never on opening a popover — and the result is kept
-for 15 minutes per item, with a "searched 3m ago" note, rather than searching again when you switch
-tabs and back. *Search again* forces a fresh one. Being told to slow down is reported as that,
-rather than as an empty shop list.
+The popover's **SW** tab runs the regular Shop Wizard. Neopets limits how often you may search, so
+both wizard tabs run **only when you open them** — never on opening a popover — and keep their
+result for 15 minutes per item, with an *again* button to force a fresh search.
+
+The regular wizard returns only about twenty shops, and a different slice each time, so searching
+again **adds** to the list rather than replacing it: one row per shop owner, a shop seen twice
+keeping its newer price, still sorted cheapest first. The header says how many searches the list
+came from. Being told to slow down is reported as that, rather than as an empty shop list.
 
 Like the SSW it is an endpoint rather than a page, but it answers with an HTML fragment instead of
 JSON, so `wizard.js` parses markup where `ssw.js` reads fields.

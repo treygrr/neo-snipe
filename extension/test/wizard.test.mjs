@@ -87,3 +87,40 @@ test('the referrer the endpoint demands is the wizard page', async () => {
   const { WIZARD_REFERRER } = await import('../src/lib/wizard.js');
   assert.equal(WIZARD_REFERRER, 'https://www.neopets.com/shops/wizard.phtml');
 });
+
+// --- accumulating across searches ------------------------------------------
+import { mergeListings } from '../src/lib/wizard.js';
+
+const row = (owner, price, amount = 1) => ({ owner, price, amount, priceText: `${price} NP`, href: `#${owner}` });
+
+test('a second search adds shops rather than replacing them', () => {
+  const merged = mergeListings([row('alice', 300), row('bob', 500)], [row('carol', 400)]);
+  assert.deepEqual(merged.map((l) => l.owner), ['alice', 'carol', 'bob'], 'cheapest first');
+  assert.equal(merged.length, 3);
+});
+
+test('a shop seen twice appears once, with its newer price', () => {
+  const merged = mergeListings([row('alice', 300, 5)], [row('alice', 250, 2)]);
+  assert.equal(merged.length, 1, 'one row per owner');
+  assert.equal(merged[0].price, 250, 'the newer search wins');
+  assert.equal(merged[0].amount, 2);
+});
+
+test('a repriced shop moves to its new position', () => {
+  const merged = mergeListings(
+    [row('alice', 100), row('bob', 200), row('carol', 300)],
+    [row('alice', 900)],
+  );
+  assert.deepEqual(merged.map((l) => l.owner), ['bob', 'carol', 'alice']);
+});
+
+test('merging is safe with nothing on either side', () => {
+  assert.deepEqual(mergeListings(), []);
+  assert.deepEqual(mergeListings([], [row('a', 1)]).map((l) => l.owner), ['a']);
+  assert.deepEqual(mergeListings([row('a', 1)], []).map((l) => l.owner), ['a']);
+});
+
+test('a row with no price sorts last rather than first', () => {
+  const merged = mergeListings([], [{ owner: 'x', price: null }, row('y', 50)]);
+  assert.deepEqual(merged.map((l) => l.owner), ['y', 'x']);
+});

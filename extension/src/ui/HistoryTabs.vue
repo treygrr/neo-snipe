@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { mdiRefresh } from '@mdi/js';
 import { state, selectTab, retryTradingPost, retryWizard, isPremium } from './store.js';
 import ShopsList from './ShopsList.vue';
 
@@ -73,8 +74,15 @@ const searchedAgo = computed(() => {
         <template v-else-if="state.wiz.data">
           <div class="ns-tp-stats">
             <span>{{ state.wiz.data.listings.length }} shops</span>
+            <span v-if="state.wiz.searches > 1">from {{ state.wiz.searches }} searches</span>
             <span v-if="wizListings.length">cheapest {{ wizListings[0].priceText }}</span>
             <span class="ns-wiz-age">{{ searchedAgo }}</span>
+            <button
+              type="button"
+              class="ns-research"
+              title="Search again — new shops are added to this list"
+              @click="retryWizard"
+            ><v-icon :icon="mdiRefresh" size="12" /> again</button>
           </div>
           <v-table v-if="wizListings.length" density="compact" class="ns-rows">
             <tbody>
@@ -166,6 +174,12 @@ const searchedAgo = computed(() => {
 .ns-shop-owner a { color: inherit; }
 .ns-shop-stock { opacity: .55; font-size: 10px; }
 .ns-wiz-age { margin-left: auto; }
+.ns-research {
+  font: inherit; font-size: 10px; cursor: pointer; color: inherit;
+  display: inline-flex; align-items: center; gap: 2px;
+  background: none; border: 1px solid rgba(0, 0, 0, .2); border-radius: 4px; padding: 0 5px;
+}
+.ns-research:hover { background: rgba(0, 0, 0, .05); }
 .ns-noprice { opacity: .5; font-size: 10px; }
 .ns-bundle {
   font-size: 9px; opacity: .6; border: 1px solid currentColor;

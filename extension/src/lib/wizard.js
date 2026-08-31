@@ -16,6 +16,22 @@ export const WIZARD_URL = 'https://www.neopets.com/np-templates/ajax/wizard.php'
  */
 export const WIZARD_REFERRER = 'https://www.neopets.com/shops/wizard.phtml';
 
+/**
+ * Each search returns only a slice of what is out there — about 20 shops, and
+ * a different slice each time. Searching again therefore *adds* to what you
+ * know rather than replacing it, so results accumulate across searches.
+ *
+ * One row per shop owner: a shop that turns up again has either restocked or
+ * repriced, so the newer row wins. The result stays sorted cheapest first.
+ */
+export function mergeListings(existing = [], incoming = []) {
+  const byOwner = new Map();
+  for (const listing of existing) byOwner.set(listing.owner, listing);
+  for (const listing of incoming) byOwner.set(listing.owner, listing);
+
+  return [...byOwner.values()].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+}
+
 export class WizardError extends Error {
   constructor(message) {
     super(message);

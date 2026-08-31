@@ -8,7 +8,7 @@ import {
 import { PENDING_KEY } from '../content/foodclub-fill.js';
 import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
 import {
-  WIZARD_URL, WIZARD_REFERRER, wizardBody, parseWizardResponse, WizardError,
+  WIZARD_URL, WIZARD_REFERRER, wizardBody, parseWizardResponse, mergeListings, WizardError,
 } from '../lib/wizard.js';
 import { collectSettings, toJson, parseExport, applyImport, ImportError } from '../lib/settings-io.js';
 import { getSettings } from '../lib/messages.js';
@@ -32,11 +32,13 @@ export const state = reactive({
   tab: 'price',
   // Trading post history is loaded on demand, the first time its tab is opened.
   tp: { loading: false, data: null, error: null },
-  // Super Shop Wizard, same: only asked for when its tab or popover is opened.
-  ssw: { loading: false, data: null, error: null },
+  // Super Shop Wizard, same: only asked for when its tab is opened, and kept
+  // for a while afterwards like the regular wizard.
+  ssw: { loading: false, data: null, error: null, at: null },
+  // How many times the regular wizard has been searched for this item.
   // The regular Shop Wizard. Searches are rate-limited, so this is only ever
   // filled by clicking its tab, and reused for a while afterwards.
-  wiz: { loading: false, data: null, error: null, at: null },
+  wiz: { loading: false, data: null, error: null, at: null, searches: 0 },
 
   // Food Club.
   fc: {
@@ -86,9 +88,9 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   const id = ++requestId;
   Object.assign(state, { open: true, anchor, item, data: null, error: null, loading: true, tab: 'price' });
   state.tp = { loading: false, data: null, error: null };
-  state.ssw = { loading: false, data: null, error: null };
+  state.ssw = { loading: false, data: null, error: null, at: null };
   // A different item now, so any open shops popover is about the wrong thing.
-  state.wiz = { loading: false, data: null, error: null, at: null };
+  state.wiz = { loading: false, data: null, error: null, at: null, searches: 0 };
   state.refreshing = refresh;
 
   const res = await sendMessage({ type: LOOKUP, item, refresh });
@@ -133,20 +135,33 @@ export async function loadTradingPost() {
  * script because it is same-origin with your Neopets session; the service
  * worker has no business holding that.
  */
-export async function loadShops() {
-  if (state.ssw.loading || state.ssw.data) return;
+const sswCache = new Map();
+
+export async function loadShops({ force = false } = {}) {
+  if (state.ssw.loading) return;
 
   const name = state.data?.name;
   if (!name) return;
 
+  if (!force) {
+    if (state.ssw.data) return;
+    const cached = sswCache.get(name);
+    if (cached && Date.now() - cached.at < RESULT_CACHE_MS) {
+      state.ssw = { loading: false, data: cached.data, error: null, at: cached.at };
+      return;
+    }
+  }
+
   const id = requestId;
-  state.ssw = { loading: true, data: null, error: null };
+  state.ssw = { loading: true, data: null, error: null, at: null };
   try {
     const res = await fetch(sswQueryUrl(name), { credentials: 'include' });
     if (!res.ok) throw new SswError(`Neopets returned ${res.status}.`);
     const parsed = parseSswResponse(await res.json());
     if (id !== requestId) return;
-    state.ssw.data = parsed;
+    const at = Date.now();
+    sswCache.set(name, { data: parsed, at });
+    state.ssw = { loading: false, data: parsed, error: null, at };
   } catch (err) {
     if (id !== requestId) return;
     state.ssw.error = err instanceof SswError
@@ -157,14 +172,11 @@ export async function loadShops() {
   }
 }
 
-export function retryShops() {
-  state.ssw = { loading: false, data: null, error: null };
-  loadShops();
-}
+export const retryShops = () => loadShops({ force: true });
 
-// Neopets limits how often you may use the Shop Wizard, so a result is kept
-// and reused rather than searched again for the same item.
-const WIZ_CACHE_MS = 15 * 60 * 1000;
+// Neopets limits how often you may use either wizard, so results are kept and
+// reused rather than searched again for the same item.
+const RESULT_CACHE_MS = 15 * 60 * 1000;
 const wizCache = new Map();
 
 export async function loadWizard({ force = false } = {}) {
@@ -176,14 +188,16 @@ export async function loadWizard({ force = false } = {}) {
   if (!force) {
     if (state.wiz.data) return;
     const cached = wizCache.get(name);
-    if (cached && Date.now() - cached.at < WIZ_CACHE_MS) {
-      state.wiz = { loading: false, data: cached.data, error: null, at: cached.at };
+    if (cached && Date.now() - cached.at < RESULT_CACHE_MS) {
+      state.wiz = { loading: false, data: cached.data, error: null, at: cached.at, searches: cached.searches };
       return;
     }
   }
 
   const id = requestId;
-  state.wiz = { loading: true, data: null, error: null, at: null };
+  // Keep what we already know: a forced search adds to it.
+  const known = wizCache.get(name);
+  state.wiz = { loading: true, data: state.wiz.data, error: null, at: null, searches: known?.searches ?? 0 };
   try {
     const res = await fetch(WIZARD_URL, {
       method: 'POST',
@@ -203,15 +217,23 @@ export async function loadWizard({ force = false } = {}) {
     const parsed = parseWizardResponse(new DOMParser().parseFromString(await res.text(), 'text/html'));
     if (id !== requestId) return;
 
+    // Each search returns a different slice, so they accumulate; one row per
+    // shop, newest price winning.
+    const merged = {
+      ...parsed,
+      listings: mergeListings(known?.data?.listings ?? [], parsed.listings),
+    };
     const at = Date.now();
-    wizCache.set(name, { data: parsed, at });
-    state.wiz = { loading: false, data: parsed, error: null, at };
+    const searches = (known?.searches ?? 0) + 1;
+    wizCache.set(name, { data: merged, at, searches });
+    state.wiz = { loading: false, data: merged, error: null, at, searches };
   } catch (err) {
     if (id !== requestId) return;
     state.wiz = {
       loading: false,
       data: null,
       at: null,
+      searches: known?.searches ?? 0,
       error: err instanceof WizardError
         ? err.message
         : 'Could not reach the Shop Wizard. Are you logged in to Neopets?',

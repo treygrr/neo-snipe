@@ -79,12 +79,14 @@ await installNeopetsRoutes(ctx);
 // The Shop Wizard is rate-limited on the real site, so the tests count how
 // many searches the extension actually spends.
 let wizardSearches = 0;
+const wizardHtml = readFileSync(resolve('test/fixtures/wizard/vo-codestone.html'), 'utf8');
 await ctx.route('**/np-templates/ajax/wizard.php*', (route) => {
   wizardSearches++;
-  return route.fulfill({
-    contentType: 'text/html',
-    body: readFileSync(resolve('test/fixtures/wizard/vo-codestone.html'), 'utf8'),
-  });
+  // The real wizard returns a different slice each time. Renaming one shop per
+  // search models that, so merging and de-duplication are observable.
+  const body = wizardSearches === 1 ? wizardHtml
+    : wizardHtml.replace(/shopper001/g, `newshop${wizardSearches}`);
+  return route.fulfill({ contentType: 'text/html', body });
 });
 
 await page.goto('https://www.neopets.com/inventory.phtml');
@@ -302,6 +304,39 @@ await page.evaluate(() => {
 await page.waitForTimeout(800);
 check('returning to the tab reuses the result rather than searching again',
   wizardSearches === 1, `${wizardSearches} searches`);
+
+// Searching again adds shops rather than replacing them, and never lists the
+// same shop twice.
+const owners = () => page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  return [...root.querySelectorAll('.ns-tab-window .ns-rows tbody tr')]
+    .map((r) => r.querySelector('.ns-shop-owner')?.textContent.trim());
+});
+const ownersBefore = await owners();
+
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-tab-window .ns-research').click();
+});
+await page.waitForFunction((n) => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  return root.querySelectorAll('.ns-tab-window .ns-rows tbody tr').length > n;
+}, ownersBefore.length, { timeout: 15000 }).catch(() => {});
+
+const ownersAfter = await owners();
+check('the re-search button runs another search', wizardSearches === 2,
+  `${wizardSearches} searches`);
+check('a second search adds shops to the list',
+  ownersAfter.length === ownersBefore.length + 1,
+  `${ownersBefore.length} -> ${ownersAfter.length}`);
+check('no shop is listed twice',
+  new Set(ownersAfter).size === ownersAfter.length,
+  `${ownersAfter.length} rows, ${new Set(ownersAfter).size} unique`);
+check('the list says how many searches it came from',
+  /from 2 searches/.test(await page.evaluate(() => {
+    const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+    return root.querySelector('.ns-tab-window .ns-tp-stats')?.textContent || '';
+  })));
 
 // --- the Shops tab: live Super Shop Wizard listings -------------------------
 await page.evaluate(() => {
