@@ -38,6 +38,7 @@ jobs:
           npm run test:detect
           npm run test:foodclub
           npm run test:foodclub-fill
+          npm run test:icons
 
       # The Chrome check loads a real extension, which needs a headed browser
       # (--headless=new); xvfb keeps that working on a runner with no display.

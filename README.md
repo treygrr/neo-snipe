@@ -256,6 +256,7 @@ npm run test:jellyneo                        # Jelly Neo parsing, from saved pag
 npm run test:detect                          # detection against real Neopets markup
 npm run test:foodclub                        # Food Club odds, sets and bet resolution
 npm run test:foodclub-fill                   # filling Neopets' bet form, in a real browser
+npm run test:icons                           # the shipped PNGs match icons/icon.svg
 npm run build   && npm run test:e2e            # the real thing, in real Chrome
 npm run build:safari  && npm run test:safari   # the Safari bundle, in WebKit
 npm run build:firefox && npm run test:firefox  # the Firefox bundle, in Gecko
@@ -291,3 +292,4 @@ own linter.
 | `extension/src/ui/` | Vue components, Vuetify config, popover state. |
 | `extension/vite-plugin-neosnipe.js` | Keeps Vuetify's CSS out of the Neopets page; flattens and prunes the Safari and Firefox bundles. |
 | `extension/scripts/build-safari-app.sh` | Safari bundle → Xcode wrapper → compiled app. |
+| `extension/icons/icon.svg` | The icon's source. `npm run icons` renders the PNGs the manifest needs; the 16px drops anything marked `.detail`. |
