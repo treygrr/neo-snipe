@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
-import { mdiOpenInNew, mdiRefresh, mdiHeart, mdiHeartOutline } from '@mdi/js';
-import { state, retry, close, isFavourite, toggleCurrentFavourite } from './store.js';
+import { mdiRefresh } from '@mdi/js';
+import { state, retry, close } from './store.js';
 import PriceCard from './PriceCard.vue';
 import HistoryTabs from './HistoryTabs.vue';
 
@@ -43,35 +43,11 @@ const open = computed({
 
         <HistoryTabs v-if="state.data && !state.loading" :data="state.data" />
 
-        <v-card-actions v-if="!state.loading" class="ns-actions">
-          <v-btn
-            v-if="state.data"
-            :icon="isFavourite(state.item) ? mdiHeart : mdiHeartOutline"
-            :color="isFavourite(state.item) ? 'red' : undefined"
-            size="small"
-            variant="text"
-            :aria-label="isFavourite(state.item) ? 'Remove from favourites' : 'Add to favourites'"
-            :title="isFavourite(state.item) ? 'Remove from favourites' : 'Add to favourites'"
-            class="ns-fav-btn"
-            @click="toggleCurrentFavourite"
-          />
-          <v-btn
-            v-if="state.error"
-            size="small"
-            variant="text"
-            :prepend-icon="mdiRefresh"
-            @click="retry"
-          >Retry</v-btn>
+        <!-- The title links to Jelly Neo and the heart sits beside it, so the
+             only action left here is retrying a failure. -->
+        <v-card-actions v-if="state.error && !state.loading" class="ns-actions">
+          <v-btn size="small" variant="text" :prepend-icon="mdiRefresh" @click="retry">Retry</v-btn>
           <v-spacer />
-          <v-btn
-            v-if="state.data?.url"
-            size="small"
-            variant="text"
-            :append-icon="mdiOpenInNew"
-            :href="state.data.url"
-            target="_blank"
-            rel="noopener"
-          >Jelly Neo</v-btn>
         </v-card-actions>
       </v-card>
     </v-menu>

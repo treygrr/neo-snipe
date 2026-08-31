@@ -64,7 +64,10 @@ npm run dev                      # Vite with hot reload, run alongside
 ```
 
 `dev:browser` launches Chromium with the built extension side-loaded and a persistent profile, so
-your Neopets login survives between runs. `--fixture` serves the same saved markup the tests use —
+your Neopets login survives between runs. It reports whether the extension actually loaded rather
+than silently opening a browser without one, and clears a stale profile lock left by an uncleanly
+closed window — otherwise every run after the first fails with "Opening in existing browser
+session". If a dev browser is genuinely still open it says so; `--fresh` starts clean. `--fixture` serves the same saved markup the tests use —
 all five item surfaces on one page, with Jelly Neo answered from fixtures — so you can work on the
 UI with no login and no network.
 

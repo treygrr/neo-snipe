@@ -15,7 +15,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-const has = (f) => args.includes(f);
+// `npm run dev:browser --fixture` (no --) makes npm swallow the flag into
+// npm_config_*, so accept both spellings rather than silently ignoring it.
+const has = (f) => args.includes(f) || process.env[`npm_config_${f.replace(/^--/, '')}`] === 'true';
 
 const useFirefox = has('--firefox');
 const dist = join(root, useFirefox ? 'dist-firefox' : 'dist');
@@ -36,12 +38,60 @@ if (useFirefox) {
   process.exit(1);
 }
 
-const ctx = await chromium.launchPersistentContext(profile, {
+const launch = () => chromium.launchPersistentContext(profile, {
   channel: 'chromium',
   headless: false,
   viewport: null,
   args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`],
 });
+
+/**
+ * A persistent profile keeps singleton locks. Closing the window uncleanly —
+ * or a previous run still holding it — leaves them behind, and every later
+ * launch fails with "Opening in existing browser session".
+ */
+function clearStaleLocks() {
+  let cleared = 0;
+  for (const name of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    const lock = join(profile, name);
+    if (existsSync(lock)) { rmSync(lock, { force: true, recursive: true }); cleared++; }
+  }
+  return cleared;
+}
+
+let ctx;
+try {
+  ctx = await launch();
+} catch (err) {
+  const inUse = /already in use|existing browser session/i.test(err.message);
+  if (!inUse) {
+    console.error(`\n  Could not launch Chromium: ${err.message.split('\n')[0]}`);
+    console.error('  If the browser is missing, run:  npx playwright install chromium\n');
+    process.exit(1);
+  }
+
+  if (clearStaleLocks()) {
+    console.log('  Cleared a stale profile lock from a previous run, retrying...');
+    ctx = await launch().catch((again) => {
+      console.error(`\n  Still could not launch: ${again.message.split('\n')[0]}`);
+      console.error('  A dev browser is probably still open — close it, or run with --fresh.\n');
+      process.exit(1);
+    });
+  } else {
+    console.error('\n  A dev browser is already running with this profile.');
+    console.error('  Close that window, or start a clean one:  npm run dev:browser -- --fresh\n');
+    process.exit(1);
+  }
+}
+
+// Prove the extension actually loaded, rather than opening a browser that
+// silently has no extension in it.
+const sw = ctx.serviceWorkers()[0]
+  || (await ctx.waitForEvent('serviceworker', { timeout: 10000 }).catch(() => null));
+if (!sw) {
+  console.error('\n  The browser opened but the extension did not load.');
+  console.error(`  Check that ${dist}/manifest.json is a valid build, then rebuild.\n`);
+} 
 
 const page = ctx.pages()[0] || (await ctx.newPage());
 
@@ -68,7 +118,11 @@ if (has('--fixture')) {
   console.log('\n  Real neopets.com. Your login is saved in .dev-profile between runs.');
 }
 
-console.log(`  Extension loaded from ${dist.replace(root + '/', '')}/`);
+console.log(`  Extension: ${sw ? 'loaded' : 'FAILED TO LOAD'} from ${dist.replace(root + '/', '')}/`);
+if (sw) {
+  const active = await page.evaluate(() => document.documentElement.dataset.neosnipe || null).catch(() => null);
+  console.log(`  Content script on this page: ${active === 'active' ? 'running' : 'not running (is this a neopets.com page?)'}`);
+}
 console.log('  Run `npm run dev` in another terminal for hot reload.');
 console.log('  Close the browser window to stop.\n');
 

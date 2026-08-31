@@ -285,9 +285,43 @@ const sr = (sel, fn = 'textContent') => page.evaluate(([s, f]) => {
 check('launcher bar is present in the page', await page.locator('.neosnipe-launcher').count() === 1);
 
 // Favourite the item currently in the popover.
+// The heart lives beside the title in the card header now.
+const heartBox = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const btn = root.querySelector('.ns-card .ns-name-row .ns-fav-btn');
+  if (!btn) return null;
+  const r = btn.getBoundingClientRect();
+  const name = root.querySelector('.ns-name').getBoundingClientRect();
+  return {
+    w: Math.round(r.width), h: Math.round(r.height),
+    radius: getComputedStyle(btn).borderRadius,
+    // Right of the title, and level with it rather than down in the actions.
+    rightOfTitle: r.left >= name.right - 2,
+    nearTitleTop: Math.abs(r.top - name.top) < 20,
+  };
+});
+// It was a pill before, because Vuetify gives .v-card-actions .v-btn a min-width.
+check('the favourite button is a circle, not an oval',
+  heartBox && heartBox.w === heartBox.h && heartBox.w > 0, JSON.stringify(heartBox));
+check('the heart sits at the top of the card, right of the title',
+  heartBox?.rightOfTitle && heartBox?.nearTitleTop, JSON.stringify(heartBox));
+
+const titleLink = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const a = root.querySelector('.ns-name--link');
+  return a ? { tag: a.tagName, href: a.href, target: a.target, text: a.textContent.trim() } : null;
+});
+check('the title itself links to Jelly Neo',
+  titleLink?.tag === 'A' && /^https:\/\/items\.jellyneo\.net\/item\/\d+\//.test(titleLink.href)
+  && titleLink.target === '_blank', JSON.stringify(titleLink));
+check('the old Jelly Neo action button is gone', await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  return ![...root.querySelectorAll('.ns-actions .v-btn')].some((b) => /jelly neo/i.test(b.textContent));
+}));
+
 await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  root.querySelector('.ns-fav-btn').click();
+  root.querySelector('.ns-card .ns-name-row .ns-fav-btn').click();
 });
 await page.waitForTimeout(300);
 const stored = await opts.evaluate(() => chrome.storage.local.get('favorites'));
