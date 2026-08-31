@@ -1,0 +1,164 @@
+ 
+<style type="text/css">
+	.bgYellow {
+		background-color: #FFCC00;
+	}
+
+	.blistHeader {
+		background-color: #FFCC00;
+		font-weight: bold;
+		font-size: 11px;
+		color: #000000;
+	}
+
+	.blistTopic {
+		font-size: 12px;
+	}
+
+	.blistSmall {
+		font-weight: normal;
+		font-size: 11px;
+	}
+
+	.topicSmall {
+		font-weight: normal;
+		font-size: 10px;
+	}
+
+	.topic {
+		background-color: #FFFFFF;
+		font-weight: normal;
+		font-size: 12px;
+		color: #000000;
+		border-bottom: 1px solid #000000;
+	}
+
+	.topicPosted {
+		background-color: #F6F6F6;
+		font-weight: normal;
+		font-size: 10px;
+		color: #000000;
+		border-bottom: 1px solid #000000;
+	}
+
+	.topicAuthor {
+		background-color: #F6F6F6;
+		font-weight: normal;
+
+		border-right: 1px solid #000000;
+		border-bottom: 1px solid #000000;
+	}
+
+	.blockquote {
+		margin: 10px;
+	}
+
+	.quote {
+		background-color: #F6F6F6;
+		font-size: 11px;
+		font-style: italic;
+		border: 1px solid #000000;
+		padding: 5px;
+	}
+</style>
+
+
+<script language="JavaScript">
+	var NeoboardPens = {};
+  NeoboardPens.maxPostLength = 400;
+
+	function insertSmiley(smiley) {
+		document.message_form.message.value += smiley;
+		textCounter(document.message_form.message, document.message_form.remLen, NeoboardPens.maxPostLength);
+		document.message_form.message.focus();
+		return false;
+	}
+
+	var submitcount = 0;
+
+	function validateNewTopic() {
+		var missing = "";
+
+		if (message_form.topic_title.value == "") {		// missing title
+			missing += "     - Title\n";
+		}
+
+		if (message_form.message.value == "") {		// if too long...trim it!
+			missing += "     - Message\n";
+		}
+
+		if (missing != "") {
+			alert("Please fill in the following item(s):\n" + missing);
+			return false;
+		} else {
+			if (submitcount == 0) {
+		      submitcount++;
+		      return true;
+		   } else {
+		      alert("Oops, you've already submitted your post.\nPlease wait for it to go through so you don't spam. :)");
+		      return false;
+		   }
+		}
+	}
+
+	function blockMultipleReplies() {
+		if (submitcount == 0) {
+	      submitcount++;
+	      return true;
+	   } else {
+	      alert("Oops, you've already submitted your post.\nPlease wait for it to go through so you don't spam. :)");
+	      return false;
+	   }
+	}
+
+	function textCounter(field, countfield, maxlimit) {
+		maxlimit = maxlimit || NeoboardPens.maxPostLength;
+		if (field.value.length > maxlimit) {		// if too long...trim it!
+			field.value = field.value.substring(0, maxlimit);
+		} else {									// otherwise, update 'characters left' counter
+			countfield.value = maxlimit - field.value.length;
+		}
+	}
+
+	function openWin(url, height, width, scroll, menu, resize, tool, loc, status) {
+		height = (height) ? height : 200;
+		width = (width) ? width : 400;
+		scroll = (scroll) ? 'yes' : 'no';
+		menu = (menu) ? 'yes' : 'no';
+		resize = (resize) ? 'yes' : 'no';
+		tool = (tool) ? 'yes' : 'no';
+		loc = (loc) ? 'yes' : 'no';
+		status = (status) ? 'yes' : 'no';
+		options = 'scrollbars='+scroll+',menubar='+menu+',height='+height+',width='+width+',resizable='+resize+',toolbar='+tool+',location='+loc+',status='+status;
+		if (url) {
+			var load = window.open(url,'', options);
+		}
+	}
+</script>
+
+
+
+<style>
+.errormess { font-family:  Verdana, Arial, Helvetica, sans-serif; font-size: 9pt; }
+.errorpointer { font-family: Verdana, Arial; font-size: 9pt; }
+a { text-decoration: none; }
+div.errorOuter { width: 100%; margin: auto auto 6px auto; text-align: left; border: 2px solid red; width: 100%; }
+div.errorInner { border: 2px solid white; background-color: red; }
+img.errorOops { width: 175px; height: 60px; border: 0; }
+div.errorMessage { padding: 10px; background-color: white; }
+div.errorBack { padding: 10px; background-color: black; }
+div.errorBack a { color: white; font-weight: bold; }
+</style>
+<div class="errorOuter">
+	<div class="errorInner errormess">
+		<img src="https://images.neopets.com/images/red_oops.gif" class="errorOops">
+		<div class="errorMessage"><b>Error: </b>You have been directed to this page from the wrong place! If you <b>KEEP</b> getting this error, chances are you have some security settings enabled that are not letting you play Neopets correctly.<br><br>Click <a href="/security_settings.phtml"><b>here</b></a> to see some tips that might help you fix this problem.</div>
+		<div class="errorBack">
+			<a href="javascript:history.back();"><span class="errorpointer">&laquo;</span> Back</a>
+		</div>
+	</div>
+</div>
+<!--
+ host - web-0032.intneo.com
+//-->
+

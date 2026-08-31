@@ -136,8 +136,13 @@ tabs and back. *Search again* forces a fresh one. Being told to slow down is rep
 rather than as an empty shop list.
 
 Like the SSW it is an endpoint rather than a page, but it answers with an HTML fragment instead of
-JSON, so `wizard.js` parses markup where `ssw.js` reads fields. Both request shapes came from real
-traffic.
+JSON, so `wizard.js` parses markup where `ssw.js` reads fields.
+
+It also refuses any request that did not come from the wizard page — *"you have been directed to
+this page from the wrong place"*. `Referer` is a forbidden header for `fetch`, but the `referrer`
+option is not, and setting it to the wizard page satisfies the check. That was found by calling the
+endpoint from an inventory page against a live session and reading the refusal, not by guessing;
+without it the tab would have returned nothing on every item.
 
 The **Super Shop Wizard** has no page you can link to with a query — it is a JSON endpoint the SSW
 interface calls (`/np-templates/views/shops/ssw/ssw_query.php`). It is the **SSW tab**, querying that endpoint from

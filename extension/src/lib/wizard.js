@@ -9,6 +9,13 @@
 
 export const WIZARD_URL = 'https://www.neopets.com/np-templates/ajax/wizard.php';
 
+/**
+ * The endpoint refuses a request that did not come from the wizard page, so
+ * every call claims that referrer. Verified against the live site: without it
+ * the reply is the "wrong place" error rather than results.
+ */
+export const WIZARD_REFERRER = 'https://www.neopets.com/shops/wizard.phtml';
+
 export class WizardError extends Error {
   constructor(message) {
     super(message);
@@ -38,6 +45,8 @@ export function wizardBody(name) {
 // Wording Neopets uses when it will not run the search.
 const LIMIT = /too many searches|slow down|wait a (?:little|few)|try again in/i;
 const NOTHING = /no shops|did not find|found no|no results/i;
+// Its referer check, which is a bug on our side rather than anything the user did.
+const WRONG_PLACE = /directed to this page from the wrong place/i;
 
 /**
  * @param {Document} doc parsed response fragment
@@ -45,6 +54,12 @@ const NOTHING = /no shops|did not find|found no|no results/i;
  */
 export function parseWizardResponse(doc) {
   const text = doc.body?.textContent || '';
+
+  if (WRONG_PLACE.test(text)) {
+    // Only happens if the referrer was not sent; surfacing it as "no results"
+    // would send someone hunting for a problem with their account.
+    throw new WizardError('Neopets rejected the search as coming from the wrong page.');
+  }
 
   if (LIMIT.test(text)) {
     throw new WizardError('The Shop Wizard is asking you to slow down. Try again shortly.');

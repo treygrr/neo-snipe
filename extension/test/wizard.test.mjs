@@ -75,3 +75,15 @@ test('an unreadable reply fails loudly rather than looking empty', () => {
   assert.throws(() => parseWizardResponse(doc('<div>something else entirely</div>')),
     (e) => e instanceof WizardError && /layout may have changed/i.test(e.message));
 });
+
+test('the referer rejection is reported as itself, not as an empty shop list', () => {
+  // Captured live by calling the endpoint without a referrer.
+  const html = readFileSync(resolve('test/fixtures/wizard/wrong-place-error.html'), 'utf8');
+  assert.throws(() => parseWizardResponse(doc(html)),
+    (e) => e instanceof WizardError && /wrong page/i.test(e.message));
+});
+
+test('the referrer the endpoint demands is the wizard page', async () => {
+  const { WIZARD_REFERRER } = await import('../src/lib/wizard.js');
+  assert.equal(WIZARD_REFERRER, 'https://www.neopets.com/shops/wizard.phtml');
+});

@@ -7,7 +7,9 @@ import {
 } from '../lib/foodclub.js';
 import { PENDING_KEY } from '../content/foodclub-fill.js';
 import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
-import { WIZARD_URL, wizardBody, parseWizardResponse, WizardError } from '../lib/wizard.js';
+import {
+  WIZARD_URL, WIZARD_REFERRER, wizardBody, parseWizardResponse, WizardError,
+} from '../lib/wizard.js';
 import { collectSettings, toJson, parseExport, applyImport, ImportError } from '../lib/settings-io.js';
 import { getSettings } from '../lib/messages.js';
 import { writeSettings } from '../lib/ext-api.js';
@@ -183,7 +185,11 @@ export async function loadWizard({ force = false } = {}) {
     const res = await fetch(WIZARD_URL, {
       method: 'POST',
       credentials: 'include',
-      // charset matches what the site's own request sends.
+      // Neopets rejects this endpoint unless the request came from the wizard
+      // page — "you have been directed to this page from the wrong place".
+      // Referer is a forbidden header for fetch, but `referrer` is not, and
+      // setting it to a same-origin URL satisfies the check.
+      referrer: WIZARD_REFERRER,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'X-Requested-With': 'XMLHttpRequest',
