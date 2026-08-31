@@ -78,8 +78,7 @@ account, not across two — so moving means exporting from the old one and impor
 
 ## Notes
 
-- Nothing else to install and nothing to run. The extension fetches prices from
-  [Jelly Neo](https://items.jellyneo.net) itself.
+- Prices come from [Jelly Neo](https://items.jellyneo.net), fetched by the extension itself.
 - Prices are Jelly Neo's estimates, not live Neopets data.
 - One click, one lookup: nothing is fetched until you ask about an item. Please keep it that way —
   Jelly Neo is a small fan site.
@@ -208,8 +207,6 @@ Pick the folder for your browser and follow the README inside it:
 | Chrome | [\`chrome/\`](chrome/README.md) | Easiest. Load unpacked, done. |
 | Firefox | [\`firefox/\`](firefox/README.md) | Needs a permission granted, and reloading after each restart. |
 | Safari | [\`safari/\`](safari/README.md) | Needs macOS and Xcode to wrap it in an app. |
-
-There is no server to run and nothing else to install.
 `);
 
 console.log(`\nRelease built in ${outRoot}\n`);

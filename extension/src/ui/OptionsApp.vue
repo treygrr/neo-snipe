@@ -62,8 +62,8 @@ async function clearCache() {
         <h1 class="text-h5 mb-1">neo-snipe</h1>
         <p class="text-body-2 text-medium-emphasis mb-6">
           Prices come from <a href="https://items.jellyneo.net" target="_blank" rel="noopener">Jelly Neo</a>,
-          fetched by the extension itself. Nothing else to install and nothing to run — each item is
-          looked up the first time you click its badge, then cached for a day.
+          fetched by the extension itself. Each item is looked up the first time you click its
+          badge, then cached for a day.
         </p>
 
         <v-alert v-if="!granted" type="info" variant="tonal" density="compact" class="mb-4">

@@ -39,8 +39,8 @@ const page = await browser.newPage();
 page.on('pageerror', (e) => console.log(`    [pageerror] ${e.message.slice(0, 160)}`));
 page.on('console', (m) => { if (m.type() === 'error') console.log(`    [console] ${m.text().slice(0, 160)}`); });
 
-// Plain http so the page can reach the http backend: in the real extension the
-// fetch happens from the service worker, where mixed content does not apply.
+// The fixture page is served over plain http; in the real extension the Jelly
+// Neo fetch happens from the service worker, where mixed content does not apply.
 await page.route('**://www.neopets.com/**', (route) =>
   route.fulfill({ contentType: 'text/html', body: FIXTURE }));
 await page.route('**://items.jellyneo.net/**', (route) => {

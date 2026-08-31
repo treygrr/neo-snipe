@@ -6,8 +6,7 @@ A browser extension (Chrome, Firefox and Safari) puts a small 🔍 badge in the 
 item on neopets.com. Clicking it looks the item up on Jelly Neo and shows the price, its history,
 and trading post activity in a popover.
 
-**There is nothing to run.** No server, no Node, no daemon, no token — the extension fetches and
-parses Jelly Neo itself. Install it and it works.
+Install it and it works: the extension fetches and parses Jelly Neo itself.
 
 ```
 neopets.com page
@@ -298,12 +297,9 @@ be resolved the element is marked and skipped — a wrong name is worse than no 
 
 ## Notes on the design
 
-**Why there is no server.** There was one, running Playwright. It turned out Jelly Neo serves
-complete HTML to a plain fetch — with a Chrome UA, and with no User-Agent at all — so the browser
-engine was fetching static pages. Deleting it removed Node, npm, Playwright's ~300MB of browser
-binaries, a shared-secret token, a SQLite cache and a background daemon, and turned installation
-into "install the extension". MV3 service workers have no DOM, so parsing uses `linkedom` rather
-than `DOMParser`.
+**Why lookups happen in the service worker.** Jelly Neo serves complete HTML to a plain fetch, so
+a page is all it takes to get a price — no browser engine has to render anything. MV3 service
+workers have no DOM, though, so parsing uses `linkedom` rather than `DOMParser`.
 
 **Why trading post history is a second request.** The popover has two tabs: price history (which
 comes with the item lookup) and TP history, which lives on its own Jelly Neo page. That page is
@@ -372,8 +368,8 @@ npm run build:safari  && npm run test:safari   # the Safari bundle, in WebKit
 npm run build:firefox && npm run test:firefox  # the Firefox bundle, in Gecko
 ```
 
-Nothing needs a server or the network: both end-to-end suites serve Jelly Neo from saved pages, so
-they are deterministic and never touch the live site.
+Nothing touches the network: both end-to-end suites serve Jelly Neo from saved pages, so they are
+deterministic and never reach the live site.
 
 `test:e2e` loads the built extension into Chrome and serves a fake Neopets page from the
 neopets.com origin so the content script matches, then checks badge injection, that no extension
@@ -395,7 +391,7 @@ own linter.
 | Path | What it is |
 |---|---|
 | `extension/src/lib/jellyneo.js` | Every Jelly Neo selector and URL, plus fetching and parsing. Start here when the site changes. |
-| `extension/src/background.js` | The whole backend: cache, dedupe, error mapping. |
+| `extension/src/background.js` | Lookups: cache, dedupe, error mapping. |
 | `extension/src/lib/queue.js` | Rate limit and request coalescing. |
 | `extension/src/content/` | Detection, badge injection, shadow-root mount. `run.js` is shared; `index.js` / `index.safari.js` are the per-browser entries. |
 | `extension/src/lib/ext-api.js` | `browser` / `chrome` shim and storage fallback. |
