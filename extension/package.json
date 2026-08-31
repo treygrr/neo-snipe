@@ -15,7 +15,8 @@
     "test:jellyneo": "node --test test/jellyneo.test.mjs",
     "build:firefox": "vite build --mode firefox",
     "test:firefox": "NS_TARGET=firefox node test/bundle.mjs",
-    "build:all": "npm run build && npm run build:firefox && npm run build:safari"
+    "build:all": "npm run build && npm run build:firefox && npm run build:safari",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",

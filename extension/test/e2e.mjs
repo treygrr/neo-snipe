@@ -7,7 +7,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildPage, ITEM_COUNT } from './page.mjs';
 
-const EXT = resolve('dist');
+// NS_DIST lets the release pipeline run this against release/chrome/ rather
+// than the working build.
+const EXT = resolve(process.env.NS_DIST || 'dist');
 const FIXTURE = buildPage();
 
 // Jelly Neo is served from saved pages: the tests must not depend on the live

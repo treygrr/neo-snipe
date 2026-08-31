@@ -16,7 +16,8 @@ import { buildPage, ITEM_COUNT } from './page.mjs';
 const TARGET = process.env.NS_TARGET === 'firefox'
   ? { name: 'Firefox', dir: 'dist-firefox', engine: firefox }
   : { name: 'Safari', dir: 'dist-safari', engine: webkit };
-const DIST = resolve(TARGET.dir);
+// NS_DIST lets the release pipeline run this against release/<browser>/.
+const DIST = resolve(process.env.NS_DIST || TARGET.dir);
 const FIXTURE = buildPage();
 const contentJs = readFileSync(resolve(DIST, 'content.js'), 'utf8');
 const backgroundJs = readFileSync(resolve(DIST, 'background.js'), 'utf8');

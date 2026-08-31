@@ -1,0 +1,68 @@
+name: Release
+
+# Tag a version to cut a release:  git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      - run: npm ci
+
+      # The release verifies each assembled folder by loading it in the engine
+      # that ships it, so all three browsers are needed here.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Parsing and detection tests
+        run: |
+          npm run test:jellyneo
+          npm run test:detect
+
+      # The Chrome check loads a real extension, which needs a headed browser
+      # (--headless=new); xvfb keeps that working on a runner with no display.
+      - name: Build and verify all three targets
+        run: xvfb-run -a npm run release
+
+      - name: Lint the Firefox package
+        run: npx --yes web-ext@8 lint --source-dir release/firefox
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neo-snipe-extensions
+          path: extension/release/
+          if-no-files-found: error
+
+      - name: Attach zips to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: extension/release/*.zip
+          body: |
+            Download the zip for your browser, unzip it, and follow the README inside.
+
+            | Browser | Install |
+            |---|---|
+            | Chrome | `chrome://extensions` → Developer mode → Load unpacked |
+            | Firefox | `about:debugging` → Load Temporary Add-on → then **grant access** in options |
+            | Safari | Needs macOS + Xcode to wrap it in an app — see the README |
+
+            No server to run and nothing else to install.

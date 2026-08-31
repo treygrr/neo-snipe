@@ -23,7 +23,22 @@ Jelly Neo serves complete server-rendered HTML to a plain fetch, so no browser e
 read it. `host_permissions` for `items.jellyneo.net` is what exempts the service worker's requests
 from CORS; content scripts cannot fetch cross-origin in MV3, which is why the worker does it.
 
-## Setup
+## Releases
+
+```bash
+cd extension
+npm run release          # add --no-verify to skip the load-test
+```
+
+Builds all three targets into `extension/release/`, one folder per browser with install
+instructions for that browser inside, plus a zip of each. Every folder is verified by loading it in
+the engine that ships it — Chrome, Gecko, WebKit — before it is zipped, so a broken artifact fails
+the build rather than reaching anyone.
+
+Pushing a `v*` tag runs the same thing in CI (`.github/workflows/release.yml`) and attaches the
+zips to a GitHub release.
+
+## Building from source
 
 ### Chrome
 
