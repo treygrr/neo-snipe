@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { state, selectTab, retryTradingPost, retryWizard } from './store.js';
+import { state, selectTab, retryTradingPost, retryWizard, isPremium } from './store.js';
 import ShopsList from './ShopsList.vue';
 
 const props = defineProps({ data: { type: Object, required: true } });
@@ -33,7 +33,7 @@ const searchedAgo = computed(() => {
       <v-tab value="price" class="ns-tab" title="Price history">Price</v-tab>
       <v-tab value="tp" class="ns-tab" title="Trading post history">TP</v-tab>
       <v-tab value="wiz" class="ns-tab" title="Shop Wizard — searches only when you open this tab">SW</v-tab>
-      <v-tab v-if="state.settings.premium" value="shops" class="ns-tab"
+      <v-tab v-if="isPremium()" value="shops" class="ns-tab"
              title="Super Shop Wizard (Premium)">SSW</v-tab>
     </v-tabs>
 

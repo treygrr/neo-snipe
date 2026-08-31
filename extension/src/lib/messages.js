@@ -10,8 +10,10 @@ export const OPEN_PANEL = 'neosnipe:open-panel';
 
 export const DEFAULTS = {
   hoverOnly: true,
-  // Gates the Super Shop Wizard, which only answers for Premium accounts.
-  // Off by default: showing it to everyone means a tab that only ever errors.
+  // Read the nav to work out whether the account has Premium. On by default;
+  // turn it off to say so by hand with `premium` below.
+  premiumAuto: true,
+  // Only consulted when premiumAuto is off.
   premium: false,
 };
 

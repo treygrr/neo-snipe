@@ -904,6 +904,19 @@ await ensurePanelOpen();
 await inShadow((root) => root.querySelector('.ns-cog').click());
 await page.waitForTimeout(400);
 
+// Clicking `.ns-set-row input` by index broke the moment a toggle was added
+// above it, so these are addressed by their label instead.
+const clickToggle = (label) => inShadow((root, l) => {
+  const row = [...root.querySelectorAll('.ns-set-row')]
+    .find((r) => r.querySelector('strong')?.textContent.includes(l));
+  row.querySelector('input').click();
+}, label);
+const toggleState = (label) => inShadow((root, l) => {
+  const row = [...root.querySelectorAll('.ns-set-row')]
+    .find((r) => r.querySelector('strong')?.textContent.includes(l));
+  return { checked: row?.querySelector('input')?.checked, disabled: row?.querySelector('input')?.disabled };
+}, label);
+
 const settingsView = await inShadow((root) => ({
   shown: !!root.querySelector('.ns-settings'),
   tabsHidden: !root.querySelector('.ns-panel-tabs'),
@@ -912,10 +925,22 @@ const settingsView = await inShadow((root) => ({
 }));
 check('the cog opens a settings view', settingsView.shown && settingsView.tabsHidden,
   JSON.stringify(settingsView));
-check('it offers the premium and hover toggles',
-  settingsView.toggles.length === 2 && /Premium/.test(settingsView.toggles[0]),
+check('it offers detection, premium and hover toggles',
+  settingsView.toggles.length === 3 && /Detect/.test(settingsView.toggles[0]),
   JSON.stringify(settingsView.toggles));
-check('the premium toggle reflects the saved setting', settingsView.premiumOn === true);
+
+// Detection is on by default, so the manual toggle is shown but not editable.
+const autoState = await toggleState('Detect Neopets Premium');
+const manualState = await toggleState('I have Neopets Premium');
+check('detection is on by default', autoState.checked === true);
+check('the manual toggle is locked while detection is on', manualState.disabled === true,
+  JSON.stringify(manualState));
+
+// Turning detection off hands control back.
+await clickToggle('Detect Neopets Premium');
+await page.waitForTimeout(400);
+check('turning detection off unlocks the manual toggle',
+  (await toggleState('I have Neopets Premium')).disabled === false);
 
 await inShadow((root) => [...root.querySelectorAll('.ns-set-actions .v-btn')]
   .find((b) => b.textContent.trim() === 'Export').click());
@@ -973,14 +998,16 @@ await page.waitForTimeout(600);
 const refusal = await inShadow((root) => ({
   message: root.querySelector('.ns-set-msg')?.textContent.trim(),
   bad: !!root.querySelector('.ns-set-msg--bad'),
-  stillPremium: root.querySelector('.ns-set-row input')?.checked,
+  stillPremium: [...root.querySelectorAll('.ns-set-row')]
+    .find((r) => r.querySelector('strong')?.textContent.includes('I have Neopets Premium'))
+    ?.querySelector('input')?.checked,
 }));
 check('a newer export is refused, leaving settings untouched',
   refusal.bad && /newer version/i.test(refusal.message || '') && refusal.stillPremium === true,
   JSON.stringify(refusal.message));
 
 // Turning Premium off hides the Super Shop Wizard.
-await inShadow((root) => root.querySelector('.ns-set-row input').click());
+await clickToggle('I have Neopets Premium');
 await page.waitForTimeout(600);
 check('turning Premium off hides the SSW tab',
   await inShadow((root) => {
@@ -1006,7 +1033,7 @@ check('premium-only dailies are hidden without Premium',
 // Turn it back on: the premium daily returns.
 await inShadow((root) => root.querySelector('.ns-cog').click());
 await page.waitForTimeout(300);
-await inShadow((root) => root.querySelector('.ns-set-row input').click());
+await clickToggle('I have Neopets Premium');
 await page.waitForTimeout(400);
 await inShadow((root) => root.querySelector('.ns-cog').click());
 await page.waitForTimeout(300);
@@ -1039,7 +1066,7 @@ check('the premium daily can be favourited while Premium is on',
 
 await inShadow((root) => root.querySelector('.ns-cog').click());
 await page.waitForTimeout(300);
-await inShadow((root) => root.querySelector('.ns-set-row input').click());   // Premium off
+await clickToggle('I have Neopets Premium');   // Premium off
 await page.waitForTimeout(300);
 await inShadow((root) => root.querySelector('.ns-cog').click());
 await page.waitForTimeout(400);
@@ -1050,7 +1077,7 @@ check('and disappears from the pinned group when Premium goes off',
 // Restore: Premium on, and unfavourite it again.
 await inShadow((root) => root.querySelector('.ns-cog').click());
 await page.waitForTimeout(300);
-await inShadow((root) => root.querySelector('.ns-set-row input').click());
+await clickToggle('I have Neopets Premium');
 await page.waitForTimeout(300);
 await inShadow((root) => root.querySelector('.ns-cog').click());
 await page.waitForTimeout(400);

@@ -1,7 +1,13 @@
 <script setup>
 import { ref } from 'vue';
 import { mdiContentCopy, mdiDownload, mdiUpload, mdiFileUpload } from '@mdi/js';
-import { state, setSetting, exportSettings, importSettings } from './store.js';
+import { computed } from 'vue';
+import { state, setSetting, exportSettings, importSettings, isPremium } from './store.js';
+
+const detectedText = computed(() => {
+  if (state.premiumDetected === null) return 'Not checked yet — open a Neopets page.';
+  return state.premiumDetected ? 'Detected: you have Premium.' : 'Detected: no Premium on this account.';
+});
 
 const fileInput = ref(null);
 
@@ -42,12 +48,29 @@ async function pickFile(event) {
       <label class="ns-set-row">
         <input
           type="checkbox"
-          :checked="state.settings.premium"
+          :checked="state.settings.premiumAuto"
+          @change="setSetting('premiumAuto', $event.target.checked)"
+        >
+        <span>
+          <strong>Detect Neopets Premium automatically</strong>
+          <em>
+            Reads it from the site navigation.
+            <template v-if="state.settings.premiumAuto">{{ detectedText }}</template>
+          </em>
+        </span>
+      </label>
+
+      <label class="ns-set-row" :class="{ 'ns-set-row--off': state.settings.premiumAuto }">
+        <input
+          type="checkbox"
+          :checked="isPremium()"
+          :disabled="state.settings.premiumAuto"
           @change="setSetting('premium', $event.target.checked)"
         >
         <span>
           <strong>I have Neopets Premium</strong>
-          <em>Shows the Super Shop Wizard, which only answers for Premium accounts.</em>
+          <em v-if="state.settings.premiumAuto">Turn detection off to set this yourself.</em>
+          <em v-else>Shows the Super Shop Wizard and premium dailies.</em>
         </span>
       </label>
 
@@ -109,6 +132,9 @@ async function pickFile(event) {
 
 .ns-set-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 9px; cursor: pointer; }
 .ns-set-row input { margin: 1px 0 0; width: 13px; height: 13px; flex: 0 0 auto; cursor: pointer; }
+/* Shown but not editable while detection is doing the deciding. */
+.ns-set-row--off { opacity: .55; cursor: default; }
+.ns-set-row--off input { cursor: not-allowed; }
 .ns-set-row strong { display: block; font-size: 11.5px; font-weight: 600; }
 .ns-set-row em { display: block; font-size: 10px; opacity: .6; font-style: normal; margin-top: 1px; }
 

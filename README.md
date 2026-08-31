@@ -195,8 +195,17 @@ discipline as the Neopets selectors, and for the same reason.
   filled, rather than being guessed at. The sets come from someone's personal pet page: if they
   change its layout the tab says so instead of showing nothing.
 
-A **cog** beside the panel's close button opens settings: an *I have Neopets Premium* toggle
-(which gates the Super Shop Wizard), the hover-only badge toggle, and **export/import**.
+A **cog** beside the panel's close button opens settings: Premium detection, the hover-only badge
+toggle, and **export/import**.
+
+Premium is **detected from the site navigation**, which carries links to `/premium/…` and the Super
+Shop Wizard icon only for subscribers. Verified on one account before and after subscribing: the
+same pages went from zero premium links to nine. A page that does not render the nav returns
+*unknown* rather than *no*, so the last answer stands instead of being overwritten. Turn detection
+off and the manual toggle takes over.
+
+Detection could also be done by probing the SSW endpoint — it answers `"Access denied."` without
+Premium — but that spends a request every time, and reading the nav costs nothing.
 
 Export writes your settings, favourites and favourited dailies as JSON — to the clipboard, a file,
 or a box you can copy from. Import reads one back. Cached prices and Food Club done-marks are

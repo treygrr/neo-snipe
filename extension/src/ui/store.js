@@ -12,6 +12,7 @@ import {
 } from '../lib/wizard.js';
 import { collectSettings, toJson, parseExport, applyImport, ImportError } from '../lib/settings-io.js';
 import { getSettings } from '../lib/messages.js';
+import { detectPremium } from '../lib/premium.js';
 import { writeSettings } from '../lib/ext-api.js';
 import {
   listFavourites, toggleFavourite, favouriteId, saveFavourites,
@@ -57,7 +58,9 @@ export const state = reactive({
   panelAnchor: 'bottom',
   // 'tabs' or 'settings' — the cog swaps the panel body.
   panelView: 'tabs',
-  settings: { hoverOnly: true, premium: false },
+  settings: { hoverOnly: true, premium: false, premiumAuto: true },
+  // What the nav said, or null if no page has told us yet.
+  premiumDetected: null,
   io: { status: null, message: '', text: '' },
   panelTab: 'favourites',
   favourites: [],
@@ -247,13 +250,36 @@ export function close() {
 
 export async function loadSettings() {
   Object.assign(state.settings, await getSettings());
+  try {
+    const stored = await api.storage.local.get('premiumDetected');
+    if (typeof stored.premiumDetected === 'boolean') state.premiumDetected = stored.premiumDetected;
+  } catch { /* leave it unknown */ }
+}
+
+/**
+ * Reads the page's nav and remembers the answer. A page without the nav tells
+ * us nothing, so the previous answer stands rather than being overwritten.
+ */
+export async function detectPremiumFromPage(doc = document) {
+  const found = detectPremium(doc);
+  if (found === null) return;
+  state.premiumDetected = found;
+  try { await api.storage.local.set({ premiumDetected: found }); } catch { /* not fatal */ }
+}
+
+/** Auto-detection when it is on and has an answer; the manual toggle otherwise. */
+export function isPremium() {
+  if (state.settings.premiumAuto && state.premiumDetected !== null) return state.premiumDetected;
+  return state.settings.premium === true;
 }
 
 export async function setSetting(key, value) {
   state.settings[key] = value;
   await writeSettings({ [key]: value });
-  // Turning Premium off hides the Shops tab; do not leave it selected.
-  if (key === 'premium' && !value && state.tab === 'shops') state.tab = 'price';
+  // Hiding the SSW tab must not leave it selected.
+  if ((key === 'premium' || key === 'premiumAuto') && !isPremium() && state.tab === 'shops') {
+    state.tab = 'price';
+  }
 }
 
 export function showSettings(show) {

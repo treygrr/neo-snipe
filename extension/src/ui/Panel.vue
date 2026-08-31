@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { mdiClose, mdiCog, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove } from '@mdi/js';
 import {
   state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily, loadFoodClub,
-  moveFavourite, moveDailyFavourite, showSettings,
+  moveFavourite, moveDailyFavourite, showSettings, isPremium,
 } from './store.js';
 import SettingsView from './SettingsView.vue';
 import FoodClub from './FoodClub.vue';
@@ -23,8 +23,8 @@ const toggleGroup = (title) => {
 //
 // Premium-only entries are dropped without the setting — including from the
 // pinned group, so one favourited while Premium was on does not linger.
-const visibleDailies = computed(() => dailiesFor({ premium: state.settings.premium }));
-const pinnedDailies = computed(() => (state.settings.premium
+const visibleDailies = computed(() => dailiesFor({ premium: isPremium() }));
+const pinnedDailies = computed(() => (isPremium()
   ? state.dailyFavourites
   : state.dailyFavourites.filter((d) => !isPremiumDaily(d))));
 

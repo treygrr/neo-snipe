@@ -22,6 +22,7 @@ export function run(loadUi) {
         // So the heart reflects saved state the first time a popover opens.
         await store.loadFavourites();
         await store.loadSettings();
+        await store.detectPremiumFromPage();
         return store;
       })();
     }
