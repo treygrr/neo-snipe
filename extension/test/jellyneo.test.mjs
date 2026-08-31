@@ -144,11 +144,21 @@ test('lookupItem walks search then item page', async () => {
   assert.equal(item.itemId, '5554');
 });
 
-test('lookupItem skips the search when given an item id', async () => {
+test('lookupItem skips the search only for a real Jelly Neo id', async () => {
   const seen = [];
-  await lookupItem({ itemId: '5554' }, { load: (u) => { seen.push(u); return load(u); } });
+  await lookupItem({ jellyNeoId: '5554' }, { load: (u) => { seen.push(u); return load(u); } });
   assert.equal(seen.length, 1, 'no search request');
   assert.match(seen[0], /\/item\/5554\//);
+});
+
+test('an item resolves by name, not by any id the page supplied', async () => {
+  // A shop item carries obj_info_id=8668, which on Jelly Neo is an unrelated
+  // item. Detection passes only name and image hash, so the lookup searches.
+  const seen = [];
+  await lookupItem({ name: 'Faerie Paint Brush', imageHash: 'faeriepntbrush' },
+    { load: (u) => { seen.push(u); return load(u); } });
+  assert.ok(seen[0].includes('/search/'), `expected a search first, got ${seen[0]}`);
+  assert.ok(!seen.some((u) => u.includes('/item/8668/')));
 });
 
 test('lookupItem reports no match rather than guessing', async () => {

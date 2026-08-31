@@ -119,19 +119,15 @@ export function itemNameFor(el) {
   return nameFromRowLink(el);
 }
 
-export function itemIdFor(el) {
-  // Main shop keeps the real id in data-link; elsewhere it is on an ancestor link.
-  const fromData = String(el.dataset?.link || '').match(/obj_info_id=(\d+)/);
-  if (fromData) return fromData[1];
-
-  const link = el.closest('a[href*="obj_info_id"]')
-    || el.parentElement?.querySelector?.('a[href*="obj_info_id"]');
-  const fromHref = link?.getAttribute('href')?.match(/obj_info_id=(\d+)/);
-  return fromHref ? fromHref[1] : null;
-}
+// Deliberately absent: Neopets' obj_info_id (in shop data-link attributes and
+// wizard links) is *Neopets'* id, not Jelly Neo's. They do not correspond —
+// Potion of Concealment is obj_info_id 8668 on Neopets and item 2243 on Jelly
+// Neo, and Jelly Neo's 8668 is a White Chocolate Aisha. Passing one as the
+// other skips the search and returns a confidently wrong item, so we always
+// resolve by name and image hash.
 
 export function describeItem(el) {
   const name = itemNameFor(el);
   if (!name) return null;
-  return { name, imageHash: imageHashOf(itemImageUrl(el)), itemId: itemIdFor(el) };
+  return { name, imageHash: imageHashOf(itemImageUrl(el)) };
 }

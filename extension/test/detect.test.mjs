@@ -63,7 +63,12 @@ test('main shop: inline background-image, name in data-name', async () => {
   assert.equal(items.length, 4);
   assert.equal(items[0].name, 'Potion of Concealment');
   assert.equal(items[0].imageHash, 'camouflage');
-  assert.equal(items[0].itemId, '8668', 'item id comes from data-link');
+
+  // The shop's data-link carries obj_info_id=8668, which is *Neopets'* id for
+  // this item. Jelly Neo's id for it is 2243, and Jelly Neo's 8668 is a White
+  // Chocolate Aisha. Harvesting it here once made shop lookups return the
+  // wrong item, so detection must not surface any id at all.
+  assert.deepEqual(Object.keys(items[0]).sort(), ['imageHash', 'name', 'tag']);
 });
 
 test('safety deposit box: plain <img>, name in alt', async () => {
@@ -86,6 +91,15 @@ test('trading post: no alt, name in p.item-name-text', async () => {
   assert.equal(items.length, 1);
   assert.equal(items[0].name, 'Silver Jetsam Plushie');
   assert.equal(items[0].imageHash, 'toy_jetsamplush6');
+});
+
+test('no Neopets obj_info_id leaks into the lookup, on any surface', async () => {
+  for (const f of ['inventory', 'mainshop', 'sdb', 'auctions-row', 'tradingpost-row']) {
+    for (const item of await detectIn(fixture(f))) {
+      assert.ok(!('itemId' in item) && !('jellyNeoId' in item),
+        `${f}: detection must not supply a Jelly Neo id — ${JSON.stringify(item)}`);
+    }
+  }
 });
 
 test('nothing is detected in item-free markup', async () => {

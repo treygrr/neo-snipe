@@ -103,6 +103,12 @@ and the detection tests run against it.
 | Auctions | `img.ah2_thumb` | `src` | a link in the sibling `<td>` |
 | Trading post | `img` | `src` | `p.item-name-text` |
 
+Note what is **not** used: Neopets' `obj_info_id`, which appears in shop `data-link` attributes and
+wizard links. That is Neopets' item id and has nothing to do with Jelly Neo's — Potion of
+Concealment is `obj_info_id` 8668 on Neopets and item 2243 on Jelly Neo, while Jelly Neo's 8668 is
+a White Chocolate Aisha. Feeding one to the other skips the search and returns a confidently wrong
+item, so every lookup resolves by name and image hash.
+
 So an item is **not necessarily an `<img>`**, and image URLs are often protocol-relative
 (`//images.neopets.com/items/...`). `detect.js` resolves the image from `src`, `data-src`,
 `data-image`, or an inline background, then resolves the name in order of reliability: data

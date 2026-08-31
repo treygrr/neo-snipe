@@ -376,8 +376,14 @@ export async function lookupTradingPost({ itemId }, { load = fetchDoc } = {}) {
   return tp;
 }
 
-export async function lookupItem({ name, imageHash, itemId }, { load = fetchDoc } = {}) {
-  let itemUrl = itemId ? `${URLS.origin}/item/${itemId}/` : null;
+/**
+ * `jellyNeoId` must be a Jelly Neo item id, never a Neopets obj_info_id — the
+ * two are unrelated numbering schemes. Detection cannot know it, so in practice
+ * every lookup resolves by name; the parameter exists for re-fetching an item
+ * we have already resolved.
+ */
+export async function lookupItem({ name, imageHash, jellyNeoId }, { load = fetchDoc } = {}) {
+  let itemUrl = jellyNeoId ? `${URLS.origin}/item/${jellyNeoId}/` : null;
   let searchHit = null;
 
   if (!itemUrl) {

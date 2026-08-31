@@ -6,8 +6,28 @@ import { lookupItem, lookupTradingPost, NotFoundError, ScrapeError } from './lib
 const TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 2000;
 
+// Bump when a change makes existing cached entries wrong. v2: entries written
+// before this could hold the wrong item entirely, because a Neopets
+// obj_info_id was being used as a Jelly Neo item id.
+const CACHE_VERSION = 2;
+const PRICE_PREFIX = `p${CACHE_VERSION}:`;
+const TP_PREFIX = `tp${CACHE_VERSION}:`;
+const isCurrent = (k) => k.startsWith(PRICE_PREFIX) || k.startsWith(TP_PREFIX);
+const isCacheKey = (k) => /^(p|tp)\d*:/.test(k);
+
 const key = ({ name, imageHash }) =>
-  `p:${String(name || '').toLowerCase().replace(/\s+/g, ' ').trim()}|${imageHash || ''}`;
+  `${PRICE_PREFIX}${String(name || '').toLowerCase().replace(/\s+/g, ' ').trim()}|${imageHash || ''}`;
+
+/** Drops entries written by an older, incompatible cache version. */
+async function evictStaleVersions() {
+  const all = await api.storage.local.get(null);
+  const stale = Object.keys(all).filter((k) => isCacheKey(k) && !isCurrent(k));
+  if (stale.length) {
+    await api.storage.local.remove(stale);
+    console.log(`[neo-snipe] dropped ${stale.length} cache entries from an older version`);
+  }
+}
+evictStaleVersions();
 
 async function readCache(k) {
   const stored = (await api.storage.local.get(k))[k];
@@ -27,7 +47,7 @@ async function writeCache(k, value) {
 // storage.local is finite; drop the oldest entries once we are over budget.
 async function trimCache() {
   const all = await api.storage.local.get(null);
-  const entries = Object.entries(all).filter(([k]) => k.startsWith('p:') || k.startsWith('tp:'));
+  const entries = Object.entries(all).filter(([k]) => isCacheKey(k));
   if (entries.length <= MAX_ENTRIES) return;
   entries.sort((a, b) => (a[1]?.at || 0) - (b[1]?.at || 0));
   await api.storage.local.remove(entries.slice(0, entries.length - MAX_ENTRIES).map(([k]) => k));
@@ -72,7 +92,7 @@ async function lookup(item) {
 async function tradingPost(itemId) {
   if (!itemId) return { ok: false, error: 'no_item_id' };
 
-  const k = `tp:${itemId}`;
+  const k = `${TP_PREFIX}${itemId}`;
   const cached = await readCache(k);
   if (cached) return { ok: true, data: { ...cached, cached: true } };
 
@@ -100,7 +120,7 @@ api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg?.type === 'neosnipe:clear-cache') {
     api.storage.local.get(null)
-      .then((all) => api.storage.local.remove(Object.keys(all).filter((k) => /^(p|tp):/.test(k))))
+      .then((all) => api.storage.local.remove(Object.keys(all).filter(isCacheKey)))
       .then(() => sendResponse({ ok: true }));
     return true;
   }
