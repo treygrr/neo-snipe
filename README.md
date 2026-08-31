@@ -148,8 +148,8 @@ cd extension
 npm run build:safari-app
 ```
 
-That builds `dist-safari/`, generates the Xcode wrapper into `safari/` (regenerated each run — it
-is not checked in), and compiles the app. Then:
+That builds `dist-safari/`, generates the Xcode wrapper into `safari/neo-snipe/`, and compiles the
+app. Then:
 
 1. `open safari/build/Build/Products/Debug/neo-snipe.app` once to register the extension, then quit it.
 2. Safari → Settings → Advanced → **Show features for web developers**.
@@ -159,6 +159,17 @@ is not checked in), and compiles the app. Then:
 5. That's it — the options page has a **Test a lookup** button if you want to confirm it works.
 
 Set `SAFARI_BUNDLE_ID` to use your own bundle identifier.
+
+The generated Xcode project is checked in, so the repo holds everything the three builds need and
+you can open it without running the generator first. Two things follow from it being generated:
+`build:safari-app` deletes and recreates it each run, and the new `project.pbxproj` carries fresh
+object identifiers, so expect that one file to show up rewritten after every run even when nothing
+about the app changed. Xcode's derived data under `safari/build/` stays out — 180MB of module
+caches that rebuild themselves.
+
+Its file references reach back out to `../../../extension/dist-safari/`, so the app is a wrapper
+around the built extension rather than a copy of it: rebuilding with `npm run build:safari` is
+enough to change what the app loads.
 
 ## The bar
 
