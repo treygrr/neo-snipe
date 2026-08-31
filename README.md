@@ -226,15 +226,19 @@ discipline as the Neopets selectors, and for the same reason.
   [~Shrmsh](https://www.neopets.com/~Shrmsh) — Beginner, Standard, Aggressive, Adventurous — each
   bet resolved against this round's odds with its payout at your chosen stake.
 
-  Each bet has two buttons, and both open the bet page **in a new tab** so the panel and its set
-  stay where they are while you work through several. **Fill** leaves the form filled in for you to
-  check and submit. **Place** fills it and submits. Both mark the
-  bet done, and you can tick or untick that yourself; marks are stored against the round number, so
-  they clear when a new round opens rather than carrying over onto different bets.
+  Each bet has two buttons, and both open **a new tab** so the panel and its set stay where they
+  are while you work through several. **Fill** loads the bet page with the form filled in, for you
+  to check and submit. **Place** skips the form: `process_foodclub.phtml` takes a whole bet on the
+  query string, so the bet goes straight there. That URL shape is
+  [neofood.club's](https://neofood.club) own, read out of its bundle rather than guessed —
+  `winner<n>` and `matches[]` for the arenas being bet on, then the stake, the odds, and the
+  winnings capped at the 1M NP Neopets will pay on one bet. Both mark the bet done, and you can
+  tick or untick that yourself; marks are stored against the round number, so they clear when a new
+  round opens rather than carrying over onto different bets.
 
-  Submitting is opt-in at the lowest level: the filler posts the form only for a bet explicitly
-  flagged `submit: true`, and a test runs every falsy and truthy-but-not-`true` value through it to
-  confirm nothing else can trigger a submit. `total_odds` and `winnings` are computed by the page's
+  Nothing now flags a bet for submission — Place does not go through the filler at all — but the
+  filler keeps its guard: it posts the form only for a bet explicitly flagged `submit: true`, and a
+  test runs every falsy and truthy-but-not-`true` value through it to confirm nothing else can. `total_odds` and `winnings` are computed by the page's
   own script, so the filler drives those handlers rather than assigning values, which would
   otherwise post `total_odds=0`.
 

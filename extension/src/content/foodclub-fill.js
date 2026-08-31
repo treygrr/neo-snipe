@@ -8,8 +8,9 @@ export const onBetPage = (url = location.href) =>
 
 /**
  * Fills Neopets' own bet form. It submits only when explicitly told to, by a
- * bet marked `submit` — which is what the panel's Place button sets and its
- * Fill button does not.
+ * bet marked `submit` — which nothing now sets, since Place places its bet by
+ * URL instead. The guard stays: it is what keeps a filled form from becoming a
+ * placed bet if anything ever writes that flag again.
  *
  * total_odds and winnings are computed by the page's own script, wired to the
  * select's onchange and the checkbox's onclick. Setting values silently would

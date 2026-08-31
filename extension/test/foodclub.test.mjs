@@ -7,6 +7,7 @@ import { parseHTML } from 'linkedom';
 
 import {
   parseBetPage, parseSets, resolveBet, payout, ARENAS, RISK_LEVELS, FoodClubError,
+  placeBetUrl, WINNINGS_CAP,
 } from '../src/lib/foodclub.js';
 
 const doc = (f) => parseHTML(`<html><body>${readFileSync(resolve('test/fixtures/foodclub', f), 'utf8')}</body></html>`).document;
@@ -92,4 +93,36 @@ test('payout multiplies odds by the stake', () => {
 test('a page without a bet form fails loudly', () => {
   assert.throws(() => parseBetPage(parseHTML('<html><body><p>Come back later</p></body></html>').document),
     FoodClubError);
+});
+
+// The place-bet URL. Shape read out of neofood.club's own bundle: winner<n>
+// then matches[] for the arenas bet on, then amount, odds, winnings, type.
+const PICKS = [
+  { arena: 1, pirateId: '2', odds: 4 },
+  { arena: 3, pirateId: '7', odds: 3 },
+];
+
+test('place URL carries the bet on the query string', () => {
+  const url = placeBetUrl({ picks: PICKS, amount: 500, totalOdds: 12 });
+  assert.equal(url, 'https://www.neopets.com/pirates/process_foodclub.phtml'
+    + '?winner1=2&winner3=7&matches[]=1&matches[]=3'
+    + '&bet_amount=500&total_odds=12&winnings=6000&type=bet');
+});
+
+test('place URL names only the arenas actually bet on', () => {
+  const url = placeBetUrl({ picks: PICKS, amount: 50, totalOdds: 12 });
+  for (const n of [2, 4, 5]) assert.ok(!url.includes(`winner${n}=`), `arena ${n} should be absent`);
+  assert.equal(url.match(/matches\[\]/g).length, 2);
+});
+
+test('winnings are capped the way Neopets caps them', () => {
+  const url = placeBetUrl({ picks: PICKS, amount: 10000, totalOdds: 1000 });
+  assert.ok(url.includes(`winnings=${WINNINGS_CAP}`), url);
+  assert.ok(url.includes('total_odds=1000'), 'the real odds are still sent');
+});
+
+test('an unresolved or unpriced bet produces no URL to place', () => {
+  assert.equal(placeBetUrl({ picks: [{ arena: 1, pirateId: null }], amount: 50, totalOdds: 4 }), null);
+  assert.equal(placeBetUrl({ picks: PICKS, amount: 0, totalOdds: 4 }), null);
+  assert.equal(placeBetUrl({ picks: PICKS, amount: 50, totalOdds: null }), null);
 });

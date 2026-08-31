@@ -2,8 +2,8 @@
 // bets that can be pre-filled into Neopets' own form.
 //
 // Verified against the live pages (fixtures in test/fixtures/foodclub/).
-// The bet form is a POST to process_foodclub.phtml, so a bet cannot be placed
-// by following a link — we fill the form and leave the user to submit it.
+// Fill drives the page's own form; Place goes straight to process_foodclub.phtml,
+// which takes the whole bet on the query string — see placeBetUrl.
 
 export const BET_URL = 'https://www.neopets.com/pirates/foodclub.phtml?type=bet';
 export const SETS_URL = 'https://www.neopets.com/~Shrmsh';
@@ -134,3 +134,31 @@ export const betId = (bet) =>
 
 export const payout = (totalOdds, amount) =>
   (totalOdds && amount ? totalOdds * amount : null);
+
+// Neopets pays at most this much on one bet, however good the odds.
+export const WINNINGS_CAP = 1_000_000;
+
+/**
+ * A bet as a link. `process_foodclub.phtml` accepts the whole bet on the query
+ * string, so a bet can be placed by opening a URL rather than by filling and
+ * submitting the form.
+ *
+ * The shape is taken from neofood.club's own Place-bet button, read out of its
+ * bundle rather than guessed: `winner<n>` only for the arenas being bet on,
+ * a `matches[]` entry per those arenas, then the amount, the odds and the
+ * winnings the site expects to pay — capped, as it caps them.
+ */
+export function placeBetUrl({ picks, amount, totalOdds }) {
+  const live = picks.filter((p) => p.pirateId);
+  if (!live.length || !amount || !totalOdds) return null;
+
+  const params = [
+    ...live.map((p) => `winner${p.arena}=${encodeURIComponent(p.pirateId)}`),
+    ...live.map((p) => `matches[]=${p.arena}`),
+    `bet_amount=${amount}`,
+    `total_odds=${totalOdds}`,
+    `winnings=${Math.min(totalOdds * amount, WINNINGS_CAP)}`,
+    'type=bet',
+  ];
+  return `https://www.neopets.com/pirates/process_foodclub.phtml?${params.join('&')}`;
+}

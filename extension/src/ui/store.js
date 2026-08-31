@@ -3,6 +3,7 @@ import { LOOKUP, TP_LOOKUP, ERROR_TEXT } from '../lib/messages.js';
 import { sendMessage, api } from '../lib/ext-api.js';
 import {
   BET_URL, SETS_URL, RISK_LEVELS, parseBetPage, parseSets, parseRound, resolveBet, payout,
+  placeBetUrl,
   betId, FoodClubError,
 } from '../lib/foodclub.js';
 import { PENDING_KEY } from '../content/foodclub-fill.js';
@@ -476,33 +477,46 @@ export async function toggleBetDone(bet, force) {
 }
 
 /**
- * Stashes the bet and sends you to the Food Club page, where the content
- * script fills the form.
- *
- * `submit` is the difference between the two buttons: Fill stops at a filled
- * form for you to check, Place posts it. Either way the bet is marked done,
- * because in both cases you have dealt with it.
+ * A new tab, so the panel and its set stay where they are while you work
+ * through several bets. No `noopener`: that makes window.open return null,
+ * which is the signal we need to detect a blocked popup. The target is
+ * neopets.com, same origin as the page we are on.
  */
-export async function fillBet(bet, { submit = false } = {}) {
+function openBetTab(url) {
+  const opened = window.open(url, '_blank');
+  if (!opened) window.location.href = url; // popup blocked: go here instead
+}
+
+/**
+ * Stashes the bet and sends you to the Food Club page, where the content
+ * script fills the form, leaving it for you to check and submit.
+ */
+export async function fillBet(bet) {
   await toggleBetDone(bet, true);
   await api.storage.local.set({
     [PENDING_KEY]: {
       picks: bet.picks.map((p) => ({ arena: p.arena, pirateId: p.pirateId })),
       amount: state.fc.amount,
-      submit,
+      // Fill never submits. Place does not come through here at all.
+      submit: false,
       at: Date.now(),
     },
   });
 
-  // A new tab, so the panel and its set stay where they are while you work
-  // through several bets. No `noopener`: that makes window.open return null,
-  // which is the signal we need to detect a blocked popup. The target is
-  // neopets.com, same origin as the page we are on.
-  const opened = window.open(BET_URL, '_blank');
-  if (!opened) window.location.href = BET_URL; // popup blocked: go here instead
+  openBetTab(BET_URL);
 }
 
-export const placeBet = (bet) => fillBet(bet, { submit: true });
+/**
+ * Place goes straight to the handler with the bet on the query string, rather
+ * than loading the form and driving it. Same tab-per-bet behaviour as Fill,
+ * and the bet is marked done either way, since in both cases you dealt with it.
+ */
+export async function placeBet(bet) {
+  const url = placeBetUrl({ picks: bet.picks, amount: state.fc.amount, totalOdds: bet.totalOdds });
+  if (!url) return;
+  await toggleBetDone(bet, true);
+  openBetTab(url);
+}
 
 // --- reordering favourites -------------------------------------------------
 

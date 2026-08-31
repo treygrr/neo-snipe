@@ -90,7 +90,7 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
           <template v-if="bet.resolved">
             <v-btn size="x-small" variant="tonal" class="ns-btn-fill" @click="fillBet(bet)">Fill</v-btn>
             <v-btn size="x-small" variant="flat" color="primary" class="ns-btn-place"
-                   title="Fills the form and submits it" @click="placeBet(bet)">Place</v-btn>
+                   title="Places this bet, in a new tab" @click="placeBet(bet)">Place</v-btn>
           </template>
         </div>
       </div>
@@ -98,8 +98,8 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
       <p class="ns-fc-note">
         <strong>Fill</strong> opens the <a :href="BET_URL" target="_blank" rel="noopener">bet page</a>
         with the form filled in, for you to check and submit.
-        <strong>Place</strong> submits it for you. Both mark the bet done; you can tick or untick
-        that yourself. Marks clear when a new round opens.
+        <strong>Place</strong> places the bet outright. Both open a new tab and mark the bet done;
+        you can tick or untick that yourself. Marks clear when a new round opens.
       </p>
     </template>
   </div>

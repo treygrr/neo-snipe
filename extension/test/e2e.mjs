@@ -953,6 +953,40 @@ check('using Fill marks that bet done', (doneAfterFill.fcDone?.ids || []).length
 
 await betTab.close();
 
+// Place: the whole bet on the query string of the handler, in its own tab —
+// the same URL shape neofood.club's Place button builds.
+const oddsShown = await inShadow((root) =>
+  root.querySelector('.ns-bet .ns-bet-odds')?.textContent.trim() || '');
+const [placeTab] = await Promise.all([
+  ctx.waitForEvent('page', { timeout: 15000 }),
+  inShadow((root) => root.querySelector('.ns-bet .ns-btn-place').click()),
+]);
+await placeTab.waitForLoadState('domcontentloaded');
+const placeUrl = new URL(placeTab.url());
+const placeParams = placeUrl.searchParams;
+
+check('Place goes to the bet handler in a new tab, leaving this one alone',
+  placeUrl.pathname === '/pirates/process_foodclub.phtml' && /inventory\.phtml/.test(page.url()),
+  `${placeUrl.pathname} original=${page.url().split('/').pop()}`);
+check('the place URL names a winner per arena bet on, and matches them',
+  [...placeParams.keys()].filter((k) => /^winner\d$/.test(k)).length
+    === placeParams.getAll('matches[]').length
+  && placeParams.getAll('matches[]').length > 0,
+  placeUrl.search);
+check('the place URL carries the stake, the odds and the winnings',
+  placeParams.get('bet_amount') === '10540'
+  && Number(placeParams.get('total_odds')) > 0
+  && placeParams.get('type') === 'bet',
+  `amount=${placeParams.get('bet_amount')} odds=${placeParams.get('total_odds')} winnings=${placeParams.get('winnings')}`);
+check('the winnings sent are the stake at those odds, capped at 1M',
+  Number(placeParams.get('winnings')) > 0
+  && Number(placeParams.get('winnings'))
+    === Math.min(Number(placeParams.get('total_odds')) * 10540, 1_000_000),
+  `${placeParams.get('winnings')} for ${oddsShown}`);
+check('the odds sent are the odds shown on the bet',
+  oddsShown.startsWith(`${placeParams.get('total_odds')}:1`), `${oddsShown} vs ${placeParams.get('total_odds')}`);
+await placeTab.close();
+
 // --- settings: the cog, the premium toggle, export and import --------------
 await ensurePanelOpen();
 await inShadow((root) => root.querySelector('.ns-cog').click());
