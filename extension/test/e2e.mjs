@@ -71,7 +71,7 @@ page.on('console', (m) => console.log(`    [page:${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => console.log(`    [page:error] ${e.message}`));
 page.on('requestfailed', (r) => console.log(`    [reqfail] ${r.url().slice(0, 130)} ${r.failure()?.errorText}`));
 page.on('response', (r) => { if (r.status() >= 400) console.log(`    [resp ${r.status()}] ${r.url().slice(0, 130)}`); });
-await installNeopetsRoutes(page);
+await installNeopetsRoutes(ctx);
 
 await page.goto('https://www.neopets.com/inventory.phtml');
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
@@ -697,11 +697,22 @@ check('unticking clears it again',
   await inShadow((root) => !root.querySelector('.ns-bet').classList.contains('ns-bet--done')));
 
 // Fill: stores the bet, navigates to the bet page, fills the real form.
-await inShadow((root) => root.querySelector('.ns-bet .v-btn').click());
-await page.waitForURL(/foodclub\.phtml/, { timeout: 15000 }).catch(() => {});
-await page.waitForTimeout(2500);
+// Fill opens a new tab, so the panel and its set stay put.
+const [betTab] = await Promise.all([
+  ctx.waitForEvent('page', { timeout: 15000 }),
+  inShadow((root) => root.querySelector('.ns-bet .v-btn').click()),
+]);
+await betTab.waitForLoadState('domcontentloaded');
+await betTab.waitForTimeout(2500);
 
-const filled = await page.evaluate(() => {
+check('Fill opens the bet page in a new tab, leaving this one alone',
+  /foodclub\.phtml/.test(betTab.url()) && /inventory\.phtml/.test(page.url()),
+  `new=${betTab.url().split('/').pop()} original=${page.url().split('/').pop()}`);
+check('the panel is still open in the original tab',
+  await page.evaluate(() => !!document.querySelector('[data-neosnipe="popover-host"]')
+    ?.shadowRoot?.querySelector('.ns-panel')));
+
+const filled = await betTab.evaluate(() => {
   const form = document.querySelector('form[name="bet_form"]');
   if (!form) return { noForm: true };
   return {
@@ -713,9 +724,9 @@ const filled = await page.evaluate(() => {
     notice: !!document.querySelector('[data-neosnipe="fc-notice"]'),
   };
 });
-check('Fill sends you to the bet page and fills the form',
-  /foodclub\.phtml/.test(filled.url || '') && filled.checked?.some(Boolean)
-  && filled.selects?.some((v) => v !== ''), JSON.stringify(filled?.selects));
+check('the form in the new tab is filled',
+  filled.checked?.some(Boolean) && filled.selects?.some((v) => v !== ''),
+  JSON.stringify(filled?.selects));
 check('the filled amount matches the stake', filled.amount === '10540', filled.amount);
 check("the page's own odds calculation was triggered", filled.calcRan === true);
 check('it tells you to press Place Bet yourself', filled.notice === true);
@@ -730,8 +741,7 @@ const doneAfterFill = await opts.evaluate(() => chrome.storage.local.get('fcDone
 check('using Fill marks that bet done', (doneAfterFill.fcDone?.ids || []).length === 1,
   JSON.stringify(doneAfterFill.fcDone?.ids));
 
-await page.goto('https://www.neopets.com/inventory.phtml');
-await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+await betTab.close();
 
 // --- the toolbar button ------------------------------------------------------
 // It must do nothing away from Neopets. Rather than take the "tabs" permission

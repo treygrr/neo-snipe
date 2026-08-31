@@ -149,8 +149,9 @@ discipline as the Neopets selectors, and for the same reason.
   [~Shrmsh](https://www.neopets.com/~Shrmsh) — Beginner, Standard, Aggressive, Adventurous — each
   bet resolved against this round's odds with its payout at your chosen stake.
 
-  Each bet has two buttons. **Fill** takes you to the bet page with the arenas, pirates and amount
-  filled in and stops, for you to check and submit. **Place** fills it and submits. Both mark the
+  Each bet has two buttons, and both open the bet page **in a new tab** so the panel and its set
+  stay where they are while you work through several. **Fill** leaves the form filled in for you to
+  check and submit. **Place** fills it and submits. Both mark the
   bet done, and you can tick or untick that yourself; marks are stored against the round number, so
   they clear when a new round opens rather than carrying over onto different bets.
 

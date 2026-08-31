@@ -284,7 +284,13 @@ export async function fillBet(bet, { submit = false } = {}) {
       at: Date.now(),
     },
   });
-  window.location.href = BET_URL;
+
+  // A new tab, so the panel and its set stay where they are while you work
+  // through several bets. No `noopener`: that makes window.open return null,
+  // which is the signal we need to detect a blocked popup. The target is
+  // neopets.com, same origin as the page we are on.
+  const opened = window.open(BET_URL, '_blank');
+  if (!opened) window.location.href = BET_URL; // popup blocked: go here instead
 }
 
 export const placeBet = (bet) => fillBet(bet, { submit: true });

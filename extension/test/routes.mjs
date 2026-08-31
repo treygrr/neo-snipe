@@ -16,6 +16,9 @@ export const JELLYNEO_PAGES = [
  * and the daily sets. Shared by the end-to-end tests and `npm run fixture`, so
  * the two cannot drift — the Food Club tab silently broke in the dev browser
  * once because only the tests had these routes.
+ *
+ * Pass a BrowserContext rather than a Page so tabs opened by the extension —
+ * Fill and Place both open one — are served too.
  */
 export async function installNeopetsRoutes(page) {
   // Order matters: Playwright matches the most recently registered route

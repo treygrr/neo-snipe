@@ -112,7 +112,7 @@ if (has('--fixture')) {
     const hit = JELLYNEO_PAGES.find(([re]) => re.test(route.request().url()));
     return route.fulfill({ contentType: 'text/html', body: hit ? jellyNeoFixture(hit[1]) : '' });
   });
-  await installNeopetsRoutes(page);
+  await installNeopetsRoutes(ctx);
   await page.goto('https://www.neopets.com/inventory.phtml');
   console.log('\n  Fixture mode: item surfaces, Food Club and the daily sets, all offline.');
 } else {
