@@ -57,6 +57,25 @@ The button at the bottom right opens a panel with three tabs:
 
 The cog holds the settings, including exporting them to a JSON file and importing it back.
 
+## Updating, and moving to another browser
+
+These are unpacked builds, so there is no auto-update — a new version is a new folder you load
+yourself, and whether your favourites survive depends on whether the browser thinks it is the same
+extension.
+
+**Back up first, every time:** panel → **cog** → **Backup** → **Save file** saves your settings,
+favourite items and favourited dailies as a JSON file. To restore them — in this browser or a
+different one — use **Load file** and then **Import**. Import replaces your lists rather than
+merging them, and an older file still imports into a newer build.
+
+Updating in place keeps your data on **Firefox** always (the add-on ID is fixed), on **Chrome**
+only if you unpack over the same folder and press Reload (an unpacked extension's ID comes from its
+path, so a folder in a new location starts empty), and on **Safari** only if you rebuild with the
+same bundle identifier.
+
+Settings never travel between browsers on their own — \`storage.sync\` syncs within one browser
+account, not across two — so moving means exporting from the old one and importing into the new.
+
 ## Notes
 
 - Nothing else to install and nothing to run. The extension fetches prices from

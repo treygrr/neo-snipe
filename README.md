@@ -38,6 +38,48 @@ the build rather than reaching anyone.
 Pushing a `v*` tag runs the same thing in CI (`.github/workflows/release.yml`) and attaches the
 zips to a GitHub release.
 
+## Updating, and moving to another browser
+
+There is no auto-update: these are unpacked builds, so a new version is a new folder you load
+yourself. Whether your favourites survive that depends on whether the browser thinks it is the
+same extension, which is worth knowing before you overwrite anything.
+
+**Back up first, every time.** Panel → **cog** → **Backup** → **Save file** writes
+`neo-snipe-settings-<date>.json` to your downloads: your settings, your favourite items and your
+favourited dailies. It takes a second and it is the only copy that does not depend on the browser
+keeping your storage.
+
+### Updating in place
+
+| Browser | Keeps your data if… |
+|---|---|
+| Chrome | You unpack the new version **over the same folder** and press **Reload** on `chrome://extensions`. An unpacked extension's ID comes from its absolute path, so a folder in a new location is a *different* extension with empty storage. |
+| Firefox | Always — the build declares a fixed add-on ID (`neo-snipe@treygrr`), so storage follows it even though the add-on itself has to be re-loaded after every restart. |
+| Safari | You rebuild the app with the **same bundle identifier**. Change it and macOS treats it as a different extension. |
+
+So on Chrome, either keep the folder path stable, or take the backup and import it after loading
+the new one. `chrome://extensions` (and `about:debugging` on Firefox) shows the version currently
+loaded, if you are not sure whether an update took.
+
+### Moving to another browser
+
+Settings do not travel by themselves — `storage.sync` syncs within one browser account, never
+between two different browsers.
+
+1. In the old browser: panel → cog → **Save file**.
+2. Install the new browser's build (see the README in its release folder).
+3. In the new browser: panel → cog → **Load file**, pick the JSON, press **Import**.
+
+The same file works for moving between profiles or machines, and a file from an older version
+still imports — it carries a version number, and a build reads anything up to its own rather than
+requiring an exact match. It will refuse a file written by a *newer* build instead of applying half
+of it.
+
+Two things to expect. **Import replaces your lists rather than merging them**, so the new browser
+ends up with exactly what the file holds. And cached prices and Food Club done-marks are
+deliberately not in the file — the first comes back on its own, and the second belongs to a round
+that will be over by the time you import.
+
 ## Building from source
 
 ### Chrome
@@ -122,7 +164,7 @@ Set `SAFARI_BUNDLE_ID` to use your own bundle identifier.
 ## The bar
 
 A small **neo-snipe** bar sits in the bottom-right of every Neopets page. Clicking it opens a panel
-with two tabs:
+with three tabs:
 
 Under the item information sit two icons: **⇄ Trading Post** and **⚖ Auction House**, each opening
 a search for that exact item in a new tab. Those URL shapes are taken verbatim from the "Find This
