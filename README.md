@@ -128,10 +128,12 @@ The bottom of each price popover has **where to buy it**: Shop Wizard, Trading P
 House, each opening a search for that exact item in a new tab. Those URL shapes are taken verbatim
 from the "Find This Item" links on a Jelly Neo item page rather than written from memory.
 
-A **Super Shop Wizard** button appears alongside them if you tick *I have Neopets Premium* in the
-options. That is a setting rather than detection: nothing on a page the extension can see reliably
-says whether an account has Premium, and guessing would either hide a button you paid for or show
-one that does not work.
+The **Super Shop Wizard is a tab, not a button**, because it has no page you can link to with a
+query — it is a JSON endpoint the SSW interface calls
+(`/np-templates/views/shops/ssw/ssw_query.php`). The Shops tab queries it from the content script,
+same-origin with your session, and lists the cheapest shops with stock counts, each linking
+straight into that shop with the item selected. Premium is not detected or configured: the
+endpoint's own `error` field says whether it will answer, and that message is shown as-is.
 
 - **Favourites** — click the ♥ on any item's price popover to save it here, and drag the rows to
   reorder them. Opening a favourite **always re-fetches**, ignoring the cache: a saved item is one

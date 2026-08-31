@@ -1,11 +1,12 @@
 import { reactive } from 'vue';
-import { LOOKUP, TP_LOOKUP, ERROR_TEXT, getSettings } from '../lib/messages.js';
+import { LOOKUP, TP_LOOKUP, ERROR_TEXT } from '../lib/messages.js';
 import { sendMessage, api } from '../lib/ext-api.js';
 import {
   BET_URL, SETS_URL, RISK_LEVELS, parseBetPage, parseSets, parseRound, resolveBet, payout,
   betId, FoodClubError,
 } from '../lib/foodclub.js';
 import { PENDING_KEY } from '../content/foodclub-fill.js';
+import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
 import {
   listFavourites, toggleFavourite, favouriteId, saveFavourites,
   listDailyFavourites, toggleDailyFavourite, saveDailyFavourites,
@@ -24,9 +25,8 @@ export const state = reactive({
   tab: 'price',
   // Trading post history is loaded on demand, the first time its tab is opened.
   tp: { loading: false, data: null, error: null },
-
-  // Mirrors the saved setting, so the popover can react without re-reading it.
-  premium: false,
+  // Super Shop Wizard, same: only asked for when its tab is opened.
+  ssw: { loading: false, data: null, error: null },
 
   // Food Club.
   fc: {
@@ -70,6 +70,7 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   const id = ++requestId;
   Object.assign(state, { open: true, anchor, item, data: null, error: null, loading: true, tab: 'price' });
   state.tp = { loading: false, data: null, error: null };
+  state.ssw = { loading: false, data: null, error: null };
   state.refreshing = refresh;
 
   const res = await sendMessage({ type: LOOKUP, item, refresh });
@@ -109,9 +110,44 @@ export async function loadTradingPost() {
   else state.tp.error = asError(res);
 }
 
+/**
+ * Live shop listings from the Super Shop Wizard. Fetched from the content
+ * script because it is same-origin with your Neopets session; the service
+ * worker has no business holding that.
+ */
+export async function loadShops() {
+  if (state.ssw.loading || state.ssw.data) return;
+
+  const name = state.data?.name;
+  if (!name) return;
+
+  const id = requestId;
+  state.ssw = { loading: true, data: null, error: null };
+  try {
+    const res = await fetch(sswQueryUrl(name), { credentials: 'include' });
+    if (!res.ok) throw new SswError(`Neopets returned ${res.status}.`);
+    const parsed = parseSswResponse(await res.json());
+    if (id !== requestId) return;
+    state.ssw.data = parsed;
+  } catch (err) {
+    if (id !== requestId) return;
+    state.ssw.error = err instanceof SswError
+      ? err.message
+      : 'Could not reach the Super Shop Wizard. Are you logged in to Neopets?';
+  } finally {
+    if (id === requestId) state.ssw.loading = false;
+  }
+}
+
+export function retryShops() {
+  state.ssw = { loading: false, data: null, error: null };
+  loadShops();
+}
+
 export function selectTab(tab) {
   state.tab = tab;
   if (tab === 'tp') loadTradingPost();
+  if (tab === 'shops') loadShops();
 }
 
 export function retryTradingPost() {
@@ -132,11 +168,6 @@ export function close() {
 }
 
 // --- favourites and the panel ---------------------------------------------
-
-export async function loadSettings() {
-  const { premium } = await getSettings();
-  state.premium = premium === true;
-}
 
 export async function loadFavourites() {
   const [items, dailies] = await Promise.all([listFavourites(), listDailyFavourites()]);

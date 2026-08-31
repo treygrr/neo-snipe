@@ -1,25 +1,31 @@
 <script setup>
 import { computed } from 'vue';
-import { state, selectTab, retryTradingPost } from './store.js';
+import { state, selectTab, retryTradingPost, retryShops } from './store.js';
 
 const props = defineProps({ data: { type: Object, required: true } });
 
 const np = (n) => (n === null || n === undefined ? '—' : `${n.toLocaleString('en-US')} NP`);
 const priceHistory = computed(() => (props.data.history || []).filter((h) => h.date));
 const lots = computed(() => state.tp.data?.lots || []);
+// The cheapest handful is what anyone actually wants; the rest is scrolling.
+const shops = computed(() => (state.ssw.data?.listings || []).slice(0, 25));
 </script>
 
 <template>
   <div class="ns-tabs-wrap">
+    <!-- Three tabs at Vuetify's default width overflow a 340px card, which
+         turns the strip into a scrolling slide-group with arrows. -->
     <v-tabs
       :model-value="state.tab"
       density="compact"
       height="30"
       class="ns-tabs"
+      :show-arrows="false"
       @update:model-value="selectTab"
     >
-      <v-tab value="price" class="ns-tab">Price History</v-tab>
-      <v-tab value="tp" class="ns-tab">TP History</v-tab>
+      <v-tab value="price" class="ns-tab" title="Price history">Price</v-tab>
+      <v-tab value="tp" class="ns-tab" title="Trading post history">TP</v-tab>
+      <v-tab value="shops" class="ns-tab" title="Shops, via the Super Shop Wizard">Shops</v-tab>
     </v-tabs>
 
     <!-- Fixed height so the popover never jumps between tabs; content scrolls. -->
@@ -40,6 +46,39 @@ const lots = computed(() => state.tp.data?.lots || []);
           </tbody>
         </v-table>
         <p v-else class="ns-empty">No price history.</p>
+      </template>
+
+      <!-- Super Shop Wizard: live listings, cheapest first -->
+      <template v-else-if="state.tab === 'shops'">
+        <div v-if="state.ssw.loading" class="ns-tp-loading">
+          <v-progress-circular indeterminate size="22" width="2" />
+          <span>Asking the Super Shop Wizard…</span>
+        </div>
+
+        <v-alert v-else-if="state.ssw.error" type="warning" variant="tonal" density="compact" class="ns-tp-error">
+          <div>{{ state.ssw.error }}</div>
+          <v-btn size="x-small" variant="text" class="mt-1" @click="retryShops">Retry</v-btn>
+        </v-alert>
+
+        <template v-else-if="state.ssw.data">
+          <div class="ns-tp-stats">
+            <span>{{ state.ssw.data.rowCount.toLocaleString('en-US') }} shops</span>
+            <span v-if="shops.length">cheapest {{ shops[0].priceText }}</span>
+          </div>
+          <v-table v-if="shops.length" density="compact" class="ns-rows">
+            <tbody>
+              <tr v-for="s in shops" :key="s.owner + s.price">
+                <td class="ns-shop-owner">
+                  <a v-if="s.href" :href="s.href" target="_blank" rel="noopener">{{ s.owner }}</a>
+                  <span v-else>{{ s.owner }}</span>
+                </td>
+                <td class="ns-num">{{ s.priceText }}</td>
+                <td class="ns-num ns-shop-stock">{{ s.amount ? `x${s.amount}` : '' }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+          <p v-else class="ns-empty">No shops are stocking this right now.</p>
+        </template>
       </template>
 
       <template v-else>
@@ -88,7 +127,10 @@ const lots = computed(() => state.tp.data?.lots || []);
 
 <style scoped>
 .ns-tabs { min-height: 30px; border-bottom: 1px solid rgba(0, 0, 0, .12); }
-.ns-tab { font-size: 11px; letter-spacing: 0; text-transform: none; min-width: 0; padding: 0 12px; }
+.ns-tab {
+  font-size: 11px; letter-spacing: 0; text-transform: none;
+  min-width: 0 !important; padding: 0 14px; flex: 0 1 auto;
+}
 
 .ns-tab-window {
   /* v-card is a flex column, so without flex:none this collapses to its
@@ -106,6 +148,9 @@ const lots = computed(() => state.tp.data?.lots || []);
 .ns-up { color: #2e7d32; }
 .ns-down { color: #c62828; }
 .ns-owner { text-align: right; opacity: .55; font-size: 10px; }
+.ns-shop-owner { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.ns-shop-owner a { color: inherit; }
+.ns-shop-stock { opacity: .55; font-size: 10px; }
 .ns-noprice { opacity: .5; font-size: 10px; }
 .ns-bundle {
   font-size: 9px; opacity: .6; border: 1px solid currentColor;

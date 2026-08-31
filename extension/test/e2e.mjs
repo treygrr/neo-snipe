@@ -163,7 +163,8 @@ const tabLabels = await page.evaluate(() => {
   const sr = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
   return [...sr.querySelectorAll('.ns-tab')].map((t) => t.textContent.trim());
 });
-check('both history tabs are present', tabLabels.length === 2, JSON.stringify(tabLabels));
+check('the popover has price, trading post and shops tabs',
+  tabLabels.join(',') === 'Price,TP,Shops', JSON.stringify(tabLabels));
 
 // The price tab is shown first, and its rows come from the item lookup.
 const priceRows = await page.evaluate(() => {
@@ -236,6 +237,42 @@ check('tab panel is scrollable when content overflows', await page.evaluate(() =
   return scrolls;
 }));
 
+// --- the Shops tab: live Super Shop Wizard listings -------------------------
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  [...root.querySelectorAll('.ns-tab')].find((t) => /shops/i.test(t.textContent)).click();
+});
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const w = root.querySelector('.ns-tab-window');
+  return w && !/Asking the Super/.test(w.textContent);
+}, null, { timeout: 15000 }).catch(() => {});
+
+const shops = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const rows = [...root.querySelectorAll('.ns-tab-window .ns-rows tbody tr')];
+  return {
+    stats: root.querySelector('.ns-tab-window .ns-tp-stats')?.textContent.replace(/\s+/g, ' ').trim(),
+    count: rows.length,
+    first: rows[0] ? {
+      owner: rows[0].querySelector('.ns-shop-owner')?.textContent.trim(),
+      href: rows[0].querySelector('.ns-shop-owner a')?.href,
+      price: rows[0].querySelectorAll('td')[1]?.textContent.trim(),
+      stock: rows[0].querySelectorAll('td')[2]?.textContent.trim(),
+    } : null,
+    error: root.querySelector('.ns-tp-error')?.textContent.trim() || null,
+  };
+});
+check('the Shops tab lists cheapest-first shop prices',
+  shops.count > 0 && shops.first?.price === '6,750 NP' && shops.first?.stock === 'x74',
+  JSON.stringify(shops.first));
+check('it shows how many shops stock it',
+  /130 shops/.test(shops.stats || '') && /cheapest 6,750 NP/.test(shops.stats || ''), shops.stats);
+check('each shop links straight into that shop with the item selected',
+  /^https:\/\/www\.neopets\.com\/browseshop\.phtml\?owner=.+buy_obj_info_id=\d+/.test(shops.first?.href || ''),
+  shops.first?.href);
+check('the list is capped rather than showing all 130', shops.count <= 25, `${shops.count} rows`);
+
 // --- theme variables must resolve inside the shadow root -------------------
 // Vuetify puts defaults in `:root`, which matches nothing inside a shadow root.
 // Without rewriting those to `:host`, --v-theme-overlay-multiplier is undefined,
@@ -251,20 +288,37 @@ const themeVars = await page.evaluate(() => {
 check('Vuetify theme variables resolve in the shadow root',
   themeVars.multiplier !== '' && themeVars.hoverOpacity !== '', JSON.stringify(themeVars));
 
-const tabBox = await page.evaluate(() => {
-  const sr = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  const r = sr.querySelector('.ns-tab').getBoundingClientRect();
-  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-});
-await page.mouse.move(tabBox.x, tabBox.y);
+// Playwright's own hover dispatches the full event sequence and pierces the
+// shadow root; raw mouse.move at computed coordinates did not set :hover here.
+await page.bringToFront();
+await page.locator('.ns-tab').first().hover();
 await page.waitForTimeout(400);
+
 const hoverOverlay = await page.evaluate(() => {
   const sr = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  const ov = sr.querySelector('.ns-tab .v-btn__overlay');
-  return ov ? Number(getComputedStyle(ov).opacity) : null;
+  const tab = sr.querySelector('.ns-tab');
+  const ov = tab?.querySelector('.v-btn__overlay');
+  return {
+    opacity: ov ? Number(getComputedStyle(ov).opacity) : null,
+    hovered: tab?.matches(':hover') ?? null,
+    tabCount: sr.querySelectorAll('.ns-tab').length,
+    popoverOpen: !!sr.querySelector('.v-overlay__content'),
+    tabText: tab?.textContent.trim(),
+    // Three tabs once overflowed the card, turning the strip into a scrolling
+    // slide-group whose arrow sat on top of the first tab.
+    tabsFit: (() => {
+      const strip = sr.querySelector('.ns-tabs');
+      const total = [...sr.querySelectorAll('.ns-tab')]
+        .reduce((n, t) => n + t.getBoundingClientRect().width, 0);
+      return strip ? total <= strip.getBoundingClientRect().width : null;
+    })(),
+  };
 });
+check('all three tabs fit without scroll arrows', hoverOverlay.tabsFit === true,
+  JSON.stringify(hoverOverlay));
 check('hover overlay is subtle, not a solid black wash',
-  hoverOverlay !== null && hoverOverlay > 0 && hoverOverlay < 0.5, `opacity ${hoverOverlay}`);
+  hoverOverlay.opacity !== null && hoverOverlay.opacity > 0 && hoverOverlay.opacity < 0.5,
+  JSON.stringify(hoverOverlay));
 await page.mouse.move(0, 0);
 
 // --- the bottom-right bar, favourites and dailies ---------------------------
@@ -353,32 +407,11 @@ check('the searches use the resolved item name',
   searchRow.hrefs.every((h) => h.includes('Faerie+Paint+Brush')));
 check('they open in a new tab', searchRow.targets.every((t) => t === '_blank'));
 check('the row sits at the bottom of the card', searchRow.belowTheCard === true);
-check('the Super Shop Wizard is hidden without Premium',
+// It has no linkable page, so it is the Shops tab rather than a button here.
+check('the Super Shop Wizard is not one of these buttons',
   !searchRow.labels.includes('Super Wiz'));
 
-// Turning Premium on in the options adds it.
-await opts.evaluate(() => chrome.storage.sync.set({ premium: true }));
-await page.reload();
-await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
-await page.waitForTimeout(600);
-await page.locator('.neosnipe-badge').first().click();
-await page.waitForFunction(() => {
-  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
-  return root && root.querySelectorAll('.ns-search-btn').length > 0;
-}, null, { timeout: 15000 }).catch(() => {});
 
-const withPremium = await page.evaluate(() => {
-  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  const btns = [...root.querySelectorAll('.ns-search-btn')];
-  return { labels: btns.map((b) => b.textContent.trim()), last: btns.at(-1)?.href };
-});
-check('Premium adds the Super Shop Wizard button',
-  withPremium.labels.includes('Super Wiz') && withPremium.labels.length === 4,
-  JSON.stringify(withPremium.labels));
-check('the Super Shop Wizard link carries the item name',
-  (withPremium.last || '').includes('Faerie+Paint+Brush'), withPremium.last);
-
-await opts.evaluate(() => chrome.storage.sync.set({ premium: false }));
 
 check('the old Jelly Neo action button is gone', await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;

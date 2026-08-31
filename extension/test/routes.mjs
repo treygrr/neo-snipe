@@ -44,6 +44,12 @@ export async function installNeopetsRoutes(page) {
     body: `<!doctype html><html><body>${fc('sets-page.html')}</body></html>`,
   }));
 
+  // The Super Shop Wizard endpoint, from a real captured response.
+  await page.route('**/np-templates/views/shops/ssw/ssw_query.php*', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: readFileSync(resolve('test/fixtures/ssw/query-lu-codestone.json'), 'utf8'),
+  }));
+
   await page.route('**://images.neopets.com/**', (route) => route.fulfill({
     contentType: 'image/gif',
     body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),

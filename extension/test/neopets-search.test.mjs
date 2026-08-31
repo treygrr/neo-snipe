@@ -2,7 +2,7 @@
 // checks the builders still produce exactly those shapes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEARCHES, SUPER_WIZARD, searchesFor } from '../src/lib/neopets-search.js';
+import { SEARCHES, searchesFor } from '../src/lib/neopets-search.js';
 
 const NAME = 'Faerie Paint Brush';
 
@@ -25,14 +25,14 @@ test('names with punctuation and spaces are encoded, not broken', () => {
   assert.ok(url.includes("%27") || url.includes("'"), 'apostrophe survives');
 });
 
-test('the Super Shop Wizard is only offered to Premium', () => {
+test('the Super Shop Wizard is not one of these links', () => {
+  // It has no linkable page — it is a JSON endpoint, handled in ssw.js.
   assert.equal(searchesFor(NAME).length, 3);
-  assert.equal(searchesFor(NAME, { premium: true }).length, 4);
-  assert.equal(searchesFor(NAME, { premium: true }).at(-1).id, SUPER_WIZARD.id);
+  assert.ok(!searchesFor(NAME).some((s) => s.id === 'super'));
 });
 
 test('every search points at neopets.com', () => {
-  for (const s of searchesFor(NAME, { premium: true })) {
+  for (const s of searchesFor(NAME)) {
     assert.match(s.href, /^https:\/\/www\.neopets\.com\//, s.id);
   }
 });

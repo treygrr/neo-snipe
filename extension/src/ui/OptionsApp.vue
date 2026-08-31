@@ -72,17 +72,6 @@ async function clearCache() {
         </v-alert>
 
         <v-switch
-          v-model="form.premium"
-          label="I have Neopets Premium"
-          hint="Adds a Super Shop Wizard button to the item popover"
-          persistent-hint
-          color="primary"
-          density="compact"
-          class="mb-4"
-          @update:model-value="save"
-        />
-
-        <v-switch
           v-model="form.hoverOnly"
           label="Only show badges on hover"
           color="primary"

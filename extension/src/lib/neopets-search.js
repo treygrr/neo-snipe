@@ -28,17 +28,7 @@ export const SEARCHES = [
   },
 ];
 
-/**
- * Premium only. Shown when the user has said they have Premium, because there
- * is no reliable way to detect it from a page the extension can see.
- */
-export const SUPER_WIZARD = {
-  id: 'super',
-  label: 'Super Wiz',
-  title: 'Search the Super Shop Wizard (Premium)',
-  url: (name) => `${base}/shops/wizard.phtml?string=${q(name)}&type=super`,
-};
-
-export const searchesFor = (name, { premium = false } = {}) =>
-  [...SEARCHES, ...(premium ? [SUPER_WIZARD] : [])]
-    .map((s) => ({ ...s, href: s.url(name) }));
+// The Super Shop Wizard is deliberately absent here. It has no page you can
+// link to with a query — it is a JSON endpoint, so it lives in the Shops tab
+// (src/lib/ssw.js) where its results can actually be shown.
+export const searchesFor = (name) => SEARCHES.map((s) => ({ ...s, href: s.url(name) }));

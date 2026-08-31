@@ -8,8 +8,7 @@ import HistoryTabs from './HistoryTabs.vue';
 
 defineProps({ attach: { type: [Object, String, Boolean], default: false } });
 
-const searches = computed(() =>
-  (state.data?.name ? searchesFor(state.data.name, { premium: state.premium }) : []));
+const searches = computed(() => (state.data?.name ? searchesFor(state.data.name) : []));
 
 const open = computed({
   get: () => state.open,
@@ -57,7 +56,6 @@ const open = computed({
             target="_blank"
             rel="noopener"
             class="ns-search-btn"
-            :class="{ 'ns-search-btn--premium': s.id === 'super' }"
             :title="s.title"
           >{{ s.label }}</a>
         </div>
