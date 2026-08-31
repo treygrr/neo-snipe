@@ -110,6 +110,30 @@ async function tradingPost(itemId) {
   });
 }
 
+// A Chrome MV3 service worker is torn down after ~30s idle, and time spent
+// waiting on a fetch does not count as activity. The trading post page can take
+// ~20s, so the worker was being killed mid-request: the fetch finished and the
+// cache was written, but the reply never reached the popover, which then sat
+// spinning. Touching an extension API does count as activity, so tick one for
+// as long as any lookup is outstanding.
+const KEEPALIVE_MS = 20 * 1000;
+let outstanding = 0;
+let keepAliveTimer = null;
+
+function keepAlive(promise) {
+  outstanding += 1;
+  if (!keepAliveTimer) {
+    keepAliveTimer = setInterval(() => { api.runtime.getPlatformInfo?.(); }, KEEPALIVE_MS);
+  }
+  return promise.finally(() => {
+    outstanding -= 1;
+    if (outstanding === 0) {
+      clearInterval(keepAliveTimer);
+      keepAliveTimer = null;
+    }
+  });
+}
+
 // The toolbar button does nothing off Neopets. Rather than take the "tabs"
 // permission to read every tab's URL, the button starts disabled and each
 // content script enables it for its own tab as it loads.
@@ -128,11 +152,11 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
   if (msg?.type === LOOKUP) {
-    lookup(msg.item, { refresh: msg.refresh === true }).then(sendResponse);
+    keepAlive(lookup(msg.item, { refresh: msg.refresh === true })).then(sendResponse);
     return true; // keep the message channel open for the async response
   }
   if (msg?.type === TP_LOOKUP) {
-    tradingPost(msg.itemId).then(sendResponse);
+    keepAlive(tradingPost(msg.itemId)).then(sendResponse);
     return true;
   }
   if (msg?.type === 'neosnipe:clear-cache') {

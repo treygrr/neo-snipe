@@ -101,7 +101,7 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   state.wiz = { loading: false, data: null, error: null, at: null, searches: 0 };
   state.refreshing = refresh;
 
-  const res = await sendMessage({ type: LOOKUP, item, refresh });
+  const res = await ask({ type: LOOKUP, item, refresh });
 
   // A newer click has taken over; drop this response.
   if (id !== requestId) return;
@@ -110,6 +110,22 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   state.refreshing = false;
   if (res?.ok) state.data = res.data;
   else state.error = asError(res);
+}
+
+/**
+ * The service worker can be torn down while a lookup is in flight — Chrome
+ * kills an idle MV3 worker and a slow fetch does not count as activity — and
+ * `sendMessage` then rejects with "message port closed before a response was
+ * received". Left unhandled that rejection escapes mid-function and the tab
+ * spins forever, so turn it into an ordinary error response the popover can
+ * show with a Retry button.
+ */
+async function ask(message) {
+  try {
+    return (await sendMessage(message)) ?? { ok: false, error: 'disconnected' };
+  } catch {
+    return { ok: false, error: 'disconnected' };
+  }
 }
 
 const asError = (res) => {
@@ -130,7 +146,7 @@ export async function loadTradingPost() {
   const id = requestId;
   state.tp = { loading: true, data: null, error: null };
 
-  const res = await sendMessage({ type: TP_LOOKUP, itemId });
+  const res = await ask({ type: TP_LOOKUP, itemId });
   if (id !== requestId) return; // a different item has been opened since
 
   state.tp.loading = false;
