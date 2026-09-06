@@ -10,11 +10,13 @@ import {
   isDailyVisited, toggleDailyVisited, clearVisitedDailies, visitDaily,
   isDailyTracked, readyIn, nextReadyIn, dailySchedule,
   setPanelPos, savePanelPos,
+  panelTabs, movePanelTab,
 } from './store.js';
 import SettingsView from './SettingsView.vue';
 import FoodClub from './FoodClub.vue';
 import { dailiesFor, isPremiumDaily } from '../lib/dailies.js';
 import { startDrag } from '../lib/positions.js';
+import { useTabDrag } from './useTabDrag.js';
 
 const FAVOURITES_GROUP = 'Favourites';
 

@@ -1113,9 +1113,10 @@ const settingsView = await inShadow((root) => ({
 }));
 check('the cog opens a settings view', settingsView.shown && settingsView.tabsHidden,
   JSON.stringify(settingsView));
-check('it offers detection, premium, hover and the margin',
-  settingsView.toggles.length === 4 && /Detect/.test(settingsView.toggles[0])
-  && /margin/i.test(settingsView.toggles[3]),
+check('it offers detection, premium, hover, dailies, the margin and the layout switches',
+  settingsView.toggles.length === 8 && /Detect/.test(settingsView.toggles[0])
+  && /dailies/i.test(settingsView.toggles[3]) && /margin/i.test(settingsView.toggles[4])
+  && settingsView.toggles.slice(5).every((t) => /^(Move|Drag) /.test(t)),
   JSON.stringify(settingsView.toggles));
 
 // Detection is on by default, so the manual toggle is shown but not editable.
