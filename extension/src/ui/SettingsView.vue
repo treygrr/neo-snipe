@@ -1,8 +1,11 @@
 <script setup>
 import { ref } from 'vue';
-import { mdiContentCopy, mdiDownload, mdiUpload, mdiFileUpload } from '@mdi/js';
+import { mdiContentCopy, mdiDownload, mdiUpload, mdiFileUpload, mdiRestore } from '@mdi/js';
 import { computed } from 'vue';
-import { state, setSetting, exportSettings, importSettings, isPremium } from './store.js';
+import {
+  state, setSetting, exportSettings, importSettings, isPremium,
+  resetPanelPosition, resetLauncherPosition, resetTabOrder,
+} from './store.js';
 
 const detectedText = computed(() => {
   if (state.premiumDetected === null) return 'Not checked yet — open a Neopets page.';
@@ -86,6 +89,23 @@ async function pickFile(event) {
         </span>
       </label>
 
+      <label class="ns-set-row">
+        <input
+          type="checkbox"
+          :checked="state.settings.trackDailyVisits"
+          @change="setSetting('trackDailyVisits', $event.target.checked)"
+        >
+        <span>
+          <strong>Tick off dailies as you visit them</strong>
+          <em>
+            Each one clears on its own schedule: most at midnight Neopets time, but Coltzan's
+            thirteen hours after you go, the Snowager when its next window opens, the freebies
+            on the first of the month. Places with no cooldown at all, like the stock market,
+            are not ticked.
+          </em>
+        </span>
+      </label>
+
       <label class="ns-set-row ns-set-row--field">
         <input
           class="ns-set-num"
@@ -101,6 +121,62 @@ async function pickFile(event) {
           </em>
         </span>
       </label>
+    </section>
+
+    <section class="ns-set-block">
+      <h4 class="ns-set-title">Layout</h4>
+      <p class="ns-set-hint">
+        Positions are remembered on this device only, since a spot that suits one screen is off
+        the edge of another. Tab order rides with your other settings instead, so it follows you.
+      </p>
+
+      <label class="ns-set-row">
+        <input
+          type="checkbox"
+          :checked="state.settings.movablePanel"
+          @change="setSetting('movablePanel', $event.target.checked)"
+        >
+        <span>
+          <strong>Move this panel by dragging its title bar</strong>
+          <em>Off puts it back above the neo-snipe button, without forgetting where it was.</em>
+        </span>
+      </label>
+
+      <label class="ns-set-row">
+        <input
+          type="checkbox"
+          :checked="state.settings.movableLauncher"
+          @change="setSetting('movableLauncher', $event.target.checked)"
+        >
+        <span>
+          <strong>Move the neo-snipe button by dragging it</strong>
+          <em>Off returns it to the bottom-right corner. Clicking still opens the panel.</em>
+        </span>
+      </label>
+
+      <label class="ns-set-row">
+        <input
+          type="checkbox"
+          :checked="state.settings.movableTabs"
+          @change="setSetting('movableTabs', $event.target.checked)"
+        >
+        <span>
+          <strong>Drag the tabs to reorder them</strong>
+          <em>
+            Works in this panel and in an item's price popover. The order is kept for tabs that
+            are hidden too, so the SSW tab returns to where you put it.
+          </em>
+        </span>
+      </label>
+
+      <div class="ns-set-actions">
+        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
+               :disabled="!state.panelPos" @click="resetPanelPosition">Reset panel</v-btn>
+        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
+               @click="resetLauncherPosition">Reset button</v-btn>
+        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
+               @click="resetTabOrder">Reset tabs</v-btn>
+      </div>
     </section>
 
     <section class="ns-set-block">

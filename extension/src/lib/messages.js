@@ -1,4 +1,5 @@
 import { readSettings } from './ext-api.js';
+import { PANEL_TABS, POPOVER_TABS } from './tab-order.js';
 
 export const LOOKUP = 'neosnipe:lookup';
 export const TP_LOOKUP = 'neosnipe:trading-post';
@@ -18,6 +19,18 @@ export const DEFAULTS = {
   // What a shop item has to beat Jelly Neo's estimate by before the popover
   // calls it worth buying.
   minMargin: 1000,
+  // Tick off dailies as you visit them, cleared at midnight Neopets time.
+  trackDailyVisits: true,
+  // Drag the panel by its title bar, and the launcher button by itself. Each
+  // remembers where it was left; turning one off puts that one back in its
+  // default corner without forgetting the position.
+  movablePanel: true,
+  movableLauncher: true,
+  // Drag the tabs in either bar to reorder them. The stored order covers every
+  // tab this build knows about, including any hidden right now.
+  movableTabs: true,
+  panelTabOrder: PANEL_TABS,
+  popoverTabOrder: POPOVER_TABS,
 };
 
 export async function getSettings() {

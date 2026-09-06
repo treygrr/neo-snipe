@@ -67,11 +67,19 @@ export function parseExport(text) {
     );
   }
 
-  // Keep only what we recognise and can trust the shape of.
+  // Keep only what we recognise and can trust the shape of. `typeof` alone
+  // cannot tell an array from any other object, and the tab orders are arrays
+  // of ids, so those are checked element by element.
   const settings = {};
   for (const key of SETTING_KEYS) {
     const value = data.settings?.[key];
-    if (typeof value === typeof DEFAULTS[key]) settings[key] = value;
+    const fallback = DEFAULTS[key];
+
+    if (Array.isArray(fallback)) {
+      if (Array.isArray(value) && value.every((v) => typeof v === 'string')) settings[key] = value;
+      continue;
+    }
+    if (typeof value === typeof fallback && !Array.isArray(value)) settings[key] = value;
   }
 
   const items = (list) => (Array.isArray(list) ? list : []).filter(

@@ -2,6 +2,7 @@
 // on every Neopets page, so it must not pull in Vue or Vuetify. Clicking it is
 // what loads the panel.
 import iconSvg from '../../icons/icon.svg?raw';
+import { LAUNCHER, readPosition, writePosition, clamp, startDrag } from '../lib/positions.js';
 
 const CLASS = 'neosnipe-launcher';
 
@@ -38,11 +39,92 @@ const CSS = `
   background: url("${ICON_URL}") center / contain no-repeat;
   border-radius: 5px;
 }
+
+/* Moved: left/top are set inline, so the default corner must stop applying. */
+.${CLASS}[data-moved="1"] { right: auto; bottom: auto; }
+.${CLASS}[data-draggable="1"] { cursor: grab; }
+.${CLASS}[data-dragging="1"] {
+  cursor: grabbing; transform: none;
+  box-shadow: 0 6px 18px rgba(0,0,0,.3);
+  /* A drag over the page must not select the text under it. */
+  user-select: none;
+}
 `;
 
 
 
 let button = null;
+// Off until settings have been read, so the button cannot be dragged away in
+// the moment before we know whether that is allowed.
+let draggable = false;
+// Set by a drag that actually moved, and cleared on the next tick, so the
+// click the browser fires at the end of a drag does not also open the panel.
+let suppressClick = false;
+
+function place({ x, y }) {
+  button.style.left = `${x}px`;
+  button.style.top = `${y}px`;
+  button.dataset.moved = '1';
+}
+
+/** Back to the bottom-right corner the stylesheet puts it in. */
+function unplace() {
+  button.style.left = '';
+  button.style.top = '';
+  delete button.dataset.moved;
+}
+
+function size() {
+  const rect = button.getBoundingClientRect();
+  return { width: rect.width, height: rect.height };
+}
+
+async function restorePosition() {
+  if (!button) return;
+  const saved = draggable ? await readPosition(LAUNCHER) : null;
+  if (saved) place(clamp(saved, size()));
+  else unplace();
+}
+
+function onPointerDown(event) {
+  // Left button only, and only when the feature is on.
+  if (!draggable || event.button !== 0) return;
+
+  const rect = button.getBoundingClientRect();
+  startDrag(event, {
+    origin: { x: rect.left, y: rect.top },
+    onMove: (pos) => {
+      button.dataset.dragging = '1';
+      place(clamp(pos, size()));
+    },
+    onEnd: ({ moved, x, y }) => {
+      delete button.dataset.dragging;
+      if (!moved) return;
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 0);
+      const final = clamp({ x, y }, size());
+      place(final);
+      writePosition(LAUNCHER, final);
+    },
+  });
+}
+
+/**
+ * Turning dragging off returns the button to its corner but leaves the saved
+ * position alone, so turning it back on puts it where you had it.
+ */
+export function setLauncherDraggable(on) {
+  draggable = !!on;
+  if (!button) return;
+  if (draggable) button.dataset.draggable = '1';
+  else delete button.dataset.draggable;
+  restorePosition();
+}
+
+/** Forgets the position and returns the button to the corner. */
+export function resetLauncherPosition() {
+  if (button) unplace();
+}
 
 export function addLauncher(onActivate) {
   if (button || !document.body) return button;
@@ -66,7 +148,16 @@ export function addLauncher(onActivate) {
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (suppressClick) return;
     onActivate(button);
+  });
+
+  button.addEventListener('pointerdown', onPointerDown);
+
+  // A window that has since been made narrower must not strand the button
+  // off-screen, since it is the only way back to the panel.
+  window.addEventListener('resize', () => {
+    if (button?.dataset.moved) place(clamp(button.getBoundingClientRect(), size()));
   });
 
   document.body.appendChild(button);

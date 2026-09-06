@@ -1,8 +1,27 @@
 <script setup>
 import { computed } from 'vue';
 import { mdiRefresh } from '@mdi/js';
-import { state, selectTab, retryTradingPost, retryWizard, isPremium } from './store.js';
+import {
+  state, selectTab, retryTradingPost, retryWizard, isPremium,
+  popoverTabs, movePopoverTab,
+} from './store.js';
 import ShopsList from './ShopsList.vue';
+import { useTabDrag } from './useTabDrag.js';
+
+// Ids are what the order stores; the short labels are presentation, and stay
+// short because the strip has about 300px to work with.
+const TAB_LABELS = {
+  price: { label: 'Price', title: 'Price history' },
+  tp: { label: 'TP', title: 'Trading post history' },
+  wiz: { label: 'SW', title: 'Shop Wizard — searches only when you open this tab' },
+  shops: { label: 'SSW', title: 'Super Shop Wizard (Premium)' },
+};
+
+const tabDrag = useTabDrag(movePopoverTab, () => state.settings.movableTabs);
+
+// Selecting the Shop Wizard tab spends one of a limited number of searches, so
+// a drag that happens to end on it must not count as opening it.
+const onSelect = (id) => { if (!tabDrag.wasDragged()) selectTab(id); };
 
 const props = defineProps({ data: { type: Object, required: true } });
 
@@ -38,13 +57,25 @@ const searchedAgo = computed(() => {
       height="30"
       class="ns-tabs"
       :show-arrows="false"
-      @update:model-value="selectTab"
     >
-      <v-tab value="price" class="ns-tab" title="Price history">Price</v-tab>
-      <v-tab value="tp" class="ns-tab" title="Trading post history">TP</v-tab>
-      <v-tab value="wiz" class="ns-tab" title="Shop Wizard — searches only when you open this tab">SW</v-tab>
-      <v-tab v-if="isPremium()" value="shops" class="ns-tab"
-             title="Super Shop Wizard (Premium)">SSW</v-tab>
+      <v-tab
+        v-for="(id, i) in popoverTabs()"
+        :key="id"
+        :value="id"
+        class="ns-tab"
+        :class="{
+          'ns-tab--dragging': tabDrag.isDragging(i),
+          'ns-tab--over': tabDrag.isOver(i),
+          'ns-tab--movable': state.settings.movableTabs,
+        }"
+        :title="TAB_LABELS[id].title"
+        :draggable="state.settings.movableTabs"
+        @click="onSelect(id)"
+        @dragstart="tabDrag.onDragStart($event, i)"
+        @dragover="tabDrag.onDragOver($event, i)"
+        @drop.prevent="tabDrag.onDrop(i)"
+        @dragend="tabDrag.onDragEnd"
+      >{{ TAB_LABELS[id].label }}</v-tab>
     </v-tabs>
 
     <!-- Fixed height so the popover never jumps between tabs; content scrolls. -->
@@ -155,6 +186,10 @@ const searchedAgo = computed(() => {
 
 <style scoped>
 .ns-tabs { min-height: 30px; border-bottom: 1px solid rgba(0, 0, 0, .12); }
+/* A tab being dragged fades; the one it would land on shows an edge. */
+.ns-tab--dragging { opacity: .4; }
+.ns-tab--over { box-shadow: inset 2px 0 0 #1f6feb; }
+.ns-tab--movable { cursor: grab; }
 .ns-tab {
   font-size: 11px; letter-spacing: 0; text-transform: none;
   min-width: 0 !important; padding: 0 14px; flex: 0 1 auto;

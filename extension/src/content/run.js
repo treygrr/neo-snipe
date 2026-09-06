@@ -1,8 +1,13 @@
 import { findItemElements, describeItem, MARK } from './detect.js';
 import { addBadge, setBadgeState } from './badge.js';
-import { addLauncher, setLauncherOpen } from './launcher.js';
+import {
+  addLauncher, setLauncherOpen, setLauncherDraggable, resetLauncherPosition,
+} from './launcher.js';
 import { getSettings, HELLO, OPEN_PANEL } from '../lib/messages.js';
 import { api, sendMessage } from '../lib/ext-api.js';
+// Constants and a storage read only — no Vue, so this stays on the cheap path
+// that runs on every Neopets page.
+import { markVisited } from '../lib/daily-visits.js';
 
 /**
  * Shared content-script body. `loadUi` differs per browser: Chrome imports the
@@ -18,6 +23,12 @@ export function run(loadUi) {
         await mount.mountPopover();
         // Keep the launcher in step when the panel closes itself.
         store.watchPanel(setLauncherOpen);
+        // The launcher is plain DOM, so the settings view reaches it through
+        // these rather than by rendering it.
+        store.watchLauncher({
+          reset: () => { resetLauncherPosition(); },
+          drag: (on) => { setLauncherDraggable(on); },
+        });
         // So the heart reflects saved state the first time a popover opens.
         await store.loadFavourites();
         await store.loadSettings();
@@ -65,9 +76,16 @@ export function run(loadUi) {
   document.documentElement.dataset.neosnipe = 'active';
 
   // One body-level attribute drives the hover-only rule for every badge.
-  getSettings().then(({ hoverOnly }) => {
+  getSettings().then(({ hoverOnly, movableLauncher, trackDailyVisits }) => {
     if (hoverOnly) document.body.dataset.neosnipeHoverOnly = '';
     else delete document.body.dataset.neosnipeHoverOnly;
+
+    setLauncherDraggable(movableLauncher);
+
+    // Being on the page is what counts as doing a daily — clicking the link in
+    // the panel only means you opened a tab. Marking here catches the visit
+    // however you arrived, including from your own bookmarks.
+    if (trackDailyVisits) markVisited(location.href).catch(() => {});
   });
 
   addLauncher(() => { openPanel().catch((err) => console.error('[neo-snipe] panel failed', err)); });

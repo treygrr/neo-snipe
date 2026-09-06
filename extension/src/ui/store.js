@@ -20,6 +20,16 @@ import {
   listDailyFavourites, toggleDailyFavourite, saveDailyFavourites,
   listDoneBets, setDoneBets,
 } from '../lib/favorites.js';
+import {
+  listVisits, toggleVisited, clearVisits, markVisited, expiryOf,
+  nstDay, formatCountdown, resetRuleFor, isTracked, describeRule,
+} from '../lib/daily-visits.js';
+import {
+  PANEL, LAUNCHER, readPosition, writePosition, clearPosition, clamp,
+} from '../lib/positions.js';
+import {
+  PANEL_TABS, POPOVER_TABS, fullOrder, visibleOrder, moveInOrder,
+} from '../lib/tab-order.js';
 
 // One popover, one piece of state — badges write into this rather than each
 // owning a Vue instance.
@@ -68,13 +78,27 @@ export const state = reactive({
   panelAnchor: 'bottom',
   // 'tabs' or 'settings' — the cog swaps the panel body.
   panelView: 'tabs',
-  settings: { hoverOnly: true, premium: false, premiumAuto: true, minMargin: 1000 },
+  settings: {
+    hoverOnly: true, premium: false, premiumAuto: true, minMargin: 1000,
+    trackDailyVisits: true, movablePanel: true, movableLauncher: true, movableTabs: true,
+    panelTabOrder: PANEL_TABS, popoverTabOrder: POPOVER_TABS,
+  },
   // What the nav said, or null if no page has told us yet.
   premiumDetected: null,
   io: { status: null, message: '', text: '' },
+  // Where the panel was dragged to, in viewport pixels, or null for the
+  // anchored default. Kept out of `settings` because it is device state.
+  panelPos: null,
+  panelDragging: false,
   panelTab: 'favourites',
   favourites: [],
   dailyFavourites: [],
+  // `{ dailyUrl: visitedAt }` for everything still counting as done. Each
+  // entry expires on its own daily's schedule rather than all at midnight.
+  visits: {},
+  nstDay: nstDay(),
+  // Recomputed on the same tick as the visits, so the panel can re-render.
+  now: Date.now(),
   // True while a favourite is being re-fetched, so the popover can say so.
   refreshing: false,
 });
@@ -343,6 +367,12 @@ export async function setSetting(key, value) {
   if ((key === 'premium' || key === 'premiumAuto') && !isPremium() && state.tab === 'shops') {
     state.tab = 'price';
   }
+
+  // Each of these three has a visible effect the moment it is toggled, rather
+  // than at the next page load.
+  if (key === 'trackDailyVisits') await loadVisitedDailies();
+  if (key === 'movablePanel') await loadPanelPosition();
+  if (key === 'movableLauncher') onLauncherDrag?.(value);
 }
 
 export function showSettings(show) {
@@ -390,6 +420,155 @@ export function isDailyFavourite(url) {
   return state.dailyFavourites.some((d) => d.url === url);
 }
 
+// --- visited dailies -------------------------------------------------------
+
+export async function loadVisitedDailies() {
+  state.visits = state.settings.trackDailyVisits ? await listVisits() : {};
+  state.nstDay = nstDay();
+  state.now = Date.now();
+}
+
+/** Whether a daily is worth ticking at all — the stock market is not. */
+export const isDailyTracked = (url) => isTracked(resetRuleFor(url));
+
+export const isDailyVisited = (url) => Boolean(state.visits[url]);
+
+/** When this one comes back, as text, or null if it is not ticked. */
+export function readyIn(url) {
+  const at = state.visits[url];
+  if (!at) return null;
+  const until = expiryOf(url, at);
+  return until === null ? null : formatCountdown(until - state.now);
+}
+
+/** "every 13 hours", "once per window", for the tooltip. */
+export const dailySchedule = (url) => describeRule(resetRuleFor(url));
+
+/**
+ * The soonest anything ticked will come back, for the summary line. With every
+ * daily on its own clock there is no single reset time to show, so the next
+ * one to free up is the useful number.
+ */
+export function nextReadyIn() {
+  let soonest = null;
+  for (const [url, at] of Object.entries(state.visits)) {
+    const until = expiryOf(url, at);
+    if (until !== null && (soonest === null || until < soonest)) soonest = until;
+  }
+  return soonest === null ? null : formatCountdown(soonest - state.now);
+}
+
+export async function toggleDailyVisited(url) {
+  if (!state.settings.trackDailyVisits || !isDailyTracked(url)) return;
+  state.visits = { ...await toggleVisited(url) };
+}
+
+export async function clearVisitedDailies() {
+  state.visits = { ...await clearVisits() };
+}
+
+/**
+ * Following a link from the panel counts as a visit straight away, so the tick
+ * appears without waiting for the new tab's content script to load — and it
+ * still works for the handful of dailies that open somewhere we do not run.
+ */
+export async function visitDaily(url) {
+  if (!state.settings.trackDailyVisits) return;
+  await markVisited(url);
+  await loadVisitedDailies();
+}
+
+/**
+ * Ticks expire at all hours now, not just midnight, so the list has to be
+ * re-read on a timer rather than only when the day string changes. A minute is
+ * fine: the shortest cooldown tracked is fifteen.
+ */
+let dayTimer = null;
+
+function watchDayRollover() {
+  clearInterval(dayTimer);
+  dayTimer = setInterval(() => { loadVisitedDailies(); }, 60_000);
+}
+
+function stopWatchingDayRollover() {
+  clearInterval(dayTimer);
+  dayTimer = null;
+}
+
+// --- the panel's remembered position ---------------------------------------
+
+const panelSize = (el) => {
+  const rect = el.getBoundingClientRect();
+  return { width: rect.width, height: rect.height };
+};
+
+export async function loadPanelPosition() {
+  state.panelPos = state.settings.movablePanel ? await readPosition(PANEL) : null;
+}
+
+export function setPanelPos(pos, el) {
+  state.panelPos = el ? clamp(pos, panelSize(el)) : pos;
+}
+
+export async function savePanelPos(pos, el) {
+  setPanelPos(pos, el);
+  await writePosition(PANEL, state.panelPos);
+}
+
+/** Forgets it, which is what puts the panel back in its corner. */
+export async function resetPanelPosition() {
+  state.panelPos = null;
+  await clearPosition(PANEL);
+}
+
+export async function resetLauncherPosition() {
+  await clearPosition(LAUNCHER);
+  onLauncherReset?.();
+}
+
+// --- tab order -------------------------------------------------------------
+
+/** Every panel tab is always available. */
+export const panelTabs = () => visibleOrder(
+  fullOrder(state.settings.panelTabOrder, PANEL_TABS), PANEL_TABS,
+);
+
+/** The SSW tab only exists with Premium, so the available set is narrower. */
+export function popoverTabs() {
+  const available = POPOVER_TABS.filter((id) => id !== 'shops' || isPremium());
+  return visibleOrder(fullOrder(state.settings.popoverTabOrder, POPOVER_TABS), available);
+}
+
+async function moveTab(key, known, available, from, to) {
+  const next = moveInOrder(fullOrder(state.settings[key], known), available, from, to);
+  if (!next) return;
+  await setSetting(key, next);
+}
+
+export const movePanelTab = (from, to) =>
+  moveTab('panelTabOrder', PANEL_TABS, PANEL_TABS, from, to);
+
+export const movePopoverTab = (from, to) => moveTab(
+  'popoverTabOrder', POPOVER_TABS,
+  POPOVER_TABS.filter((id) => id !== 'shops' || isPremium()),
+  from, to,
+);
+
+/** Back to the order the tabs ship in. */
+export async function resetTabOrder() {
+  await setSetting('panelTabOrder', [...PANEL_TABS]);
+  await setSetting('popoverTabOrder', [...POPOVER_TABS]);
+}
+
+// The launcher is plain DOM outside Vue, so the settings view cannot move it
+// directly — run.js hands us the way to.
+let onLauncherReset = null;
+let onLauncherDrag = null;
+export function watchLauncher({ reset, drag } = {}) {
+  onLauncherReset = reset ?? onLauncherReset;
+  onLauncherDrag = drag ?? onLauncherDrag;
+}
+
 export async function toggleDaily(daily) {
   state.dailyFavourites = await toggleDailyFavourite(daily);
 }
@@ -435,12 +614,20 @@ export function togglePanel({ anchor = 'bottom' } = {}) {
   }
   state.panelAnchor = anchor;
   state.panelOpen = !state.panelOpen;
-  if (state.panelOpen) loadFavourites();
+  if (state.panelOpen) {
+    loadFavourites();
+    loadVisitedDailies();
+    loadPanelPosition();
+    watchDayRollover();
+  } else {
+    stopWatchingDayRollover();
+  }
   onPanelChange?.(state.panelOpen);
 }
 
 export function closePanel() {
   state.panelOpen = false;
+  stopWatchingDayRollover();
   onPanelChange?.(false);
 }
 
