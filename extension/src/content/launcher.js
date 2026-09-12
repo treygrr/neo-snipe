@@ -42,13 +42,13 @@ const CSS = `
   border: 0; background: transparent; color: inherit; font: inherit;
   border-radius: 13px; cursor: pointer;
 }
-.${CLASS}-main { gap: 6px; padding: 0 8px 0 6px; }
-.${CLASS}-inv { justify-content: center; width: 26px; }
+.${CLASS}-main, .${CLASS}-inv { justify-content: center; width: 26px; }
 .${CLASS}-main:hover, .${CLASS}-inv:hover { background: rgba(31,111,235,.12); }
 .${CLASS}-main:focus-visible, .${CLASS}-inv:focus-visible {
   outline: 2px solid currentColor; outline-offset: -2px;
 }
-.${CLASS}-inv svg { width: 17px; height: 17px; display: block; fill: currentColor; }
+/* Matched to the app icon above, so the two buttons read as a pair. */
+.${CLASS}-inv svg { width: 20px; height: 20px; display: block; fill: currentColor; }
 
 .${CLASS}-icon {
   width: 20px; height: 20px; flex: 0 0 auto;
@@ -153,14 +153,14 @@ export function addLauncher(onActivate) {
   button = document.createElement('div');
   button.className = CLASS;
 
+  // Icon only. The name is carried by the title and the aria-label, which is
+  // what a screen reader reads out, so dropping the text costs nothing there.
   const main = document.createElement('button');
   main.type = 'button';
   main.className = `${CLASS}-main`;
   const icon = document.createElement('span');
   icon.className = `${CLASS}-icon`;
-  const label = document.createElement('span');
-  label.textContent = 'neo-snipe';
-  main.append(icon, label);
+  main.append(icon);
   main.title = 'neo-snipe — favourites and dailies';
   main.setAttribute('aria-label', main.title);
 

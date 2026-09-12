@@ -15,7 +15,7 @@ the Chrome end-to-end; `build:safari && test:safari` and `build:firefox && test:
 
 | File | What it does |
 |---|---|
-| `page.mjs` | `buildPage()` stitches the five `neopets-*.html` fixtures into one stand-in page (plus a late-inserted lazy item); exports `ITEM_COUNT` (14). |
+| `page.mjs` | `buildPage()` stitches the six `neopets-*.html` fixtures into one stand-in page (plus a late-inserted lazy item); exports `ITEM_COUNT` (17). |
 | `routes.mjs` | `installNeopetsRoutes(ctx)` fulfils neopets.com, Food Club bet/current-bets/sets, the SSW endpoint and images from fixtures; also exports `jellyNeoFixture` and `JELLYNEO_PAGES`. Shared with `npm run fixture` so dev browser and tests cannot drift. |
 | `bundle.mjs` | Loads the flattened `dist-safari`/`dist-firefox` `content.js`+`background.js` into WebKit/Gecko behind a stubbed `browser` runtime; checks badges, no page CSS, popover mount without dynamic import, adopted inline stylesheets, theme vars, overlay containment. Selected by `NS_TARGET`, dir by `NS_DIST`. |
 | `e2e.mjs` | Loads the real Chrome build (`NS_DIST` or `dist`) in a persistent context; ~165 checks over badge injection, popover tabs (price, TP, Wiz, Shops; order, open-on-first, remembered tab, drag + viewport clamping), the launcher bar and its inventory link, the `#npanchor` rewrite, panel, favourites, dailies groups, Food Club place/refuse, settings export/import, Premium gating, toolbar button, hover-only, and the Jelly-Neo-offline path. |
@@ -30,7 +30,7 @@ the Chrome end-to-end; `build:safari && test:safari` and `build:firefox && test:
 | `tab-order.test.mjs` | `fullOrder`, `visibleOrder`, `moveInOrder` over `PANEL_TABS`/`POPOVER_TABS` — saved orders, new tabs, hidden tabs. |
 | `neopets-search.test.mjs` | `SEARCHES`/`searchesFor` produce exactly Jelly Neo's trading post and auction "Find This Item" URLs. |
 | `icons.test.mjs` | Reads the PNG IHDR of `icons/icon-{16,48,128}.png`: declared size, RGBA for transparent corners, `icon.svg` present as source. |
-| `fixtures/` | Markup and JSON captured off the live sites: `neopets-*.html` (inventory, mainshop, sdb, auctions row, trading post row); `jellyneo/` (search hit/miss, item page, TP history, withheld TP); `foodclub/` (bet page, sets page, current bets, refusal); `wizard/`, `ssw/`, `premium/` (one or two captured responses each). |
+| `fixtures/` | Markup and JSON captured off the live sites: `neopets-*.html` (inventory, mainshop, sdb, auctions row, trading post row, caption grid); `jellyneo/` (search hit/miss, item page, TP history, withheld TP); `foodclub/` (bet page, sets page, current bets, refusal); `wizard/`, `ssw/`, `premium/` (one or two captured responses each). |
 
 ## Rules
 

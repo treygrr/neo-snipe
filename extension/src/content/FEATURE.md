@@ -14,7 +14,7 @@ Sequence: `run()` calls `scan()` → `findItemElements` + `describeItem` (detect
 | `index.js` | Chrome entry. Calls `run()` with a loader that dynamically `import()`s `mount.js` + `ui/store.js` the first time the UI is needed. |
 | `index.safari.js` | Safari entry. Same `run()`, but statically imports mount/store — Safari cannot dynamically import an extension resource. |
 | `run.js` | `run(loadUi)`: the shared body. Lazy `ui()` bootstrap, `activate()`, `openPanel()`, `scan()`, the 150 ms-debounced MutationObserver, the `hoverOnly`/`movableLauncher`/`trackDailyVisits` settings read, the `HELLO` ping and the `OPEN_PANEL` listener. |
-| `detect.js` | Item recognition: `findItemElements`, `isItemElement`, `itemImageUrl`, `itemNameFor`, `itemPriceFor`, `imageHashOf`, `describeItem`, and the `MARK` dataset flag. |
+| `detect.js` | Item recognition: `findItemElements`, `isItemElement`, `itemImageUrl`, `itemNameFor`, `itemPriceFor`, `imageHashOf`, `describeItem`, and the `MARK` dataset flag. Six surfaces; the name strategies run most-authoritative first, ending in `nameFromCaption` for unlabelled grids. |
 | `badge.js` | `addBadge(el, item, onActivate)` anchors/wraps the element and appends the magnifier button; `setBadgeState(btn, state)` drives the loading/error styling. Injects its own scoped `<style>`. |
 | `launcher.js` | The bottom-right bar: `addLauncher(onActivate)`, `setLauncherOpen`, `setLauncherDraggable`, `resetLauncherPosition`. Two children — `-main` (opens the panel, carries the drag) and `-inv` (a plain link to `INVENTORY_URL`). Clamping and saved position via `lib/positions.js`. |
 | `mount.js` | `mountPopover()`: creates the one full-viewport shadow host, adopts the scoped stylesheet, mounts `ui/App.vue` with Vuetify into it. |
