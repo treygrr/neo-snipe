@@ -451,7 +451,7 @@ const reopenPanel = async () => {
   // storage directly has to close the panel first for the change to show.
   const open = await page.evaluate(() => !!document.querySelector('[data-neosnipe="popover-host"]')
     ?.shadowRoot?.querySelector('.ns-panel'));
-  if (open) { await page.locator('.neosnipe-launcher').click(); await page.waitForTimeout(300); }
+  if (open) { await page.locator('.neosnipe-launcher-main').click(); await page.waitForTimeout(300); }
   await ensurePanelOpen();
 };
 
@@ -460,7 +460,7 @@ const ensurePanelOpen = async () => {
   await page.waitForTimeout(300);
   const open = await page.evaluate(() => !!document.querySelector('[data-neosnipe="popover-host"]')
     ?.shadowRoot?.querySelector('.ns-panel'));
-  if (!open) await page.locator('.neosnipe-launcher').click();
+  if (!open) await page.locator('.neosnipe-launcher-main').click();
   await page.waitForSelector('.ns-panel', { timeout: 5000 });
   await page.waitForTimeout(300);
 };
@@ -554,7 +554,7 @@ check('the heart saves a favourite', (stored.favorites || []).length === 1,
   JSON.stringify((stored.favorites || []).map((f) => f.name)));
 
 // Open the panel from the launcher.
-await page.locator('.neosnipe-launcher').click();
+await page.locator('.neosnipe-launcher-main').click();
 await page.waitForTimeout(500);
 // Not just "the element exists": it rendered off-screen once, and an
 // existence check happily passed while nothing was visible.
@@ -1329,7 +1329,7 @@ check('the toolbar opens the panel under the button, top right',
   && fromToolbar.fromRight < 40 && fromToolbar.onScreen, JSON.stringify(fromToolbar));
 
 // The in-page bar still opens it above itself.
-await page.locator('.neosnipe-launcher').click();
+await page.locator('.neosnipe-launcher-main').click();
 await page.waitForTimeout(600);
 check('the in-page bar still anchors the panel above itself',
   await page.evaluate(() => {
@@ -1341,6 +1341,72 @@ check('the launcher shows the app icon', await page.evaluate(() => {
   const icon = document.querySelector('.neosnipe-launcher-icon');
   return !!icon && getComputedStyle(icon).backgroundImage.startsWith('url("data:image/svg+xml');
 }));
+
+// --- the inventory button on the launcher bar ------------------------------
+const invLink = await page.evaluate(() => {
+  const a = document.querySelector('.neosnipe-launcher-inv');
+  const bar = document.querySelector('.neosnipe-launcher');
+  const main = document.querySelector('.neosnipe-launcher-main');
+  if (!a) return null;
+  return {
+    href: a.getAttribute('href'),
+    tag: a.tagName,
+    title: a.title,
+    hasIcon: !!a.querySelector('svg path[d]'),
+    insideBar: bar.contains(a) && bar.contains(main),
+    // Both sit on one row, the inventory link to the right of the main button.
+    rightOfMain: a.getBoundingClientRect().left >= main.getBoundingClientRect().right - 1,
+  };
+});
+check('the launcher carries an inventory link beside the main button',
+  invLink?.insideBar === true && invLink.rightOfMain === true, JSON.stringify(invLink));
+check('it points at the inventory and is a real link',
+  invLink?.href === 'https://www.neopets.com/inventory.phtml' && invLink.tag === 'A',
+  JSON.stringify(invLink));
+check('it shows an icon', invLink?.hasIcon === true);
+
+// Clicking it must not also open the panel. The navigation itself is left to
+// the href checked above — letting it actually happen here would reset the
+// page state the rest of the run builds on.
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-panel-head .ns-close')?.click();
+  // Lift the href for the click: the destination is asserted above, and
+  // actually going there would reset the page the rest of the run builds on.
+  document.querySelector('.neosnipe-launcher-inv').removeAttribute('href');
+});
+await page.waitForTimeout(300);
+await page.locator('.neosnipe-launcher-inv').click();
+await page.waitForTimeout(400);
+// The fixture itself is served at /inventory.phtml, so the URL says nothing
+// here; the href asserted above is what proves the destination.
+check('clicking the inventory link does not open the panel',
+  await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
+await page.evaluate((url) => {
+  document.querySelector('.neosnipe-launcher-inv').setAttribute('href', url);
+}, 'https://www.neopets.com/inventory.phtml');
+
+// --- the NP counter points at the inventory too ----------------------------
+const npBefore = await page.evaluate(() => {
+  const el = document.getElementById('npanchor');
+  return { exists: !!el, href: el?.getAttribute('href') };
+});
+check('the page has an NP counter to rewrite', npBefore.exists === true, JSON.stringify(npBefore));
+check('the NP counter is repointed at the inventory',
+  npBefore.href === 'https://www.neopets.com/inventory.phtml', JSON.stringify(npBefore));
+
+// It has to survive the header being re-rendered, as some pages do.
+await page.evaluate(() => {
+  document.querySelector('.nav').innerHTML = '<a id="npanchor" href="/bank.phtml">7 NP</a>';
+});
+await page.waitForTimeout(500);
+const npAfter = await page.evaluate(() => document.getElementById('npanchor')?.getAttribute('href'));
+check('a re-rendered NP counter is repointed again',
+  npAfter === 'https://www.neopets.com/inventory.phtml', String(npAfter));
+
+// It stays an ordinary link, so ctrl-click and middle-click still open a tab.
+check('the NP counter is still a plain link, not a click handler',
+  await page.evaluate(() => document.getElementById('npanchor').tagName) === 'A');
 
 await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;

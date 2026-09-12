@@ -182,13 +182,12 @@ export function addLauncher(onActivate) {
     onActivate(button);
   });
 
-  // A drag that ends on the link must not also follow it.
-  inv.addEventListener('click', (event) => {
-    if (suppressClick) event.preventDefault();
-    else event.stopPropagation();
-  });
-
-  button.addEventListener('pointerdown', onPointerDown);
+  // Dragging hangs off the main button rather than the bar around it. A
+  // pointer capture retargets the click that ends the gesture to whatever
+  // element took the capture, so capturing on the bar would swallow the click
+  // meant for the button inside it. It also leaves the inventory link alone:
+  // no capture, so ctrl-click and middle-click open it in a tab as usual.
+  main.addEventListener('pointerdown', onPointerDown);
 
   // A window that has since been made narrower must not strand the button
   // off-screen, since it is the only way back to the panel.
