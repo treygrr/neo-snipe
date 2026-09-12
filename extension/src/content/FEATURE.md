@@ -16,8 +16,9 @@ Sequence: `run()` calls `scan()` → `findItemElements` + `describeItem` (detect
 | `run.js` | `run(loadUi)`: the shared body. Lazy `ui()` bootstrap, `activate()`, `openPanel()`, `scan()`, the 150 ms-debounced MutationObserver, the `hoverOnly`/`movableLauncher`/`trackDailyVisits` settings read, the `HELLO` ping and the `OPEN_PANEL` listener. |
 | `detect.js` | Item recognition: `findItemElements`, `isItemElement`, `itemImageUrl`, `itemNameFor`, `itemPriceFor`, `imageHashOf`, `describeItem`, and the `MARK` dataset flag. |
 | `badge.js` | `addBadge(el, item, onActivate)` anchors/wraps the element and appends the magnifier button; `setBadgeState(btn, state)` drives the loading/error styling. Injects its own scoped `<style>`. |
-| `launcher.js` | The bottom-right bar: `addLauncher(onActivate)`, `setLauncherOpen`, `setLauncherDraggable`, `resetLauncherPosition`. Handles drag, clamping and saved position via `lib/positions.js`. |
+| `launcher.js` | The bottom-right bar: `addLauncher(onActivate)`, `setLauncherOpen`, `setLauncherDraggable`, `resetLauncherPosition`. Two children — `-main` (opens the panel, carries the drag) and `-inv` (a plain link to `INVENTORY_URL`). Clamping and saved position via `lib/positions.js`. |
 | `mount.js` | `mountPopover()`: creates the one full-viewport shadow host, adopts the scoped stylesheet, mounts `ui/App.vue` with Vuetify into it. |
+| `npanchor.js` | `linkNpAnchorToInventory()` — points the header's `#npanchor` NP counter at the inventory. Rewrites `href` on a link, falls back to a click handler otherwise; marked so repeat scans are free. |
 | `popover.css` | Styles for `.ns-root` inside the shadow root: resets inherited Neopets typography and leaves everything but `.v-overlay__content` click-through. |
 
 ## Rules worth knowing
@@ -28,7 +29,11 @@ Sequence: `run()` calls `scan()` → `findItemElements` + `describeItem` (detect
   re-examined on every mutation.
 - Inside a shadow root `:root` matches nothing, so `mount.js` rewrites it to `:host` and also steals
   Vuetify's theme `<style>` out of `document.head` — skip either and hovers render as a black wash.
-- Badges and the launcher must stay plain DOM: they run on every page, so nothing here may import Vue.
+- Badges, the launcher and the NP counter rewrite must stay plain DOM: they run on every page, so
+  nothing here may import Vue.
+- Drag hangs off `.neosnipe-launcher-main`, not the bar. A pointer capture retargets the ending
+  click to whatever took the capture, so capturing on the bar swallows its buttons' clicks — and
+  leaving the inventory link uncaptured is what keeps ctrl-click and middle-click working.
 
 ---
 **Keep this file current.** When you change anything in this folder, update this file in the same commit.

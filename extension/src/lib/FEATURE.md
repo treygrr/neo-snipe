@@ -16,7 +16,7 @@ page or a Vue component — callers in the service worker, content script and pa
 | `wizard.js` | **neopets.com/np-templates/ajax/wizard.php.** `WIZARD_URL`, `WIZARD_REFERRER`, `wizardBody(name)`, `parseWizardResponse(doc)`, `mergeListings()`, `WizardError`. |
 | `ssw.js` | **Super Shop Wizard JSON endpoint** (`ssw_query.php`, Premium only). `sswQueryUrl(name, opts)`, `parseSswResponse(json)`, `SswError`. |
 | `foodclub.js` | **neopets.com/pirates/foodclub.phtml + ~Shrmsh.** Parsers (`parseBetPage`, `parseRound`, `parseSets`, `parseCurrentBets`, `placementRefusal`, `wasPlaced`), bet maths (`resolveBet`, `payout`, `WINNINGS_CAP`, `betId`, `betNameKey`) and `placeBetUrl`. |
-| `neopets-search.js` | Link builders only: `SEARCHES` (Trading Post, Auction House) and `searchesFor(name)`. |
+| `neopets-search.js` | Link builders only: `SEARCHES` (Trading Post, Auction House), `searchesFor(name)`, and `INVENTORY_URL`. |
 | `premium.js` | `detectPremium(doc)` — reads the site nav for `/premium/` links or SSW widgets; returns `null` (unknown) when no nav is present. |
 | `dailies.js` | The curated daily link table `DAILIES` (grouped label/url), `DAILY_COUNT`, `isPremiumDaily`, and `dailiesFor({ premium })`. |
 | `reset-rules.js` | NST clock helpers (`nstDay`, `nextNstMidnight`, `nextNstMonth`, `nextWindow`, `DAY_MS`), rule constructors (`every`/`hours`/`minutes`/`days`, `windows`, `MONTHLY`, `ANYTIME`, `NST_MIDNIGHT`), the per-URL `resetRuleFor`, `nextResetAfter`, `isTracked`, `describeRule`. |
