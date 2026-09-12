@@ -60,7 +60,7 @@ export function run(loadUi) {
   function scan(root = document) {
     // Cheap and idempotent, and it has to re-run for the same reason the badge
     // scan does: some pages swap the header out after the first render.
-    linkNpAnchorToInventory();
+    // linkNpAnchorToInventory();
 
     for (const el of findItemElements(root)) {
       const item = describeItem(el);
