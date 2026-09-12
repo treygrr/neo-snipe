@@ -89,6 +89,9 @@ export const state = reactive({
   // Where the panel was dragged to, in viewport pixels, or null for the
   // anchored default. Kept out of `settings` because it is device state.
   panelPos: null,
+  // Where a dragged popover has been put, as the [x, y] point v-menu targets.
+  // Cleared on every open: a popover belongs to the badge that opened it.
+  popoverPos: null,
   panelDragging: false,
   panelTab: 'favourites',
   favourites: [],
@@ -105,6 +108,28 @@ export const state = reactive({
 
 let requestId = 0;
 
+// The tab last selected in a popover, kept whether or not it is being used, so
+// that turning the setting on has something to act on straight away. Device
+// state, like the positions, so it lives in storage.local.
+const LAST_TAB_KEY = 'lastPopoverTab';
+let lastTab = null;
+
+function rememberTab(tab) {
+  lastTab = tab;
+  api.storage.local.set({ [LAST_TAB_KEY]: tab }).catch(() => { /* not worth surfacing */ });
+}
+
+/**
+ * Which tab a fresh popover lands on: the one you left last if you asked for
+ * that, otherwise whichever sits first in your order. A remembered tab that is
+ * no longer available — SSW once Premium goes off — falls back to the first.
+ */
+function openingTab() {
+  const available = popoverTabs();
+  if (state.settings.rememberPopoverTab && available.includes(lastTab)) return lastTab;
+  return available[0] || 'price';
+}
+
 /**
  * @param {object} [opts]
  * @param {boolean} [opts.refresh] Skip the cache — used when opening a
@@ -118,9 +143,10 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   }
 
   const id = ++requestId;
-  // Open on whichever tab has been dragged to the front, not always price.
-  const tab = popoverTabs()[0] || 'price';
+  const tab = openingTab();
   Object.assign(state, { open: true, anchor, item, data: null, error: null, loading: true, tab });
+  // A different badge, so any dragged position is about the wrong item.
+  state.popoverPos = null;
   state.tp = { loading: false, data: null, error: null };
   state.ssw = { loading: false, data: null, error: null, at: null };
   // A different item now, so any open shops popover is about the wrong thing.
@@ -306,7 +332,13 @@ function loadTab(tab) {
 
 export function selectTab(tab) {
   state.tab = tab;
+  rememberTab(tab);
   loadTab(tab);
+}
+
+/** Where a dragged popover has been put; null puts it back on its badge. */
+export function setPopoverPos(pos) {
+  state.popoverPos = pos;
 }
 
 export function retryTradingPost() {
@@ -348,8 +380,9 @@ export function shopMargin() {
 export async function loadSettings() {
   Object.assign(state.settings, await getSettings());
   try {
-    const stored = await api.storage.local.get('premiumDetected');
+    const stored = await api.storage.local.get(['premiumDetected', LAST_TAB_KEY]);
     if (typeof stored.premiumDetected === 'boolean') state.premiumDetected = stored.premiumDetected;
+    if (typeof stored[LAST_TAB_KEY] === 'string') lastTab = stored[LAST_TAB_KEY];
   } catch { /* leave it unknown */ }
 }
 

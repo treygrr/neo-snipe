@@ -1114,9 +1114,9 @@ const settingsView = await inShadow((root) => ({
 check('the cog opens a settings view', settingsView.shown && settingsView.tabsHidden,
   JSON.stringify(settingsView));
 check('it offers detection, premium, hover, dailies, the margin and the layout switches',
-  settingsView.toggles.length === 8 && /Detect/.test(settingsView.toggles[0])
+  settingsView.toggles.length === 9 && /Detect/.test(settingsView.toggles[0])
   && /dailies/i.test(settingsView.toggles[3]) && /margin/i.test(settingsView.toggles[4])
-  && settingsView.toggles.slice(5).every((t) => /^(Move|Drag) /.test(t)),
+  && settingsView.toggles.slice(5).every((t) => /^(Move|Drag|Reopen) /.test(t)),
   JSON.stringify(settingsView.toggles));
 
 // Detection is on by default, so the manual toggle is shown but not editable.
@@ -1404,6 +1404,157 @@ check('that tab is fetched on open rather than left empty',
 
 // Put the shipped order back before the error-path checks reuse the popover.
 await opts.evaluate(() => chrome.storage.sync.set({ popoverTabOrder: ['price', 'tp', 'wiz', 'shops'] }));
+
+// --- remembering the last tab ----------------------------------------------
+// Off by default: every item opens on the first tab whatever you last looked at.
+const popoverState = () => inShadow((root) => {
+  const card = root.querySelector('.ns-popover');
+  const tab = [...root.querySelectorAll('.ns-tab')].find((t) => t.getAttribute('aria-selected') === 'true');
+  const r = card?.getBoundingClientRect();
+  return card
+    ? { tab: tab?.textContent.trim(), x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }
+    : null;
+});
+
+// Waits for the lookup to land, so the card is at its full height.
+const openBadge = async (nth) => {
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  await page.locator('.neosnipe-badge').nth(nth).click();
+  await page.waitForFunction(() => {
+    const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+    return !!root?.querySelector('.ns-tab');
+  }, null, { timeout: 15000 });
+  await page.waitForTimeout(350);
+  return popoverState();
+};
+
+await opts.evaluate(() => chrome.storage.sync.set({ rememberPopoverTab: false }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+
+await openBadge(0);
+await page.locator('.ns-tab', { hasText: 'TP' }).first().click();
+await page.waitForTimeout(400);
+check('selecting a tab switches to it', (await popoverState()).tab === 'TP');
+
+const forgotten = await openBadge(1);
+check('without the setting, the next item opens on the first tab again',
+  forgotten.tab === 'Price', JSON.stringify(forgotten));
+
+await opts.evaluate(() => chrome.storage.sync.set({ rememberPopoverTab: true }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+
+await openBadge(0);
+await page.locator('.ns-tab', { hasText: 'TP' }).first().click();
+await page.waitForTimeout(400);
+const remembered = await openBadge(1);
+check('with the setting on, the next item reopens on that tab',
+  remembered.tab === 'TP', JSON.stringify(remembered));
+
+// A remembered tab that no longer exists must not strand the popover on it.
+await opts.evaluate(() => chrome.storage.local.set({ lastPopoverTab: 'shops' }));
+await opts.evaluate(() => chrome.storage.sync.set({ premiumAuto: false, premium: false }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+const hidden = await openBadge(0);
+check('a remembered tab that is now hidden falls back to the first',
+  hidden.tab === 'Price', JSON.stringify(hidden));
+
+await opts.evaluate(() => chrome.storage.sync.set({ premium: true, rememberPopoverTab: false }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+
+// --- dragging the popover ---------------------------------------------------
+const beforeDrag = await openBadge(0);
+const grip = await page.locator('.ns-grip').first().boundingBox();
+check('the popover has a drag handle', !!grip, JSON.stringify(grip));
+
+await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+await page.mouse.down();
+await page.mouse.move(grip.x + grip.width / 2 + 120, grip.y + grip.height / 2 - 60, { steps: 12 });
+await page.mouse.up();
+await page.waitForTimeout(300);
+
+const afterDrag = await popoverState();
+const moved = { dx: afterDrag.x - beforeDrag.x, dy: afterDrag.y - beforeDrag.y };
+check('dragging the handle moves the popover by exactly that much',
+  Math.abs(moved.dx - 120) <= 3 && Math.abs(moved.dy + 60) <= 3, JSON.stringify(moved));
+
+// Dragging is per-item: the next badge re-anchors rather than inheriting it.
+const reopened = await openBadge(1);
+check('the next item re-anchors to its own badge',
+  reopened.x !== afterDrag.x || reopened.y !== afterDrag.y,
+  JSON.stringify({ afterDrag, reopened }));
+
+// It must not be draggable off-screen either.
+const grip2 = await page.locator('.ns-grip').first().boundingBox();
+await page.mouse.move(grip2.x + grip2.width / 2, grip2.y + grip2.height / 2);
+await page.mouse.down();
+await page.mouse.move(-600, -600, { steps: 12 });
+await page.mouse.up();
+await page.waitForTimeout(300);
+const dragged = await popoverState();
+const room = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+check('a popover cannot be dragged out of the window',
+  dragged.x >= 0 && dragged.y >= 0
+  && dragged.x + dragged.w <= room.w && dragged.y + dragged.h <= room.h,
+  JSON.stringify({ dragged, room }));
+
+// --- a popover near the foot of a window too short to hold it ---------------
+// The bug this guards: the card opens while it is still a spinner, fits below
+// the badge, then grows past the bottom of the window once the price and the
+// tabs render. In a window with no room either side of the badge there is
+// nowhere for Vuetify to flip it to, so the overflow is ours to contain — and
+// the host is fixed, so no amount of page scrolling would reach it.
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+await page.setViewportSize({ width: 1280, height: 420 });
+await page.waitForTimeout(300);
+await page.evaluate(() => {
+  const box = document.createElement('div');
+  box.id = 'ns-bottom-item';
+  box.style.cssText = 'position:fixed;left:20px;bottom:4px;z-index:10';
+  box.innerHTML = '<div class="grid-item"><div class="lazy item-img"'
+    + ' style="width:80px;height:80px;display:inline-block"'
+    + ' data-src="https://images.neopets.com/items/food_apple.gif"'
+    + ' data-itemname="Green Apple" alt="A crunchy green apple."></div></div>';
+  document.body.appendChild(box);
+});
+await page.waitForSelector('#ns-bottom-item .neosnipe-badge', { timeout: 10000 });
+await page.locator('#ns-bottom-item .neosnipe-badge').click();
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return !!root?.querySelector('.ns-tab');
+}, null, { timeout: 15000 });
+await page.waitForTimeout(500);
+
+const atFoot = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const r = root.querySelector('.ns-popover').getBoundingClientRect();
+  const host = document.querySelector('[data-neosnipe="popover-host"]');
+  return {
+    top: Math.round(r.top),
+    bottom: Math.round(r.bottom),
+    viewport: window.innerHeight,
+    // The host is fixed, so it never scrolls with the page: anything past the
+    // bottom of the window is unreachable no matter how long the page is.
+    hostFixed: getComputedStyle(host).position === 'fixed',
+  };
+});
+check('the popover host is fixed, so overflow cannot be scrolled to',
+  atFoot.hostFixed === true, JSON.stringify(atFoot));
+check('a popover opened at the foot of the page stays inside the window',
+  atFoot.top >= 0 && atFoot.bottom <= atFoot.viewport + 1, JSON.stringify(atFoot));
+
+check('and scrolls its own overflow rather than spilling',
+  atFoot.bottom - atFoot.top <= atFoot.viewport, JSON.stringify(atFoot));
+
+await page.evaluate(() => document.getElementById('ns-bottom-item')?.remove());
+await page.keyboard.press('Escape');
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.waitForTimeout(300);
 
 // --- error path: Jelly Neo unreachable -------------------------------------
 jellyNeoOffline = true;

@@ -157,6 +157,21 @@ async function pickFile(event) {
       <label class="ns-set-row">
         <input
           type="checkbox"
+          :checked="state.settings.rememberPopoverTab"
+          @change="setSetting('rememberPopoverTab', $event.target.checked)"
+        >
+        <span>
+          <strong>Reopen an item on the tab you were last on</strong>
+          <em>
+            Off opens every item on whichever tab comes first in the order. A remembered tab that
+            has since been hidden falls back to the first one.
+          </em>
+        </span>
+      </label>
+
+      <label class="ns-set-row">
+        <input
+          type="checkbox"
           :checked="state.settings.movableTabs"
           @change="setSetting('movableTabs', $event.target.checked)"
         >

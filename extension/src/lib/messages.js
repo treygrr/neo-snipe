@@ -29,6 +29,9 @@ export const DEFAULTS = {
   // Drag the tabs in either bar to reorder them. The stored order covers every
   // tab this build knows about, including any hidden right now.
   movableTabs: true,
+  // Reopen an item's popover on the tab you were last on, rather than on
+  // whichever tab sits first in the order.
+  rememberPopoverTab: false,
   panelTabOrder: PANEL_TABS,
   popoverTabOrder: POPOVER_TABS,
 };
