@@ -23,6 +23,9 @@ export function buildPage() {
     .grid-item, .shop-item, .sdb-item-cell { display: inline-block; margin: 6px; vertical-align: top; }
     td { border: 1px solid #ccc; padding: 4px; }
   </style></head><body>
+    <!-- The Neopoints counter the Neopets header carries on every page. -->
+    <div class="nav"><a id="npanchor" href="/bank.phtml">1,234,567 NP</a></div>
+
     <h1>Inventory</h1>
     <div class="inv-grid">${fx('inventory')}</div>
 

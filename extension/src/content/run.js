@@ -3,6 +3,7 @@ import { addBadge, setBadgeState } from './badge.js';
 import {
   addLauncher, setLauncherOpen, setLauncherDraggable, resetLauncherPosition,
 } from './launcher.js';
+import { linkNpAnchorToInventory } from './npanchor.js';
 import { getSettings, HELLO, OPEN_PANEL } from '../lib/messages.js';
 import { api, sendMessage } from '../lib/ext-api.js';
 // Constants and a storage read only — no Vue, so this stays on the cheap path
@@ -57,6 +58,10 @@ export function run(loadUi) {
   }
 
   function scan(root = document) {
+    // Cheap and idempotent, and it has to re-run for the same reason the badge
+    // scan does: some pages swap the header out after the first render.
+    linkNpAnchorToInventory();
+
     for (const el of findItemElements(root)) {
       const item = describeItem(el);
       // Mark unnamed items too, so we don't re-examine them on every mutation.
