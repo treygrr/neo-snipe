@@ -124,3 +124,13 @@ test('nothing is detected in item-free markup', async () => {
 });
 
 test.after(async () => { await browser.close(); });
+
+test('caption grid: img in a wrapper, name in a plain sibling <p>', async () => {
+  const items = await detectIn(fixture('caption-grid'));
+  assert.equal(items.length, 3);
+  assert.deepEqual(items.map((i) => i.name), ['Water Mote', 'Fire Mote', 'Earth Mote']);
+  assert.deepEqual(items.map((i) => i.imageHash),
+    ['magic_mote_water', 'magic_mote_fire', 'magic_mote_earth']);
+  // The regression that mattered: a heading above the art is not the name.
+  for (const i of items) assert.notEqual(i.name, 'Rare');
+});

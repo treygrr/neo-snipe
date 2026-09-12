@@ -1,0 +1,27 @@
+<!-- captured from a Tailwind-styled Neopets item grid on 2026-09-12 -->
+<!-- Nothing here is labelled: the art sits in its own wrapper and the name is
+     a plain <p> beside it. The <!- -> nodes are Vue's empty-slot anchors. -->
+<div class="grid grid-cols-3 gap-4">
+  <div class="flex flex-col items-center">
+    <div class="relative">
+      <img src="//images.neopets.com/items/magic_mote_water.gif" class="xl:h-[64px] xl:w-[64px] h-[40px] w-[40px]"><!---->
+    </div>
+    <p class="text-center text-[12px] xl:text-[14px]">Water Mote</p>
+  </div>
+
+  <div class="flex flex-col items-center">
+    <div class="relative">
+      <img src="//images.neopets.com/items/magic_mote_fire.gif" class="xl:h-[64px] xl:w-[64px] h-[40px] w-[40px]"><!---->
+    </div>
+    <p class="text-center text-[12px] xl:text-[14px]">Fire Mote</p>
+  </div>
+
+  <!-- A heading above the art must not be taken for the name. -->
+  <div class="flex flex-col items-center">
+    <p class="text-[10px] uppercase">Rare</p>
+    <div class="relative">
+      <img src="//images.neopets.com/items/magic_mote_earth.gif" class="xl:h-[64px] xl:w-[64px] h-[40px] w-[40px]"><!---->
+    </div>
+    <p class="text-center text-[12px] xl:text-[14px]">Earth Mote</p>
+  </div>
+</div>

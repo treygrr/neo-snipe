@@ -94,7 +94,7 @@ await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 await page.waitForTimeout(900); // let the delayed inventory chunk load + be scanned
 
 const badges = page.locator('.neosnipe-badge');
-check('badges injected across all five item surfaces',
+check('badges injected across all six item surfaces',
   await badges.count() === ITEM_COUNT + 1,
   `${await badges.count()} badges (expected ${ITEM_COUNT + 1})`);
 

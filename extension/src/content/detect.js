@@ -1,4 +1,4 @@
-// Neopets renders items three different ways, verified against the live site
+// Neopets renders items several different ways, verified against the live site
 // (fixtures in test/fixtures/neopets-*.html):
 //
 //   inventory     div.item-img   image in data-src (lazy)      name in data-itemname
@@ -6,6 +6,7 @@
 //   safety depo   img            image in src                  name in alt
 //   auctions      img            image in src                  name in a sibling <td> link
 //   trading post  img            image in src                  name in p.item-name-text
+//   caption grid  img            image in src                  name in a plain sibling <p>
 //
 // So an "item" is not necessarily an <img>, and on the grid surfaces `alt` and
 // `title` hold the item *description* rather than its name.
@@ -96,6 +97,36 @@ function nameFromRowLink(el) {
 }
 
 /**
+ * The newer Tailwind-styled grids (motes, and the h5 pages built the same way)
+ * label nothing: the art sits in its own wrapper and the name is a plain <p>
+ * beside it, carrying only utility classes that are no use as a hook.
+ *
+ * So this matches on shape instead — a direct <p> child of a container the
+ * image is inside — which is why it runs last of the name strategies, after
+ * every labelled and attribute-based one has had its say. The length cap and
+ * the direct-child restriction are what keep a paragraph of page copy out.
+ */
+function nameFromCaption(el) {
+  let node = el;
+  for (let depth = 0; depth < 3 && node?.parentElement; depth++, node = node.parentElement) {
+    const captions = [...node.parentElement.querySelectorAll(':scope > p')]
+      .filter((caption) => !caption.contains(el));
+
+    // These grids caption below the art, so a <p> after the image beats one
+    // before it — a container that opens with a heading must not win.
+    const following = captions.filter(
+      (caption) => el.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+    for (const caption of [...following, ...captions]) {
+      const text = clean(caption.textContent);
+      if (text && text.length <= 80) return text;
+    }
+  }
+  return null;
+}
+
+/**
  * Best-effort item name. Returns null rather than guessing — a wrong name is
  * worse than no badge, because it sends Jelly Neo on a pointless lookup.
  */
@@ -116,7 +147,11 @@ export function itemNameFor(el) {
   }
 
   // 4. A name link elsewhere in the listing row.
-  return nameFromRowLink(el);
+  const linked = nameFromRowLink(el);
+  if (linked) return linked;
+
+  // 5. An unlabelled caption beside the art.
+  return nameFromCaption(el);
 }
 
 // Deliberately absent: Neopets' obj_info_id (in shop data-link attributes and

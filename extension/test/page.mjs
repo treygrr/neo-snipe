@@ -11,7 +11,7 @@ const fx = (name) =>
  * end-to-end tests exercise the shapes that actually exist:
  * inventory grid, main shop grid, safety deposit box, auctions, trading post.
  */
-export const ITEM_COUNT = 14; // 4 inventory + 4 shop + 4 sdb + 1 auction + 1 trade
+export const ITEM_COUNT = 17; // 4 inventory + 4 shop + 4 sdb + 1 auction + 1 trade + 3 caption
 
 export function buildPage() {
   return `<!doctype html><html><head><title>Neopets</title><style>
@@ -40,6 +40,9 @@ export function buildPage() {
 
     <h1>Trading post</h1>
     <div class="tp">${fx('tradingpost-row')}</div>
+
+    <h1>Caption grid</h1>
+    ${fx('caption-grid')}
 
     <h1>Not items</h1>
     <img src="https://images.neopets.com/themes/h5/basic/images/v3/inventory-icon.svg" alt="Inventory" width="80">
