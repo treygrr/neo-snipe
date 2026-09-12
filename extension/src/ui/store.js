@@ -118,7 +118,9 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   }
 
   const id = ++requestId;
-  Object.assign(state, { open: true, anchor, item, data: null, error: null, loading: true, tab: 'price' });
+  // Open on whichever tab has been dragged to the front, not always price.
+  const tab = popoverTabs()[0] || 'price';
+  Object.assign(state, { open: true, anchor, item, data: null, error: null, loading: true, tab });
   state.tp = { loading: false, data: null, error: null };
   state.ssw = { loading: false, data: null, error: null, at: null };
   // A different item now, so any open shops popover is about the wrong thing.
@@ -134,6 +136,10 @@ export async function openFor(anchor, item, { refresh = false } = {}) {
   state.refreshing = false;
   if (res?.ok) state.data = res.data;
   else state.error = asError(res);
+
+  // Every tab but price needs the name or item id this lookup just supplied,
+  // so its fetch has to wait for it — and a failed lookup has nothing to feed.
+  if (res?.ok) loadTab(state.tab);
 }
 
 /**
@@ -291,12 +297,16 @@ export async function loadWizard({ force = false } = {}) {
 
 export const retryWizard = () => loadWizard({ force: true });
 
-export function selectTab(tab) {
-  state.tab = tab;
+/** The fetch a tab needs the first time it is shown. Price needs nothing. */
+function loadTab(tab) {
   if (tab === 'tp') loadTradingPost();
   if (tab === 'shops') loadShops();
-  // Only on click: opening a popover must never spend a search.
   if (tab === 'wiz') loadWizard();
+}
+
+export function selectTab(tab) {
+  state.tab = tab;
+  loadTab(tab);
 }
 
 export function retryTradingPost() {

@@ -1368,6 +1368,43 @@ await page.locator('.ah2_listing_item_image .neosnipe-badge').first().click();
 await page.waitForTimeout(400);
 check('badge click does not follow the item link', page.url() === before, page.url());
 
+// --- the popover opens on whichever tab is first in the order ---------------
+// Default order opens Price (checked above). Drag TP to the front and the next
+// badge click must open on TP, and must have fetched it — not sat empty.
+await opts.evaluate(() => chrome.storage.sync.set({ popoverTabOrder: ['tp', 'price', 'wiz', 'shops'] }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+await page.locator('.neosnipe-badge').first().click();
+
+const reordered = await page.evaluate(async () => {
+  for (let i = 0; i < 60; i++) {
+    const sr = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+    const tabs = [...(sr?.querySelectorAll('.ns-tab') || [])];
+    const selected = tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+    const win = sr?.querySelector('.ns-tab-window');
+    // Wait for the lot table, which only exists once the TP fetch has landed.
+    if (selected && win?.querySelector('.ns-rows tbody tr')) {
+      return {
+        first: tabs[0]?.textContent.trim(),
+        selected: selected.textContent.trim(),
+        stats: !!win.querySelector('.ns-tp-stats'),
+        rows: win.querySelectorAll('.ns-rows tbody tr').length,
+      };
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return { timedOut: true };
+});
+
+check('the reordered tab leads the strip', reordered.first === 'TP', JSON.stringify(reordered));
+check('the popover opens on the first tab, not price', reordered.selected === 'TP',
+  JSON.stringify(reordered));
+check('that tab is fetched on open rather than left empty',
+  reordered.stats === true && reordered.rows > 0, JSON.stringify(reordered));
+
+// Put the shipped order back before the error-path checks reuse the popover.
+await opts.evaluate(() => chrome.storage.sync.set({ popoverTabOrder: ['price', 'tp', 'wiz', 'shops'] }));
+
 // --- error path: Jelly Neo unreachable -------------------------------------
 jellyNeoOffline = true;
 await opts.evaluate(() => chrome.storage.local.clear()); // drop cached prices
