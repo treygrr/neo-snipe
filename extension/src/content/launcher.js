@@ -1,8 +1,10 @@
 // The bottom-right bar. Plain DOM for the same reason the badges are: it sits
 // on every Neopets page, so it must not pull in Vue or Vuetify. Clicking it is
 // what loads the panel.
+import { mdiBagPersonal } from '@mdi/js';
 import iconSvg from '../../icons/icon.svg?raw';
 import { LAUNCHER, readPosition, writePosition, clamp, startDrag } from '../lib/positions.js';
+import { INVENTORY_URL } from '../lib/neopets-search.js';
 
 const CLASS = 'neosnipe-launcher';
 
@@ -17,23 +19,37 @@ const ICON_URL = `data:image/svg+xml,${encodeURIComponent(
 )}`;
 
 const CSS = `
+/* The bar itself is only a container now: it carries the position, the drag
+   and the open state, while each button inside owns its own click. */
 .${CLASS} {
   position: fixed; right: 16px; bottom: 16px; z-index: 2147482000;
-  display: flex; align-items: center; gap: 6px;
-  height: 34px; padding: 0 12px 0 10px; margin: 0;
+  display: flex; align-items: center; gap: 2px;
+  height: 34px; padding: 0 3px; margin: 0;
   border: 1px solid rgba(0,0,0,.15); border-radius: 17px;
-  background: #fff; color: #1f6feb; cursor: pointer;
+  background: #fff; color: #1f6feb;
   font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   box-shadow: 0 2px 8px rgba(0,0,0,.18);
   transition: box-shadow .12s ease, transform .12s ease;
 }
-.${CLASS}:hover, .${CLASS}:focus-visible {
-  box-shadow: 0 4px 14px rgba(0,0,0,.24); transform: translateY(-1px);
-}
+.${CLASS}:hover { box-shadow: 0 4px 14px rgba(0,0,0,.24); transform: translateY(-1px); }
 .${CLASS}[data-open="1"] {
   background: #e8f0fe; border-color: #1f6feb; color: #14459c;
   box-shadow: 0 2px 10px rgba(31,111,235,.35);
 }
+
+.${CLASS}-main, .${CLASS}-inv {
+  display: flex; align-items: center; height: 26px; padding: 0;
+  border: 0; background: transparent; color: inherit; font: inherit;
+  border-radius: 13px; cursor: pointer;
+}
+.${CLASS}-main { gap: 6px; padding: 0 8px 0 6px; }
+.${CLASS}-inv { justify-content: center; width: 26px; }
+.${CLASS}-main:hover, .${CLASS}-inv:hover { background: rgba(31,111,235,.12); }
+.${CLASS}-main:focus-visible, .${CLASS}-inv:focus-visible {
+  outline: 2px solid currentColor; outline-offset: -2px;
+}
+.${CLASS}-inv svg { width: 17px; height: 17px; display: block; fill: currentColor; }
+
 .${CLASS}-icon {
   width: 20px; height: 20px; flex: 0 0 auto;
   background: url("${ICON_URL}") center / contain no-repeat;
@@ -134,22 +150,42 @@ export function addLauncher(onActivate) {
   style.textContent = CSS;
   document.head.appendChild(style);
 
-  button = document.createElement('button');
-  button.type = 'button';
+  button = document.createElement('div');
   button.className = CLASS;
+
+  const main = document.createElement('button');
+  main.type = 'button';
+  main.className = `${CLASS}-main`;
   const icon = document.createElement('span');
   icon.className = `${CLASS}-icon`;
   const label = document.createElement('span');
   label.textContent = 'neo-snipe';
-  button.append(icon, label);
-  button.title = 'neo-snipe — favourites and dailies';
-  button.setAttribute('aria-label', button.title);
+  main.append(icon, label);
+  main.title = 'neo-snipe — favourites and dailies';
+  main.setAttribute('aria-label', main.title);
 
-  button.addEventListener('click', (event) => {
+  // A plain link, so it can be middle-clicked or opened in a new tab like any
+  // other. Styled as a button because it sits in a row of them.
+  const inv = document.createElement('a');
+  inv.className = `${CLASS}-inv`;
+  inv.href = INVENTORY_URL;
+  inv.title = 'Your inventory';
+  inv.setAttribute('aria-label', inv.title);
+  inv.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${mdiBagPersonal}"/></svg>`;
+
+  button.append(main, inv);
+
+  main.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
     if (suppressClick) return;
     onActivate(button);
+  });
+
+  // A drag that ends on the link must not also follow it.
+  inv.addEventListener('click', (event) => {
+    if (suppressClick) event.preventDefault();
+    else event.stopPropagation();
   });
 
   button.addEventListener('pointerdown', onPointerDown);

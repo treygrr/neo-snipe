@@ -6,6 +6,9 @@
 const base = 'https://www.neopets.com';
 const q = (name) => encodeURIComponent(String(name ?? '').trim()).replace(/%20/g, '+');
 
+/** Your items. The launcher links to it, and so does the NP counter. */
+export const INVENTORY_URL = 'https://www.neopets.com/inventory.phtml';
+
 export const SEARCHES = [
   {
     id: 'trading',
