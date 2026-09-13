@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 
 const detectSrc = readFileSync(resolve('src/content/detect.js'), 'utf8');
 const fixture = (n) => readFileSync(resolve(`test/fixtures/neopets-${n}.html`), 'utf8');
@@ -16,7 +16,10 @@ const fixture = (n) => readFileSync(resolve(`test/fixtures/neopets-${n}.html`), 
 const asPageFn = `(() => { ${detectSrc.replace(/^export /gm, '')}
   return { findItemElements, describeItem, itemImageUrl, itemNameFor, imageHashOf }; })()`;
 
-const browser = await chromium.launch();
+// Detection is plain DOM, so it can be checked in every engine the extension
+// ships to: NS_ENGINE=firefox or NS_ENGINE=webkit. Chromium by default.
+const ENGINES = { chromium, firefox, webkit };
+const browser = await (ENGINES[process.env.NS_ENGINE] ?? chromium).launch();
 
 async function detectIn(html) {
   const page = await browser.newPage();
