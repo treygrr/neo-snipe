@@ -1,7 +1,7 @@
 // The bottom-right bar. Plain DOM for the same reason the badges are: it sits
 // on every Neopets page, so it must not pull in Vue or Vuetify. Clicking it is
 // what loads the panel.
-import { mdiBagPersonal } from '@mdi/js';
+import { mdiBagPersonal, mdiDragVertical } from '@mdi/js';
 import iconSvg from '../../icons/icon.svg?raw';
 import { LAUNCHER, readPosition, writePosition, clamp, startDrag } from '../lib/positions.js';
 import { INVENTORY_URL } from '../lib/neopets-search.js';
@@ -68,6 +68,20 @@ const CSS = `
 /* Matched to the app icon above, so the two buttons read as a pair. */
 .${CLASS}-inv svg { width: 20px; height: 20px; display: block; fill: currentColor; }
 
+/* The handle. Hidden entirely when dragging is switched off, so the bar does
+   not offer an affordance that would do nothing. */
+.${CLASS}-grip {
+  display: none; align-items: center; justify-content: center;
+  width: 14px; height: 26px; flex: 0 0 auto;
+  margin-right: -2px;
+  cursor: grab; opacity: .4;
+  touch-action: none;
+}
+.${CLASS}[data-draggable="1"] .${CLASS}-grip { display: flex; }
+.${CLASS}-grip:hover { opacity: .75; }
+.${CLASS}[data-dragging="1"] .${CLASS}-grip { cursor: grabbing; opacity: .75; }
+.${CLASS}-grip svg { width: 16px; height: 16px; display: block; fill: currentColor; }
+
 .${CLASS}-icon {
   width: 20px; height: 20px; flex: 0 0 auto;
   background: url("${ICON_URL}") center / contain no-repeat;
@@ -76,9 +90,8 @@ const CSS = `
 
 /* Moved: left/top are set inline, so the default corner must stop applying. */
 .${CLASS}[data-moved="1"] { right: auto; bottom: auto; }
-.${CLASS}[data-draggable="1"] { cursor: grab; }
 .${CLASS}[data-dragging="1"] {
-  cursor: grabbing; transform: none;
+  transform: none;
   box-shadow: 0 6px 18px rgba(0,0,0,.3);
   /* A drag over the page must not select the text under it. */
   user-select: none;
@@ -171,6 +184,14 @@ export function addLauncher(onActivate) {
   button = document.createElement('div');
   button.className = CLASS;
 
+  // First in the row, so the whole bar can be picked up from its edge without
+  // going anywhere near a button that does something.
+  const grip = document.createElement('span');
+  grip.className = `${CLASS}-grip`;
+  grip.title = 'Drag to move the bar';
+  grip.setAttribute('aria-hidden', 'true');
+  grip.innerHTML = `<svg viewBox="0 0 24 24"><path d="${mdiDragVertical}"/></svg>`;
+
   // Icon only. The name is carried by the title and the aria-label, which is
   // what a screen reader reads out, so dropping the text costs nothing there.
   const main = document.createElement('button');
@@ -214,7 +235,7 @@ export function addLauncher(onActivate) {
   inv.setAttribute('aria-label', inv.title);
   inv.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${mdiBagPersonal}"/></svg>`;
 
-  button.append(main, sw, ssw, inv);
+  button.append(grip, main, sw, ssw, inv);
 
   main.addEventListener('click', (event) => {
     event.preventDefault();
@@ -223,12 +244,11 @@ export function addLauncher(onActivate) {
     onActivate('panel');
   });
 
-  // Dragging hangs off the main button rather than the bar around it. A
-  // pointer capture retargets the click that ends the gesture to whatever
-  // element took the capture, so capturing on the bar would swallow the click
-  // meant for the button inside it. It also leaves the inventory link alone:
-  // no capture, so ctrl-click and middle-click open it in a tab as usual.
-  main.addEventListener('pointerdown', onPointerDown);
+  // Only the grip drags. Keeping the capture off the buttons is what leaves
+  // their clicks — and the inventory link's ctrl-click and middle-click —
+  // working: a pointer capture retargets the click that ends a gesture to
+  // whatever element took the capture.
+  grip.addEventListener('pointerdown', onPointerDown);
 
   // A window that has since been made narrower must not strand the button
   // off-screen, since it is the only way back to the panel.

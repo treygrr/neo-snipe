@@ -64,16 +64,45 @@ function onGripPointerDown(event) {
 }
 
 /**
+ * Whether the card is where it is going to be, and so worth measuring.
+ *
+ * Two ways it is not. Vuetify may not have placed it yet, in which case it is
+ * sitting at the origin and clamping it would pin a perfectly good popover to
+ * the corner — the inline top/left it writes is the signal that it has. And it
+ * scales the menu in, a transform that moves what `getBoundingClientRect`
+ * reports without changing layout size, so a card measured mid-animation looks
+ * smaller and sits somewhere it never lands. A check run then can decide a
+ * card that overflows fits, and since a transform fires no resize, nothing
+ * asks again.
+ */
+function settled(el) {
+  const content = el.closest('.v-overlay__content');
+  if (!content || (!content.style.top && !content.style.left)) return false;
+  const t = getComputedStyle(content).transform;
+  return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)';
+}
+
+/**
  * A popover opens while it is still just a spinner, so there is room for it
  * below a badge near the foot of the page; by the time the price and the tabs
  * have rendered there is not, and on a page too short to scroll the overflow
  * is simply unreachable. Re-clamping whenever the card changes size keeps it
  * on screen without moving one that already fits.
  */
+let settling = 0;
 function keepOnScreen() {
   if (dragging.value || !state.open) return;
   const el = cardEl();
   if (!el) return;
+
+  // Bounded: a transition that never ends must not leave a frame loop running.
+  if (!settled(el)) {
+    if (settling > 30) return;
+    settling += 1;
+    requestAnimationFrame(keepOnScreen);
+    return;
+  }
+  settling = 0;
 
   const rect = el.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
@@ -88,18 +117,31 @@ function keepOnScreen() {
 // Watching the size rather than the individual slices catches every way the
 // card can grow: the lookup landing, a tab switching, a tab's own fetch
 // arriving. Re-clamping changes position, never size, so this cannot loop.
+//
+// Keyed off the card itself rather than `state.open`: clicking a second badge
+// while the first popover is up never flips `open`, and an observer left
+// watching a card Vuetify has since replaced reports nothing forever.
 let observer = null;
-watch(() => state.open, (isOpen) => {
+watch(card, (instance) => {
   observer?.disconnect();
   observer = null;
-  if (!isOpen) return;
-  nextTick(() => {
-    const el = cardEl();
-    if (!el) return;
-    observer = new ResizeObserver(keepOnScreen);
-    observer.observe(el);
-  });
-});
+
+  const el = instance?.$el ?? instance;
+  if (!el) return;
+
+  observer = new ResizeObserver(keepOnScreen);
+  observer.observe(el);
+  // The observer's own first callback fires mid-animation; this one is what
+  // catches a card that was already the wrong size before it was observed.
+  nextTick(keepOnScreen);
+}, { flush: 'post' });
+
+// Positive triggers, so containment never rests on a resize happening to fire
+// at a moment the card is settled.
+watch(
+  () => [state.open, state.loading, state.tab, !!state.data, !!state.error, state.anchor],
+  () => { settling = 0; nextTick(keepOnScreen); },
+);
 
 onMounted(() => window.addEventListener('resize', keepOnScreen));
 onBeforeUnmount(() => {

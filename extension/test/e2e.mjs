@@ -1387,8 +1387,8 @@ const box = (el) => {
     sswShown: getComputedStyle(bar.querySelector('.neosnipe-launcher-ssw')).display !== 'none',
   };
 });
-check('the bar carries the wizard buttons, in order',
-  barButtons.order.join(',') === 'main,sw,ssw,inv', JSON.stringify(barButtons.order));
+check('the bar carries the grip and the wizard buttons, in order',
+  barButtons.order.join(',') === 'grip,main,sw,ssw,inv', JSON.stringify(barButtons.order));
 // Carried in the bundle, not fetched: hot-linked artwork would leave the
 // buttons blank the day Neopets moves those paths.
 check('the Shop Wizard button carries its icon inline',
@@ -1525,6 +1525,82 @@ await page.waitForTimeout(400);
 check('the same wizard button again closes the panel',
   (await panelState()).open === false);
 
+// --- dragging the bar by its handle ----------------------------------------
+const barBox = () => page.evaluate(() => {
+  const r = document.querySelector('.neosnipe-launcher').getBoundingClientRect();
+  return { x: Math.round(r.left), y: Math.round(r.top) };
+});
+const gripState = () => page.evaluate(() => {
+  const g = document.querySelector('.neosnipe-launcher-grip');
+  const r = g.getBoundingClientRect();
+  // Left of every button, which is the claim — not flush with the bar's own
+  // border box, which its padding puts a few pixels further out.
+  const others = [...document.querySelectorAll('.neosnipe-launcher > :not(.neosnipe-launcher-grip)')]
+    .map((el) => el.getBoundingClientRect().left);
+  return {
+    shown: getComputedStyle(g).display !== 'none',
+    hasIcon: !!g.querySelector('svg path[d]'),
+    leftOfButtons: others.length > 0 && Math.round(r.right) <= Math.round(Math.min(...others)) + 1,
+    cursor: getComputedStyle(g).cursor,
+  };
+});
+
+const grip0 = await gripState();
+check('the bar has a drag handle left of every button, with a grab cursor',
+  grip0.shown && grip0.hasIcon && grip0.leftOfButtons && grip0.cursor === 'grab',
+  JSON.stringify(grip0));
+
+const barBefore = await barBox();
+const gripBox = await page.locator('.neosnipe-launcher-grip').boundingBox();
+await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2);
+await page.mouse.down();
+await page.mouse.move(gripBox.x + gripBox.width / 2 - 180, gripBox.y + gripBox.height / 2 - 120, { steps: 12 });
+await page.mouse.up();
+await page.waitForTimeout(400);
+
+const barAfter = await barBox();
+check('dragging the handle moves the whole bar by that much',
+  Math.abs((barAfter.x - barBefore.x) + 180) <= 3 && Math.abs((barAfter.y - barBefore.y) + 120) <= 3,
+  JSON.stringify({ dx: barAfter.x - barBefore.x, dy: barAfter.y - barBefore.y }));
+
+// The drag must not have opened anything on the way past.
+check('dragging the bar opens no panel',
+  await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
+
+// Buttons still work after a drag, since the capture was on the grip.
+await page.locator('.neosnipe-launcher-main').click();
+await page.waitForTimeout(500);
+check('the buttons still work once the bar has been moved',
+  await page.locator('.neosnipe-launcher[data-open="1"]').count() === 1);
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-panel-head .ns-close')?.click();
+});
+await page.waitForTimeout(300);
+
+// Turning dragging off takes the handle away rather than leaving it inert.
+await opts.evaluate(() => chrome.storage.sync.set({ movableLauncher: false }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+check('with dragging off the handle is gone',
+  (await gripState()).shown === false);
+
+await opts.evaluate(() => chrome.storage.sync.set({ movableLauncher: true }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+check('and comes back with it on', (await gripState()).shown === true);
+
+// The reloads above left the page with no UI mounted, and the host only comes
+// into being on first use; the sections below expect it there.
+await page.locator('.neosnipe-launcher-main').click();
+await page.waitForSelector('[data-neosnipe="popover-host"]', { timeout: 10000 });
+await page.waitForTimeout(400);
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-panel-head .ns-close')?.click();
+});
+await page.waitForTimeout(300);
+
 // --- the inventory button on the launcher bar ------------------------------
 const invLink = await page.evaluate(() => {
   const a = document.querySelector('.neosnipe-launcher-inv');
@@ -1552,8 +1628,9 @@ check('it shows an icon', invLink?.hasIcon === true);
 // the href checked above — letting it actually happen here would reset the
 // page state the rest of the run builds on.
 await page.evaluate(() => {
-  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  root.querySelector('.ns-panel-head .ns-close')?.click();
+  // The host only exists once the UI has been used; a reload leaves none.
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  root?.querySelector('.ns-panel-head .ns-close')?.click();
   // Lift the href for the click: the destination is asserted above, and
   // actually going there would reset the page the rest of the run builds on.
   document.querySelector('.neosnipe-launcher-inv').removeAttribute('href');
@@ -1598,6 +1675,12 @@ await page.evaluate(() => {
 await page.waitForTimeout(300);
 
 // --- hover-only badges -------------------------------------------------------
+// Set it here rather than inheriting it: the import section above turns
+// hoverOnly off in storage, and this used to pass only because the body
+// attribute from the original page load was still sitting there.
+await opts.evaluate(() => chrome.storage.sync.set({ hoverOnly: true }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 // Park the mouse away from the badges first, or the one we just clicked is
 // still in :hover and reads as fully opaque.
 await page.mouse.move(0, 0);
@@ -1839,10 +1922,61 @@ check('a popover opened at the foot of the page stays inside the window',
 check('and scrolls its own overflow rather than spilling',
   atFoot.bottom - atFoot.top <= atFoot.viewport, JSON.stringify(atFoot));
 
+// The window shrinking under an open popover is the same problem arriving by
+// another route, and the one case where the card is provably left overflowing
+// unless something pulls it back.
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.waitForTimeout(400);
 await page.evaluate(() => document.getElementById('ns-bottom-item')?.remove());
 await page.keyboard.press('Escape');
+await page.waitForTimeout(250);
+
+await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+await page.waitForTimeout(250);
+const lowBadge = await page.evaluate(() => {
+  const list = [...document.querySelectorAll('.neosnipe-badge')]
+    .map((b, i) => ({ i, top: b.getBoundingClientRect().top }))
+    .filter((b) => b.top > 0 && b.top < window.innerHeight);
+  return list.sort((a, b) => b.top - a.top)[0]?.i ?? 0;
+});
+await page.locator('.neosnipe-badge').nth(lowBadge).click();
+await page.waitForFunction(() => {
+  const r = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return !!r?.querySelector('.ns-tab');
+}, null, { timeout: 15000 });
+await page.waitForTimeout(600);
+
+const cardBox = () => page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  const r = root.querySelector('.ns-popover').getBoundingClientRect();
+  return {
+    top: Math.round(r.top), bottom: Math.round(r.bottom),
+    left: Math.round(r.left), right: Math.round(r.right),
+    vh: window.innerHeight, vw: window.innerWidth,
+  };
+});
+
+const beforeShrink = await cardBox();
+check('the popover opens on screen to begin with',
+  beforeShrink.top >= 0 && beforeShrink.bottom <= beforeShrink.vh, JSON.stringify(beforeShrink));
+
+// Short enough that where it was opened is now past the bottom edge.
+await page.setViewportSize({ width: 1280, height: 420 });
+await page.waitForTimeout(700);
+const afterShrink = await cardBox();
+check('a popover left off screen by a shrinking window is pulled back',
+  afterShrink.top >= 0 && afterShrink.bottom <= afterShrink.vh + 1
+  && afterShrink.left >= 0 && afterShrink.right <= afterShrink.vw + 1,
+  JSON.stringify(afterShrink));
+
 await page.setViewportSize({ width: 1280, height: 720 });
 await page.waitForTimeout(300);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(250);
+await page.evaluate(() => window.scrollTo(0, 0));
+await page.waitForTimeout(250);
+
+await page.waitForTimeout(50);
 
 // --- error path: Jelly Neo unreachable -------------------------------------
 jellyNeoOffline = true;
