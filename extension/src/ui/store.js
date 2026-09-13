@@ -806,6 +806,9 @@ export async function runSearch(kind, { force = false } = {}) {
     return;
   }
 
+  // A different item: the rows on screen belong to the last one, and would sit
+  // under this item's name until the search came back.
+  if (slot.name !== name) slot.listings = null;
   Object.assign(slot, { name, loading: true, error: null, fromCache: false });
   try {
     const parsed = kind === 'wiz' ? await askWizard(name) : await askSsw(name);
@@ -833,6 +836,16 @@ export async function runSearch(kind, { force = false } = {}) {
 export function searchPageItem(kind, item) {
   state.search[kind].query = item?.name || '';
   return runSearch(kind);
+}
+
+/**
+ * Back to an empty search, keeping the chosen sort. A fresh object rather than
+ * a reset in place: a search still in flight writes to the slot it started
+ * with, so its answer lands somewhere nothing displays instead of undoing the
+ * clear. The caches are left alone.
+ */
+export function clearSearch(kind) {
+  state.search[kind] = { ...blankSearch(), sort: state.search[kind].sort };
 }
 
 export function closePanel() {

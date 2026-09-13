@@ -19,7 +19,7 @@ and writes one reactive `state` in `store.js`, which talks to the service worker
 | `FoodClub.vue` | Round readout: stake input, risk-level buttons over `RISK_LEVELS`, `currentBets()` rows with odds/payout, Place (`placeBet`), done-tick (`toggleBetDone`), already-placed marks (`isBetPlaced`), links to your bets and collect. |
 | `SettingsView.vue` | The cog panel: checkboxes wired to `setSetting` (premium auto/manual, hover-only badges, daily tracking, movable panel/launcher/tabs), worth-buying margin, position/tab-order resets, and export/import (clipboard, file download, file pick → `importSettings`). |
 | `OptionsApp.vue` | Standalone options page: hover-only switch, Firefox "Grant access to Jelly Neo" (`requestJellyNeoAccess`), "Test a lookup" (a real `neosnipe:lookup`), clear-cache. |
-| `WizardSearch.vue` | Both search panels (`kind` = `wiz`/`ssw`): search box, the page's own items as one-click starting points with inline art, sortable result rows, and whatever the other wizard has cached for the same item. |
+| `WizardSearch.vue` | Both search panels (`kind` = `wiz`/`ssw`). A `v-combobox` whose menu lists the page's items with inline art only once clicked; clear × inside, search button in the outer append. Results: name/summary/refresh and a `v-btn-toggle` sort on one row, a budgeted-height table, and the other wizard's cache folded to one line. Searches start only from a pick, Enter or the button — single-mode VCombobox writes its model on every keystroke. |
 | `store.js` | The single reactive `state` + all actions. See below. |
 | `useTabDrag.js` | `useTabDrag(move, enabled)` — HTML5 drag-reorder for a tab strip; returns handlers plus `wasDragged`/`isDragging`/`isOver`. Shared by `Panel` and `HistoryTabs`. |
 | `vuetify.js` | `makeVuetify(attach)` and `THEME`: explicit component imports (no auto-import), `mdi-svg` icon set, and a global `attach` default. |
@@ -33,7 +33,7 @@ placed, placing); `toast`; panel (`panelOpen`, `panelAnchor`, `panelView`, `pane
 `popoverPos` (the dragged popover's target point, cleared on every open); `pageItems`, and one
 `search` slot per wizard (query, name, listings, sort, `fromCache`).
 Search: `openPanelView`, `setPageItems`, `setSearchQuery`/`setSearchSort`, `runSearch`,
-`searchPageItem`, `sortedListings`, `crossCached`. Main actions: `openFor`/`openFavourite`/`close`/`retry`; `selectTab`, `loadTradingPost`,
+`searchPageItem`, `clearSearch`, `sortedListings`, `crossCached`. Main actions: `openFor`/`openFavourite`/`close`/`retry`; `selectTab`, `loadTradingPost`,
 `loadWizard`/`retryWizard`, `loadShops`/`retryShops`; `shopMargin`; `loadSettings`, `setSetting`,
 `detectPremiumFromPage`, `isPremium`, `exportSettings`/`importSettings`; favourites
 (`toggleCurrentFavourite`, `removeFavouriteAt`, `moveFavourite`, `toggleDaily`, `moveDailyFavourite`);

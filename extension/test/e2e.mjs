@@ -1426,16 +1426,48 @@ check('the Shop Wizard button opens its own panel',
   wizPanel.open && wizPanel.title === 'Shop Wizard' && wizPanel.hasSearch,
   JSON.stringify({ title: wizPanel.title, search: wizPanel.hasSearch }));
 check('the search panel replaces the favourites tabs', wizPanel.hasTabs === false);
-check('items detected on the page are offered to search',
-  wizPanel.items.length > 0 && wizPanel.items.some((i) => i.name === 'Water Mote'),
-  JSON.stringify(wizPanel.items.slice(0, 3)));
-check('each offered item shows its art inline',
-  wizPanel.items.every((i) => i.thumb && i.thumb.includes('images.neopets.com')),
-  JSON.stringify(wizPanel.items[0]));
 
-const firstItem = wizPanel.items[0].name;
+// The page's items wait behind the search box rather than filling the panel.
+check('page items are not listed until the search box is clicked',
+  wizPanel.items.length === 0, JSON.stringify(wizPanel.items.slice(0, 2)));
 
-// Clicking one searches it, without the name being typed.
+const searchButton = await inShadow((root) => {
+  const go = root.querySelector('.ns-wiz-go');
+  const field = root.querySelector('.ns-wiz-input .v-field');
+  const g = go?.getBoundingClientRect();
+  const f = field?.getBoundingClientRect();
+  return {
+    outerAppend: !!go?.closest('.ns-wiz-input .v-input__append'),
+    insideField: !!go?.closest('.v-field'),
+    // Level with the field, to its right.
+    beside: !!(g && f) && g.left >= f.right && Math.abs((g.top + g.bottom) / 2 - (f.top + f.bottom) / 2) <= 2,
+  };
+});
+check('the search button sits in the outer append, beside the box',
+  searchButton.outerAppend && !searchButton.insideField && searchButton.beside,
+  JSON.stringify(searchButton));
+
+const openSuggestions = async () => {
+  await page.locator('.ns-wiz-input input').click();
+  await page.waitForTimeout(500);
+  return panelState();
+};
+
+const withMenu = await openSuggestions();
+check('clicking the search box lists the items detected on the page',
+  withMenu.items.length > 0 && withMenu.items.some((i) => i.name === 'Water Mote'),
+  JSON.stringify(withMenu.items.slice(0, 3)));
+check('each suggestion shows its art inline',
+  withMenu.items.every((i) => i.thumb && i.thumb.includes('images.neopets.com')),
+  JSON.stringify(withMenu.items[0]));
+// A menu teleported to document.body would land unstyled among Neopets' CSS.
+check('the suggestion list stays inside the extension shadow root',
+  await page.evaluate(() => !document.querySelector('.ns-wiz-menu'))
+  && await inShadow((root) => !!root.querySelector('.ns-wiz-menu')));
+
+const firstItem = withMenu.items[0].name;
+
+// Picking one searches it, without the name being typed.
 await page.locator('.ns-wiz-item').first().click();
 await page.waitForTimeout(1500);
 const searched = await panelState();
@@ -1451,6 +1483,25 @@ const rowOwners = (rows) => rows.map((r) => r.owner);
 check('rows arrive cheapest first',
   prices(searched.rows).every((n, i, a) => i === 0 || a[i - 1] <= n),
   JSON.stringify(prices(searched.rows)));
+check('the cheapest shop is picked out',
+  await inShadow((root) => !!root.querySelector('.ns-wiz-rows:not(.ns-wiz-other) tbody tr')
+    ?.classList.contains('ns-wiz-best')));
+
+// The layout is budgeted to the panel's fixed body: one scrolling table, not a
+// scrolling table inside a scrolling panel.
+const scrollers = await inShadow((root) => {
+  const body = root.querySelector('.ns-panel-body');
+  const sorts = root.querySelector('.ns-wiz-sorts');
+  return {
+    bodyScrolls: body.scrollHeight > body.clientHeight + 1,
+    sortsHeight: Math.round(sorts.getBoundingClientRect().height),
+    sortsClipped: sorts.scrollWidth > sorts.clientWidth + 1,
+  };
+});
+check('a result fits the panel without a second scrollbar',
+  scrollers.bodyScrolls === false, JSON.stringify(scrollers));
+check('the sort buttons are drawn at full height, not squashed',
+  scrollers.sortsHeight >= 24 && !scrollers.sortsClipped, JSON.stringify(scrollers));
 
 const sortBy = async (index) => {
   await page.evaluate((i) => {
@@ -1486,15 +1537,25 @@ check('the SSW panel does not inherit the other panel results',
   sswPanel.rows.length === 0, JSON.stringify(sswPanel.rows));
 
 // Searching the same item here must also surface what the Shop Wizard found.
+await openSuggestions();
 await page.locator('.ns-wiz-item').first().click();
 await page.waitForTimeout(1500);
 const sswSearched = await panelState();
 check('the SSW panel searches its own wizard',
   sswSearched.rows.length > 0, JSON.stringify(sswSearched.rows.slice(0, 2)));
-check('it also shows what the Shop Wizard already cached for that item',
-  /Already found by the Shop Wizard/.test(sswSearched.otherHead || '')
-  && sswSearched.otherRows > 0,
-  JSON.stringify({ head: sswSearched.otherHead, rows: sswSearched.otherRows }));
+check('it also offers what the Shop Wizard already cached for that item',
+  /Already found by the Shop Wizard/.test(sswSearched.otherHead || ''),
+  JSON.stringify({ head: sswSearched.otherHead }));
+// Folded, so the second opinion never pushes this panel's own result away.
+check('that second opinion starts folded to one line',
+  sswSearched.otherRows === 0, String(sswSearched.otherRows));
+
+const unfoldOther = async () => {
+  await page.locator('.ns-wiz-other-head').click();
+  await page.waitForTimeout(300);
+  return panelState();
+};
+check('unfolding it lists the Shop Wizard shops', (await unfoldOther()).otherRows > 0);
 
 // And the same in reverse, from the wizard panel.
 await page.locator('.neosnipe-launcher-sw').click();
@@ -1503,21 +1564,53 @@ const backToWiz = await panelState();
 check('switching back keeps each panel own search',
   backToWiz.title === 'Shop Wizard' && backToWiz.rows.length > 0,
   JSON.stringify({ title: backToWiz.title, rows: backToWiz.rows.length }));
-check('the wizard panel shows the SSW cache for the same item',
-  /Already found by the Super Shop Wizard/.test(backToWiz.otherHead || '')
-  && backToWiz.otherRows > 0,
-  JSON.stringify({ head: backToWiz.otherHead, rows: backToWiz.otherRows }));
+check('the wizard panel offers the SSW cache for the same item',
+  /Already found by the Super Shop Wizard/.test(backToWiz.otherHead || ''),
+  JSON.stringify({ head: backToWiz.otherHead }));
+check('and unfolds to list those shops', (await unfoldOther()).otherRows > 0);
+
 // Switching panels shows what each already held; searching the same name
 // again is what exercises the cache, and it must say that is what happened.
-await page.locator('.ns-wiz-input').fill(firstItem);
-await page.locator('.ns-wiz-input').press('Enter');
+await page.locator('.ns-wiz-input input').fill(firstItem);
+await page.locator('.ns-wiz-input input').press('Enter');
 await page.waitForTimeout(900);
 const repeated = await panelState();
-check('searching the same name again is served from the cache and says so',
+check('searching the same name again with Enter is served from the cache and says so',
   /cached/.test(repeated.freshness || ''), repeated.freshness);
 check('the cached view still lists every shop',
   repeated.rows.length === backToWiz.rows.length,
   repeated.rows.length + ' vs ' + backToWiz.rows.length);
+
+// The x inside the box clears the text and the result with it.
+const clearButton = await inShadow((root) => ({
+  inField: !!root.querySelector('.ns-wiz-input .v-field .v-field__clearable'),
+}));
+check('a clear button sits inside the box while it has text', clearButton.inField === true,
+  JSON.stringify(clearButton));
+
+await page.locator('.ns-wiz-input .v-field__clearable .v-icon').click();
+await page.waitForTimeout(400);
+const cleared = await inShadow((root) => ({
+  query: root.querySelector('.ns-wiz-input input')?.value,
+  rows: root.querySelectorAll('.ns-wiz-rows tbody tr').length,
+  idle: !!root.querySelector('.ns-wiz-empty'),
+  menuOpen: !!root.querySelector('.ns-wiz-menu .ns-wiz-item'),
+}));
+check('clearing empties the box, drops the result and returns to the start',
+  cleared.query === '' && cleared.rows === 0 && cleared.idle && !cleared.menuOpen,
+  JSON.stringify(cleared));
+
+// The outer button searches whatever is typed — and the cache survived the clear.
+await page.locator('.ns-wiz-input input').fill(firstItem);
+await page.locator('.ns-wiz-go').click();
+await page.waitForTimeout(900);
+const viaButton = await panelState();
+check('the search button beside the box runs the search',
+  viaButton.rows.length > 0, String(viaButton.rows.length));
+check('clearing kept the cache, so that search was instant',
+  /cached/.test(viaButton.freshness || ''), viaButton.freshness);
+check('searching leaves the suggestion list shut',
+  await inShadow((root) => !root.querySelector('.ns-wiz-menu .ns-wiz-item')));
 
 // Clicking the same button again closes the panel.
 await page.locator('.neosnipe-launcher-sw').click();
