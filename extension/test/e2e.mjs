@@ -647,6 +647,37 @@ check('collapsing a group updates chevron and hides the body',
   afterToggle.expanded === 'false' && !afterToggle.rotated && !afterToggle.bodyVisible,
   JSON.stringify(afterToggle));
 
+// Every label starts at one indent, ticked or not. An untracked daily (no
+// reset timer, like the Soup Kitchen) once sat 18px further right. Its group
+// may be collapsed here, and a hidden row has no layout to measure, so open
+// that group for the check and put it back afterwards.
+const openedForIndent = await inShadow((root) => {
+  const group = root.querySelector('.ns-daily-tick--placeholder')?.closest('.ns-group');
+  const body = group?.querySelector('.ns-group-body');
+  if (!body || body.getBoundingClientRect().height > 0) return false;
+  group.querySelector('.ns-group-head').click();
+  return true;
+});
+await page.waitForTimeout(300);
+const dailyIndents = await inShadow((root) => {
+  const rows = [...root.querySelectorAll('.ns-daily-row:not(.ns-daily-row--pinned)')]
+    .filter((row) => row.getBoundingClientRect().height > 0);
+  const start = (row) => {
+    const link = row.querySelector('.ns-daily');
+    return Math.round(link.getBoundingClientRect().left + parseFloat(getComputedStyle(link).paddingLeft));
+  };
+  const tracked = rows.filter((r) => r.querySelector('.ns-daily-tick:not(.ns-daily-tick--placeholder)'));
+  const untracked = rows.filter((r) => r.querySelector('.ns-daily-tick--placeholder'));
+  return {
+    tracked: tracked.length,
+    untracked: untracked.length,
+    starts: [...new Set(rows.map(start))],
+  };
+});
+check('ticked and untracked dailies start their labels at the same indent',
+  dailyIndents.tracked > 0 && dailyIndents.untracked > 0 && dailyIndents.starts.length === 1,
+  JSON.stringify(dailyIndents));
+
 // Favourite a daily.
 const favedDaily = await inShadow((root) => {
   const row = root.querySelector('.ns-daily-row');
