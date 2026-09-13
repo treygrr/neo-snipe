@@ -677,6 +677,11 @@ const dailyIndents = await inShadow((root) => {
 check('ticked and untracked dailies start their labels at the same indent',
   dailyIndents.tracked > 0 && dailyIndents.untracked > 0 && dailyIndents.starts.length === 1,
   JSON.stringify(dailyIndents));
+if (openedForIndent) {
+  await inShadow((root) => root.querySelector('.ns-daily-tick--placeholder')
+    ?.closest('.ns-group')?.querySelector('.ns-group-head')?.click());
+  await page.waitForTimeout(300);
+}
 
 // Favourite a daily.
 const favedDaily = await inShadow((root) => {
