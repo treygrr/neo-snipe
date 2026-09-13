@@ -21,6 +21,13 @@ export const DEFAULTS = {
   minMargin: 1000,
   // Tick off dailies as you visit them, cleared at midnight Neopets time.
   trackDailyVisits: true,
+  // How long a search result is reused for the same item before the tab will
+  // spend another search on it, in minutes. Zero searches afresh every time.
+  // Separate figures because the two wizards behave differently: the regular
+  // one returns a partial list that repeated searches fill in, the Super Shop
+  // Wizard a complete one in a single call.
+  wizCacheMinutes: 15,
+  sswCacheMinutes: 15,
   // Drag the panel by its title bar, and the launcher button by itself. Each
   // remembers where it was left; turning one off puts that one back in its
   // default corner without forgetting the position.

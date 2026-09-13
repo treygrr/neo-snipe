@@ -78,6 +78,15 @@ export const state = reactive({
   panelAnchor: 'bottom',
   // 'tabs' or 'settings' — the cog swaps the panel body.
   panelView: 'tabs',
+  // Everything the content script found on this page, offered as starting
+  // points in the search panels. Replaced on every scan.
+  pageItems: [],
+  // One independent search per wizard: only one panel is ever open, but each
+  // keeps its query and results so switching between them loses nothing.
+  search: {
+    wiz: blankSearch(),
+    ssw: blankSearch(),
+  },
   settings: {
     hoverOnly: true, premium: false, premiumAuto: true, minMargin: 1000,
     trackDailyVisits: true, movablePanel: true, movableLauncher: true, movableTabs: true,
@@ -105,6 +114,13 @@ export const state = reactive({
   // True while a favourite is being re-fetched, so the popover can say so.
   refreshing: false,
 });
+
+function blankSearch() {
+  return {
+    query: '', name: null, listings: null, loading: false, error: null,
+    at: null, searches: 0, fromCache: false, sort: 'price-asc',
+  };
+}
 
 let requestId = 0;
 
@@ -215,7 +231,22 @@ export async function loadTradingPost() {
  * script because it is same-origin with your Neopets session; the service
  * worker has no business holding that.
  */
+// Neopets limits how often you may use either wizard, so results are kept and
+// reused rather than searched again for the same item. How long for is yours
+// to set, per wizard; zero means never reuse, so every open searches again.
+const MINUTE_MS = 60 * 1000;
+const cacheMs = (key) => Math.max(0, Number(state.settings[key]) || 0) * MINUTE_MS;
+
 const sswCache = new Map();
+
+/** The Super Shop Wizard call itself, shared by the tab and the search panel. */
+async function askSsw(name) {
+  const res = await fetch(sswQueryUrl(name), { credentials: 'include' });
+  if (!res.ok) throw new SswError(`Neopets returned ${res.status}.`);
+  return parseSswResponse(await res.json());
+}
+
+const SSW_UNREACHABLE = 'Could not reach the Super Shop Wizard. Are you logged in to Neopets?';
 
 export async function loadShops({ force = false } = {}) {
   if (state.ssw.loading) return;
@@ -226,7 +257,7 @@ export async function loadShops({ force = false } = {}) {
   if (!force) {
     if (state.ssw.data) return;
     const cached = sswCache.get(name);
-    if (cached && Date.now() - cached.at < RESULT_CACHE_MS) {
+    if (cached && Date.now() - cached.at < cacheMs('sswCacheMinutes')) {
       state.ssw = { loading: false, data: cached.data, error: null, at: cached.at };
       return;
     }
@@ -235,18 +266,14 @@ export async function loadShops({ force = false } = {}) {
   const id = requestId;
   state.ssw = { loading: true, data: null, error: null, at: null };
   try {
-    const res = await fetch(sswQueryUrl(name), { credentials: 'include' });
-    if (!res.ok) throw new SswError(`Neopets returned ${res.status}.`);
-    const parsed = parseSswResponse(await res.json());
+    const parsed = await askSsw(name);
     if (id !== requestId) return;
     const at = Date.now();
     sswCache.set(name, { data: parsed, at });
     state.ssw = { loading: false, data: parsed, error: null, at };
   } catch (err) {
     if (id !== requestId) return;
-    state.ssw.error = err instanceof SswError
-      ? err.message
-      : 'Could not reach the Super Shop Wizard. Are you logged in to Neopets?';
+    state.ssw.error = err instanceof SswError ? err.message : SSW_UNREACHABLE;
   } finally {
     if (id === requestId) state.ssw.loading = false;
   }
@@ -254,10 +281,30 @@ export async function loadShops({ force = false } = {}) {
 
 export const retryShops = () => loadShops({ force: true });
 
-// Neopets limits how often you may use either wizard, so results are kept and
-// reused rather than searched again for the same item.
-const RESULT_CACHE_MS = 15 * 60 * 1000;
 const wizCache = new Map();
+
+/**
+ * The regular Shop Wizard call. Neopets rejects this endpoint unless the
+ * request came from the wizard page — "you have been directed to this page
+ * from the wrong place". Referer is a forbidden header for fetch, but
+ * `referrer` is not, and a same-origin URL satisfies the check.
+ */
+async function askWizard(name) {
+  const res = await fetch(WIZARD_URL, {
+    method: 'POST',
+    credentials: 'include',
+    referrer: WIZARD_REFERRER,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: wizardBody(name).toString(),
+  });
+  if (!res.ok) throw new WizardError(`Neopets returned ${res.status}.`);
+  return parseWizardResponse(new DOMParser().parseFromString(await res.text(), 'text/html'));
+}
+
+const WIZ_UNREACHABLE = 'Could not reach the Shop Wizard. Are you logged in to Neopets?';
 
 export async function loadWizard({ force = false } = {}) {
   if (state.wiz.loading) return;
@@ -268,7 +315,7 @@ export async function loadWizard({ force = false } = {}) {
   if (!force) {
     if (state.wiz.data) return;
     const cached = wizCache.get(name);
-    if (cached && Date.now() - cached.at < RESULT_CACHE_MS) {
+    if (cached && Date.now() - cached.at < cacheMs('wizCacheMinutes')) {
       state.wiz = { loading: false, data: cached.data, error: null, at: cached.at, searches: cached.searches };
       return;
     }
@@ -279,22 +326,7 @@ export async function loadWizard({ force = false } = {}) {
   const known = wizCache.get(name);
   state.wiz = { loading: true, data: state.wiz.data, error: null, at: null, searches: known?.searches ?? 0 };
   try {
-    const res = await fetch(WIZARD_URL, {
-      method: 'POST',
-      credentials: 'include',
-      // Neopets rejects this endpoint unless the request came from the wizard
-      // page — "you have been directed to this page from the wrong place".
-      // Referer is a forbidden header for fetch, but `referrer` is not, and
-      // setting it to a same-origin URL satisfies the check.
-      referrer: WIZARD_REFERRER,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: wizardBody(name).toString(),
-    });
-    if (!res.ok) throw new WizardError(`Neopets returned ${res.status}.`);
-    const parsed = parseWizardResponse(new DOMParser().parseFromString(await res.text(), 'text/html'));
+    const parsed = await askWizard(name);
     if (id !== requestId) return;
 
     // Each search returns a different slice, so they accumulate; one row per
@@ -316,7 +348,7 @@ export async function loadWizard({ force = false } = {}) {
       searches: known?.searches ?? 0,
       error: err instanceof WizardError
         ? err.message
-        : 'Could not reach the Shop Wizard. Are you logged in to Neopets?',
+        : WIZ_UNREACHABLE,
     };
   }
 }
@@ -666,6 +698,141 @@ export function togglePanel({ anchor = 'bottom' } = {}) {
     stopWatchingDayRollover();
   }
   onPanelChange?.(state.panelOpen);
+}
+
+/** Replaced wholesale on each scan: the page is the source of truth. */
+export function setPageItems(items) {
+  state.pageItems = Array.isArray(items) ? items : [];
+}
+
+/**
+ * The launcher's buttons all land here. Opening the panel on the view it is
+ * already showing closes it, which is what makes each button a toggle.
+ */
+export function openPanelView(view = 'panel', { anchor = 'bottom' } = {}) {
+  const next = view === 'panel' ? 'tabs' : view;
+
+  // Asking for a view the panel is not showing always shows it, rather than
+  // closing the panel on you.
+  if (state.panelOpen && state.panelView !== next) {
+    state.panelView = next;
+    state.panelAnchor = anchor;
+    return undefined;
+  }
+
+  // Otherwise it is the same button again, so `togglePanel` decides: close it,
+  // or move it when the click came from a different opener.
+  state.panelView = next;
+  return togglePanel({ anchor });
+}
+
+const CACHES = { wiz: () => wizCache, ssw: () => sswCache };
+const CACHE_SETTING = { wiz: 'wizCacheMinutes', ssw: 'sswCacheMinutes' };
+
+export function setSearchQuery(kind, query) {
+  state.search[kind].query = query;
+}
+
+export function setSearchSort(kind, sort) {
+  state.search[kind].sort = sort;
+}
+
+/**
+ * Shops with no price sort last whichever way the list is turned, since "no
+ * price" is not cheaper than anything.
+ */
+function sortRows(listings, sort) {
+  const rows = [...(listings || [])];
+  const dir = sort.endsWith('-desc') ? -1 : 1;
+
+  if (sort.startsWith('price')) {
+    return rows.sort((a, b) => {
+      if (a.price == null) return 1;
+      if (b.price == null) return -1;
+      return (a.price - b.price) * dir;
+    });
+  }
+  return rows.sort((a, b) => String(a.owner || '').localeCompare(String(b.owner || '')) * dir);
+}
+
+/** Rows as this panel should list them. */
+export function sortedListings(kind) {
+  return sortRows(state.search[kind].listings, state.search[kind].sort);
+}
+
+const OTHER_KIND = { wiz: 'ssw', ssw: 'wiz' };
+
+/**
+ * What the *other* wizard already knows about the same item. The two search
+ * the same shops by different means, so a result one of them fetched is worth
+ * showing in either panel rather than spending a second search to rediscover
+ * it. Age is shown and no window applies: this is offered, never substituted
+ * for a search, so a stale list is still worth seeing as long as it says so.
+ */
+export function crossCached(kind) {
+  const name = state.search[kind].name;
+  if (!name) return null;
+
+  const other = OTHER_KIND[kind];
+  const hit = CACHES[other]().get(name);
+  if (!hit?.data?.listings?.length) return null;
+
+  return {
+    kind: other,
+    label: other === 'wiz' ? 'Shop Wizard' : 'Super Shop Wizard',
+    at: hit.at,
+    listings: sortRows(hit.data.listings, state.search[kind].sort),
+  };
+}
+
+/**
+ * Runs a search, or shows what is already known. A cached result inside its
+ * window is displayed as-is and marked as cached rather than searched again —
+ * the whole point of the cache, and the reason the panel says how old it is.
+ */
+export async function runSearch(kind, { force = false } = {}) {
+  const slot = state.search[kind];
+  const name = slot.query.trim();
+  if (!name || slot.loading) return;
+
+  const cache = CACHES[kind]();
+  const known = cache.get(name);
+
+  if (!force && known && Date.now() - known.at < cacheMs(CACHE_SETTING[kind])) {
+    Object.assign(slot, {
+      name, listings: known.data.listings || [], error: null,
+      at: known.at, searches: known.searches ?? 0, fromCache: true,
+    });
+    return;
+  }
+
+  Object.assign(slot, { name, loading: true, error: null, fromCache: false });
+  try {
+    const parsed = kind === 'wiz' ? await askWizard(name) : await askSsw(name);
+    const at = Date.now();
+
+    // The regular wizard returns a different slice each time, so searches add
+    // up; the SSW returns the lot in one go and simply replaces.
+    const listings = kind === 'wiz'
+      ? mergeListings(known?.data?.listings ?? [], parsed.listings)
+      : parsed.listings;
+    const searches = kind === 'wiz' ? (known?.searches ?? 0) + 1 : 1;
+
+    cache.set(name, { data: { ...parsed, listings }, at, searches });
+    Object.assign(slot, { listings, at, searches, error: null });
+  } catch (err) {
+    const expected = err instanceof WizardError || err instanceof SswError;
+    slot.error = expected ? err.message : (kind === 'wiz' ? WIZ_UNREACHABLE : SSW_UNREACHABLE);
+    slot.listings = null;
+  } finally {
+    slot.loading = false;
+  }
+}
+
+/** Search an item straight from the page list, without typing its name. */
+export function searchPageItem(kind, item) {
+  state.search[kind].query = item?.name || '';
+  return runSearch(kind);
 }
 
 export function closePanel() {

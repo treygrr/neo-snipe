@@ -2,7 +2,9 @@ import { findItemElements, describeItem, MARK } from './detect.js';
 import { addBadge, setBadgeState } from './badge.js';
 import {
   addLauncher, setLauncherOpen, setLauncherDraggable, resetLauncherPosition,
+  setLauncherPremium,
 } from './launcher.js';
+import { detectPremium } from '../lib/premium.js';
 import { linkNpAnchorToInventory } from './npanchor.js';
 import { getSettings, HELLO, OPEN_PANEL } from '../lib/messages.js';
 import { api, sendMessage } from '../lib/ext-api.js';
@@ -16,6 +18,12 @@ import { markVisited } from '../lib/daily-visits.js';
  * dynamically import an extension resource).
  */
 export function run(loadUi) {
+  // Everything named on this page, for the search panels to offer as starting
+  // points. Keyed by name so the same item in four places is offered once.
+  const pageItems = new Map();
+  let storeRef = null;
+  const publishItems = () => storeRef?.setPageItems([...pageItems.values()]);
+
   let uiPromise = null;
   function ui() {
     if (!uiPromise) {
@@ -34,15 +42,19 @@ export function run(loadUi) {
         await store.loadFavourites();
         await store.loadSettings();
         await store.detectPremiumFromPage();
+        // Detection may have just changed the answer the launcher was given.
+        setLauncherPremium(store.isPremium());
+        storeRef = store;
+        publishItems();
         return store;
       })();
     }
     return uiPromise;
   }
 
-  async function openPanel({ anchor = 'bottom' } = {}) {
+  async function openPanel({ anchor = 'bottom', view = 'panel' } = {}) {
     const store = await ui();
-    store.togglePanel({ anchor });
+    store.openPanelView(view, { anchor });
   }
 
   async function activate(btn, item) {
@@ -57,6 +69,11 @@ export function run(loadUi) {
     }
   }
 
+  function rememberItem(item) {
+    if (!item?.name || pageItems.has(item.name)) return;
+    pageItems.set(item.name, { name: item.name, imageUrl: item.imageUrl || null });
+  }
+
   function scan(root = document) {
     // Cheap and idempotent, and it has to re-run for the same reason the badge
     // scan does: some pages swap the header out after the first render.
@@ -66,8 +83,10 @@ export function run(loadUi) {
       const item = describeItem(el);
       // Mark unnamed items too, so we don't re-examine them on every mutation.
       if (!item) { el.dataset[MARK] = 'skip'; continue; }
+      rememberItem(item);
       addBadge(el, item, activate);
     }
+    publishItems();
   }
 
   // Neopets loads inventory and quickstock contents after the initial render.
@@ -93,7 +112,20 @@ export function run(loadUi) {
     if (trackDailyVisits) markVisited(location.href).catch(() => {});
   });
 
-  addLauncher(() => { openPanel().catch((err) => console.error('[neo-snipe] panel failed', err)); });
+  addLauncher((view) => {
+    openPanel({ view }).catch((err) => console.error('[neo-snipe] panel failed', err));
+  });
+
+  // The Super Shop Wizard button is Premium-only. The stored answer is what a
+  // previous page worked out; reading this page's nav refines it right away,
+  // which is what makes the button correct on a first-ever load.
+  getSettings().then(async ({ premiumAuto, premium }) => {
+    if (!premiumAuto) return setLauncherPremium(premium);
+    const onPage = detectPremium(document);
+    if (onPage !== null) return setLauncherPremium(onPage);
+    const stored = await api.storage.local.get('premiumDetected').catch(() => ({}));
+    return setLauncherPremium(stored.premiumDetected === true);
+  });
 
   // Tell the worker we are here, so the toolbar button lights up for this tab.
   sendMessage({ type: HELLO }).catch(() => {});

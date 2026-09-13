@@ -182,5 +182,6 @@ export function itemPriceFor(el) {
 export function describeItem(el) {
   const name = itemNameFor(el);
   if (!name) return null;
-  return { name, imageHash: imageHashOf(itemImageUrl(el)), price: itemPriceFor(el) };
+  const imageUrl = itemImageUrl(el);
+  return { name, imageUrl, imageHash: imageHashOf(imageUrl), price: itemPriceFor(el) };
 }

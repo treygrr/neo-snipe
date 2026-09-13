@@ -45,7 +45,9 @@ panel (`togglePanel`, `closePanel`, `showSettings`, `watchPanel`, `watchLauncher
   on and still available, else `popoverTabs()[0]`. That tab is fetched once the lookup lands — every
   tab but price needs the name/id it returns. Otherwise Wizard, SSW and TP fetch **only on tab
   selection**, searches being rate-limited; both paths go through `loadTab` so they cannot drift.
-  Wizard and SSW reuse results for `RESULT_CACHE_MS` (15 min) per item; TP is fetched once per open.
+- Wizard/SSW results are reused per item for `wizCacheMinutes`/`sswCacheMinutes` (`cacheMs()`, 15
+  min, 0 = never); TP is fetched once per open. Within one open `state.wiz.data`/`state.ssw.data`
+  short-circuit first, so the window only bites across opens.
 - Given a bare `[x, y]` point, Vuetify puts the card's **left** edge on it and its top `OFFSET`
   below, whichever way `location` reads — `pointFor` depends on that, and the e2e drag check pins
   the exact movement. Clamp to Vuetify's own `viewportMargin` (12) or our idea of where the card

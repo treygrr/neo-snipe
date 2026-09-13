@@ -1113,10 +1113,12 @@ const settingsView = await inShadow((root) => ({
 }));
 check('the cog opens a settings view', settingsView.shown && settingsView.tabsHidden,
   JSON.stringify(settingsView));
-check('it offers detection, premium, hover, dailies, the margin and the layout switches',
-  settingsView.toggles.length === 9 && /Detect/.test(settingsView.toggles[0])
+check('it offers detection, premium, hover, dailies, the margin, the caches and the layout switches',
+  settingsView.toggles.length === 11 && /Detect/.test(settingsView.toggles[0])
   && /dailies/i.test(settingsView.toggles[3]) && /margin/i.test(settingsView.toggles[4])
-  && settingsView.toggles.slice(5).every((t) => /^(Move|Drag|Reopen) /.test(t)),
+  && /^Shop Wizard cache/.test(settingsView.toggles[5])
+  && /^Super Shop Wizard cache/.test(settingsView.toggles[6])
+  && settingsView.toggles.slice(7).every((t) => /^(Move|Drag|Reopen) /.test(t)),
   JSON.stringify(settingsView.toggles));
 
 // Detection is on by default, so the manual toggle is shown but not editable.
@@ -1342,6 +1344,175 @@ check('the launcher shows the app icon', await page.evaluate(() => {
   return !!icon && getComputedStyle(icon).backgroundImage.startsWith('url("data:image/svg+xml');
 }));
 
+// --- the Shop Wizard / Super Shop Wizard search panels ----------------------
+const panelState = () => inShadow((root) => ({
+  open: !!root.querySelector('.ns-panel'),
+  panels: root.querySelectorAll('.ns-panel').length,
+  title: root.querySelector('.ns-panel-title')?.textContent.trim(),
+  hasSearch: !!root.querySelector('.ns-wiz-input'),
+  hasTabs: !!root.querySelector('.ns-panel-tabs'),
+  items: [...root.querySelectorAll('.ns-wiz-item')].map((b) => ({
+    name: b.querySelector('.ns-wiz-item-name')?.textContent.trim(),
+    thumb: b.querySelector('.ns-wiz-thumb')?.getAttribute('src') || null,
+  })),
+  rows: [...root.querySelectorAll('.ns-wiz-rows:not(.ns-wiz-other) tbody tr')].map((tr) => ({
+    owner: tr.querySelector('.ns-shop-owner')?.textContent.trim(),
+    price: tr.querySelectorAll('td')[1]?.textContent.trim(),
+  })),
+  otherHead: root.querySelector('.ns-wiz-other-head')?.textContent.replace(/\s+/g, ' ').trim() || null,
+  otherRows: root.querySelectorAll('.ns-wiz-other tbody tr').length,
+  sorts: [...root.querySelectorAll('.ns-wiz-sort')].map((b) => b.textContent.trim()),
+  activeSort: root.querySelector('.ns-wiz-sort--on')?.textContent.trim(),
+  freshness: root.querySelector('.ns-wiz-again')?.textContent.trim(),
+}));
+
+// Both buttons carry Neopets' own artwork, at the same size as the rest.
+const barButtons = await page.evaluate(() => {
+  const bar = document.querySelector('.neosnipe-launcher');
+  const glyph = (sel) => {
+    const el = bar.querySelector(sel + ' .neosnipe-launcher-glyph');
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    return { image: cs.backgroundImage, w: cs.width, h: cs.height };
+  };
+  const appIcon = getComputedStyle(bar.querySelector('.neosnipe-launcher-icon'));
+  return {
+    order: [...bar.children].map((c) => c.className.replace('neosnipe-launcher-', '')),
+    sw: glyph('.neosnipe-launcher-sw'),
+    ssw: glyph('.neosnipe-launcher-ssw'),
+    appSize: { w: appIcon.width, h: appIcon.height },
+    sswShown: getComputedStyle(bar.querySelector('.neosnipe-launcher-ssw')).display !== 'none',
+  };
+});
+check('the bar carries the wizard buttons, in order',
+  barButtons.order.join(',') === 'main,sw,ssw,inv', JSON.stringify(barButtons.order));
+check('the Shop Wizard button uses the Neopets icon',
+  barButtons.sw?.image.includes('shopwizard-icon.png'), barButtons.sw?.image);
+check('the SSW button uses the Neopets icon',
+  barButtons.ssw?.image.includes('ssw-icon.svg'), barButtons.ssw?.image);
+check('both wizard icons match the app icon size',
+  barButtons.sw.w === barButtons.appSize.w && barButtons.ssw.w === barButtons.appSize.w
+  && barButtons.sw.h === barButtons.appSize.h,
+  JSON.stringify({ sw: barButtons.sw.w, ssw: barButtons.ssw.w, app: barButtons.appSize.w }));
+check('the SSW button is shown while Premium is on', barButtons.sswShown === true);
+
+// Opening one shows a search panel rather than the favourites tabs.
+const closePanel = async () => {
+  await page.evaluate(() => {
+    const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+    root.querySelector('.ns-panel-head .ns-close')?.click();
+  });
+  await page.waitForTimeout(300);
+};
+
+await closePanel();
+await page.locator('.neosnipe-launcher-sw').click();
+await page.waitForTimeout(600);
+
+const wizPanel = await panelState();
+check('the Shop Wizard button opens its own panel',
+  wizPanel.open && wizPanel.title === 'Shop Wizard' && wizPanel.hasSearch,
+  JSON.stringify({ title: wizPanel.title, search: wizPanel.hasSearch }));
+check('the search panel replaces the favourites tabs', wizPanel.hasTabs === false);
+check('items detected on the page are offered to search',
+  wizPanel.items.length > 0 && wizPanel.items.some((i) => i.name === 'Water Mote'),
+  JSON.stringify(wizPanel.items.slice(0, 3)));
+check('each offered item shows its art inline',
+  wizPanel.items.every((i) => i.thumb && i.thumb.includes('images.neopets.com')),
+  JSON.stringify(wizPanel.items[0]));
+
+const firstItem = wizPanel.items[0].name;
+
+// Clicking one searches it, without the name being typed.
+await page.locator('.ns-wiz-item').first().click();
+await page.waitForTimeout(1500);
+const searched = await panelState();
+check('clicking an item runs a search and lists the shops',
+  searched.rows.length > 0, JSON.stringify(searched.rows.slice(0, 2)));
+check('the results offer the four sorts',
+  searched.sorts.length === 4, JSON.stringify(searched.sorts));
+check('price ascending is the default sort', searched.activeSort === searched.sorts[0],
+  searched.activeSort);
+
+const prices = (rows) => rows.map((r) => Number(String(r.price).replace(/[^0-9]/g, '')));
+const rowOwners = (rows) => rows.map((r) => r.owner);
+check('rows arrive cheapest first',
+  prices(searched.rows).every((n, i, a) => i === 0 || a[i - 1] <= n),
+  JSON.stringify(prices(searched.rows)));
+
+const sortBy = async (index) => {
+  await page.evaluate((i) => {
+    const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+    root.querySelectorAll('.ns-wiz-sort')[i]?.click();
+  }, index);
+  await page.waitForTimeout(300);
+  return (await panelState()).rows;
+};
+
+const desc = await sortBy(1);
+check('sorting by price descending reverses them',
+  prices(desc).every((n, i, a) => i === 0 || a[i - 1] >= n), JSON.stringify(prices(desc)));
+
+const az = await sortBy(2);
+check('sorting A-Z orders by shop owner',
+  rowOwners(az).every((o, i, a) => i === 0 || a[i - 1].localeCompare(o) <= 0), JSON.stringify(rowOwners(az)));
+
+const za = await sortBy(3);
+check('sorting Z-A reverses that',
+  rowOwners(za).join(',') === [...rowOwners(az)].reverse().join(','), JSON.stringify(rowOwners(za)));
+
+await sortBy(0);
+
+// The two panels are independent, and only ever one is open.
+await page.locator('.neosnipe-launcher-ssw').click();
+await page.waitForTimeout(600);
+const sswPanel = await panelState();
+check('the SSW button swaps to its own panel, not a second one',
+  sswPanel.title === 'Super Shop Wizard' && sswPanel.hasSearch && sswPanel.panels === 1,
+  JSON.stringify({ title: sswPanel.title, panels: sswPanel.panels }));
+check('the SSW panel does not inherit the other panel results',
+  sswPanel.rows.length === 0, JSON.stringify(sswPanel.rows));
+
+// Searching the same item here must also surface what the Shop Wizard found.
+await page.locator('.ns-wiz-item').first().click();
+await page.waitForTimeout(1500);
+const sswSearched = await panelState();
+check('the SSW panel searches its own wizard',
+  sswSearched.rows.length > 0, JSON.stringify(sswSearched.rows.slice(0, 2)));
+check('it also shows what the Shop Wizard already cached for that item',
+  /Already found by the Shop Wizard/.test(sswSearched.otherHead || '')
+  && sswSearched.otherRows > 0,
+  JSON.stringify({ head: sswSearched.otherHead, rows: sswSearched.otherRows }));
+
+// And the same in reverse, from the wizard panel.
+await page.locator('.neosnipe-launcher-sw').click();
+await page.waitForTimeout(600);
+const backToWiz = await panelState();
+check('switching back keeps each panel own search',
+  backToWiz.title === 'Shop Wizard' && backToWiz.rows.length > 0,
+  JSON.stringify({ title: backToWiz.title, rows: backToWiz.rows.length }));
+check('the wizard panel shows the SSW cache for the same item',
+  /Already found by the Super Shop Wizard/.test(backToWiz.otherHead || '')
+  && backToWiz.otherRows > 0,
+  JSON.stringify({ head: backToWiz.otherHead, rows: backToWiz.otherRows }));
+// Switching panels shows what each already held; searching the same name
+// again is what exercises the cache, and it must say that is what happened.
+await page.locator('.ns-wiz-input').fill(firstItem);
+await page.locator('.ns-wiz-input').press('Enter');
+await page.waitForTimeout(900);
+const repeated = await panelState();
+check('searching the same name again is served from the cache and says so',
+  /cached/.test(repeated.freshness || ''), repeated.freshness);
+check('the cached view still lists every shop',
+  repeated.rows.length === backToWiz.rows.length,
+  repeated.rows.length + ' vs ' + backToWiz.rows.length);
+
+// Clicking the same button again closes the panel.
+await page.locator('.neosnipe-launcher-sw').click();
+await page.waitForTimeout(400);
+check('the same wizard button again closes the panel',
+  (await panelState()).open === false);
+
 // --- the inventory button on the launcher bar ------------------------------
 const invLink = await page.evaluate(() => {
   const a = document.querySelector('.neosnipe-launcher-inv');
@@ -1529,6 +1700,45 @@ check('a remembered tab that is now hidden falls back to the first',
   hidden.tab === 'Price', JSON.stringify(hidden));
 
 await opts.evaluate(() => chrome.storage.sync.set({ premium: true, rememberPopoverTab: false }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+
+// --- the Shop Wizard cache window -------------------------------------------
+// The cache only comes into it across opens: within one open, `state.wiz.data`
+// already short-circuits the search, which is what the earlier tab-switching
+// checks cover. Every badge here resolves to the same item, so a second open is
+// the same cache key.
+const clickTab = async (label) => {
+  await page.evaluate((l) => {
+    const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+    [...root.querySelectorAll('.ns-tab')].find((t) => t.textContent.trim() === l)?.click();
+  }, label);
+  await page.waitForTimeout(900);
+};
+
+const searchesFor = async (minutes) => {
+  await opts.evaluate((m) => chrome.storage.sync.set({ wizCacheMinutes: m }), minutes);
+  await page.reload();
+  await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+
+  await openBadge(0);
+  await clickTab('SW');
+  const first = wizardSearches;
+
+  await openBadge(1);
+  await clickTab('SW');
+  return { spentOnFirst: first, spentOnSecond: wizardSearches - first };
+};
+
+const kept = await searchesFor(15);
+check('a second open of the same item reuses the cached wizard result',
+  kept.spentOnFirst > 0 && kept.spentOnSecond === 0, JSON.stringify(kept));
+
+const expired = await searchesFor(0);
+check('a zero-minute cache searches again on the next open',
+  expired.spentOnSecond === 1, JSON.stringify(expired));
+
+await opts.evaluate(() => chrome.storage.sync.set({ wizCacheMinutes: 15 }));
 await page.reload();
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 

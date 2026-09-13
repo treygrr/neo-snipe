@@ -14,6 +14,14 @@ const detectedText = computed(() => {
 
 const fileInput = ref(null);
 
+// A day is already far longer than either wizard's results stay useful, and it
+// keeps a stray keystroke from parking a cache somewhere unreachable.
+const MAX_CACHE_MINUTES = 1440;
+const minutes = (event) => Math.min(
+  MAX_CACHE_MINUTES,
+  Math.max(0, Number(event.target.value.replace(/[^\d]/g, '')) || 0),
+);
+
 async function copyExport() {
   if (!state.io.text) await exportSettings();
   try {
@@ -119,6 +127,36 @@ async function pickFile(event) {
             In a shop, the popover marks an item green when Jelly Neo's estimate beats the asking
             price by this much.
           </em>
+        </span>
+      </label>
+
+      <label class="ns-set-row ns-set-row--field">
+        <input
+          class="ns-set-num"
+          inputmode="numeric"
+          :value="state.settings.wizCacheMinutes"
+          @input="setSetting('wizCacheMinutes', minutes($event))"
+        >
+        <span>
+          <strong>Shop Wizard cache (minutes)</strong>
+          <em>
+            How long the Shop Wizard tab reuses a result before spending another search on the
+            same item. Searches are rate-limited, so keep this high unless prices matter more.
+            Zero searches every time you open the tab.
+          </em>
+        </span>
+      </label>
+
+      <label class="ns-set-row ns-set-row--field">
+        <input
+          class="ns-set-num"
+          inputmode="numeric"
+          :value="state.settings.sswCacheMinutes"
+          @input="setSetting('sswCacheMinutes', minutes($event))"
+        >
+        <span>
+          <strong>Super Shop Wizard cache (minutes)</strong>
+          <em>The same, for the SSW tab. It returns a whole shop list at once, so it goes stale faster.</em>
         </span>
       </label>
     </section>

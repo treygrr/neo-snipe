@@ -13,6 +13,7 @@ import {
   panelTabs, movePanelTab,
 } from './store.js';
 import SettingsView from './SettingsView.vue';
+import WizardSearch from './WizardSearch.vue';
 import FoodClub from './FoodClub.vue';
 import { dailiesFor, isPremiumDaily } from '../lib/dailies.js';
 import { startDrag } from '../lib/positions.js';
@@ -124,6 +125,14 @@ const PANEL_TAB_LABELS = {
   foodclub: 'Food Club',
 };
 
+// The panel wears the name of whatever it is currently showing.
+const PANEL_TITLES = {
+  tabs: 'neo-snipe',
+  settings: 'neo-snipe',
+  wiz: 'Shop Wizard',
+  ssw: 'Super Shop Wizard',
+};
+
 const tabDrag = useTabDrag(movePanelTab, () => state.settings.movableTabs);
 
 // Food Club is the one tab that fetches on selection; a drag must not trigger
@@ -186,7 +195,7 @@ function onHeadPointerDown(event) {
         }"
         @pointerdown="onHeadPointerDown"
       >
-        <span class="ns-panel-title">neo-snipe</span>
+        <span class="ns-panel-title">{{ PANEL_TITLES[state.panelView] || 'neo-snipe' }}</span>
         <v-spacer />
         <v-btn
           :icon="mdiCog"
@@ -202,7 +211,7 @@ function onHeadPointerDown(event) {
                aria-label="Close" @click="closePanel" />
       </div>
 
-      <v-tabs v-if="state.panelView !== 'settings'" v-model="state.panelTab"
+      <v-tabs v-if="state.panelView === 'tabs'" v-model="state.panelTab"
               density="compact" height="32" class="ns-panel-tabs">
         <v-tab
           v-for="(id, i) in panelTabs()"
@@ -230,6 +239,12 @@ function onHeadPointerDown(event) {
 
       <div class="ns-panel-body">
         <SettingsView v-if="state.panelView === 'settings'" />
+
+        <WizardSearch
+          v-else-if="state.panelView === 'wiz' || state.panelView === 'ssw'"
+          :key="state.panelView"
+          :kind="state.panelView"
+        />
 
         <!-- Favourites -->
         <template v-else-if="state.panelTab === 'favourites'">

@@ -8,6 +8,11 @@ import { INVENTORY_URL } from '../lib/neopets-search.js';
 
 const CLASS = 'neosnipe-launcher';
 
+// Neopets' own artwork, served from the same host the page already loads its
+// images from, so nothing needs bundling or a web-accessible resource.
+const SW_ICON = 'https://images.neopets.com/themes/h5/basic/images/shopwizard-icon.png';
+const SSW_ICON = 'https://images.neopets.com/premium/shopwizard/ssw-icon.svg';
+
 // The app icon, as a data URI. A data-URI SVG is its own document, so its
 // gradient ids cannot collide with anything Neopets has defined — inlining the
 // markup into the page would risk exactly that.
@@ -42,11 +47,24 @@ const CSS = `
   border: 0; background: transparent; color: inherit; font: inherit;
   border-radius: 13px; cursor: pointer;
 }
-.${CLASS}-main, .${CLASS}-inv { justify-content: center; width: 26px; }
-.${CLASS}-main:hover, .${CLASS}-inv:hover { background: rgba(31,111,235,.12); }
-.${CLASS}-main:focus-visible, .${CLASS}-inv:focus-visible {
+.${CLASS}-main, .${CLASS}-inv, .${CLASS}-sw, .${CLASS}-ssw {
+  justify-content: center; width: 26px;
+}
+.${CLASS} button:hover, .${CLASS} a:hover { background: rgba(31,111,235,.12); }
+.${CLASS} button:focus-visible, .${CLASS} a:focus-visible {
   outline: 2px solid currentColor; outline-offset: -2px;
 }
+
+/* Every button's glyph is the same 20px square, whatever it is drawn from. */
+.${CLASS}-glyph {
+  width: 20px; height: 20px; flex: 0 0 auto;
+  background: center / contain no-repeat;
+}
+.${CLASS}-sw .${CLASS}-glyph { background-image: url("${SW_ICON}"); }
+.${CLASS}-ssw .${CLASS}-glyph { background-image: url("${SSW_ICON}"); }
+
+/* The Super Shop Wizard is Premium-only, so its button is too. */
+.${CLASS}[data-premium="0"] .${CLASS}-ssw { display: none; }
 /* Matched to the app icon above, so the two buttons read as a pair. */
 .${CLASS}-inv svg { width: 20px; height: 20px; display: block; fill: currentColor; }
 
@@ -164,6 +182,29 @@ export function addLauncher(onActivate) {
   main.title = 'neo-snipe — favourites and dailies';
   main.setAttribute('aria-label', main.title);
 
+  // Each opens the panel on its own search view. Same click path as the main
+  // button, so a drag that ends over one does not trigger it either.
+  const viewButton = (view, className, title) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = className;
+    el.title = title;
+    el.setAttribute('aria-label', title);
+    const glyph = document.createElement('span');
+    glyph.className = `${CLASS}-glyph`;
+    el.append(glyph);
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (suppressClick) return;
+      onActivate(view);
+    });
+    return el;
+  };
+
+  const sw = viewButton('wiz', `${CLASS}-sw`, 'Shop Wizard search');
+  const ssw = viewButton('ssw', `${CLASS}-ssw`, 'Super Shop Wizard search');
+
   // A plain link, so it can be middle-clicked or opened in a new tab like any
   // other. Styled as a button because it sits in a row of them.
   const inv = document.createElement('a');
@@ -173,13 +214,13 @@ export function addLauncher(onActivate) {
   inv.setAttribute('aria-label', inv.title);
   inv.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${mdiBagPersonal}"/></svg>`;
 
-  button.append(main, inv);
+  button.append(main, sw, ssw, inv);
 
   main.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
     if (suppressClick) return;
-    onActivate(button);
+    onActivate('panel');
   });
 
   // Dragging hangs off the main button rather than the bar around it. A
@@ -201,4 +242,9 @@ export function addLauncher(onActivate) {
 
 export function setLauncherOpen(open) {
   if (button) button.dataset.open = open ? '1' : '0';
+}
+
+/** The SSW button only exists for accounts that have the Super Shop Wizard. */
+export function setLauncherPremium(on) {
+  if (button) button.dataset.premium = on ? '1' : '0';
 }

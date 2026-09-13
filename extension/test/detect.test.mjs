@@ -68,7 +68,8 @@ test('main shop: inline background-image, name in data-name', async () => {
   // this item. Jelly Neo's id for it is 2243, and Jelly Neo's 8668 is a White
   // Chocolate Aisha. Harvesting it here once made shop lookups return the
   // wrong item, so detection must not surface any id at all.
-  assert.deepEqual(Object.keys(items[0]).sort(), ['imageHash', 'name', 'price', 'tag']);
+  assert.deepEqual(Object.keys(items[0]).sort(),
+    ['imageHash', 'imageUrl', 'name', 'price', 'tag']);
   assert.ok(!JSON.stringify(items).includes('8668'), 'no Neopets id may reach the lookup');
 
   // What the shop is asking, from data-price.
