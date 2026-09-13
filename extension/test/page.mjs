@@ -9,9 +9,10 @@ const fx = (name) =>
 /**
  * A stand-in Neopets page built from markup captured off the live site, so the
  * end-to-end tests exercise the shapes that actually exist:
- * inventory grid, main shop grid, safety deposit box, auctions, trading post.
+ * inventory grid, main shop grid, safety deposit box, auctions, trading post,
+ * caption grid, gallery.
  */
-export const ITEM_COUNT = 17; // 4 inventory + 4 shop + 4 sdb + 1 auction + 1 trade + 3 caption
+export const ITEM_COUNT = 20; // 4 inventory + 4 shop + 4 sdb + 1 auction + 1 trade + 3 caption + 3 gallery
 
 export function buildPage() {
   return `<!doctype html><html><head><title>Neopets</title><style>
@@ -43,6 +44,9 @@ export function buildPage() {
 
     <h1>Caption grid</h1>
     ${fx('caption-grid')}
+
+    <h1>Gallery</h1>
+    ${fx('gallery')}
 
     <h1>Not items</h1>
     <img src="https://images.neopets.com/themes/h5/basic/images/v3/inventory-icon.svg" alt="Inventory" width="80">

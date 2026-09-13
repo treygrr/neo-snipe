@@ -7,6 +7,7 @@
 //   auctions      img            image in src                  name in a sibling <td> link
 //   trading post  img            image in src                  name in p.item-name-text
 //   caption grid  img            image in src                  name in a plain sibling <p>
+//   gallery       img            image in src                  name in a <b> below it, same <td>
 //
 // So an "item" is not necessarily an <img>, and on the grid surfaces `alt` and
 // `title` hold the item *description* rather than its name.
@@ -127,6 +128,30 @@ function nameFromCaption(el) {
 }
 
 /**
+ * Galleries put the art and a bold name in one table cell and nothing more:
+ * `<img title="description"><br><b>Name</b>`. Only the image's own cell is
+ * read, and only after the image — a gallery row holds several items, so
+ * looking any wider could hand this image its neighbour's name.
+ */
+function nameFromCell(el) {
+  const cell = el.closest('td');
+  if (!cell) return null;
+
+  // The cell's direct child holding the art, in case it is wrapped in a link.
+  let start = el;
+  while (start.parentElement && start.parentElement !== cell) start = start.parentElement;
+
+  for (let node = start.nextElementSibling; node; node = node.nextElementSibling) {
+    if (node.tagName === 'IMG' || node.querySelector?.('img')) break; // the next item's art
+    if (node.tagName === 'B' || node.tagName === 'STRONG') {
+      const text = clean(node.textContent);
+      if (text && text.length <= 80) return text;
+    }
+  }
+  return null;
+}
+
+/**
  * Best-effort item name. Returns null rather than guessing — a wrong name is
  * worse than no badge, because it sends Jelly Neo on a pointless lookup.
  */
@@ -146,11 +171,16 @@ export function itemNameFor(el) {
     if (alt) return alt;
   }
 
-  // 4. A name link elsewhere in the listing row.
+  // 4. A bold name under the art in its own gallery cell. Before the row link,
+  //    since a gallery row is several items and its links are not this one's.
+  const inCell = nameFromCell(el);
+  if (inCell) return inCell;
+
+  // 5. A name link elsewhere in the listing row.
   const linked = nameFromRowLink(el);
   if (linked) return linked;
 
-  // 5. An unlabelled caption beside the art.
+  // 6. An unlabelled caption beside the art.
   return nameFromCaption(el);
 }
 

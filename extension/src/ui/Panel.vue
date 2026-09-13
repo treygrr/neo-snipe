@@ -363,11 +363,19 @@ function onHeadPointerDown(event) {
                   :title="tickTitle(item.url)"
                   @click.prevent.stop="toggleDailyVisited(item.url)"
                 />
-                <!-- Keeps untracked rows lined up with the ticked ones. -->
-                <span
+                <!-- Keeps untracked rows lined up with the ticked ones: the same
+                     button, hidden, so it takes exactly the tick's space and the
+                     link's indent rule applies to both. A fixed-width spacer
+                     drifted from the real button and left these labels 18px out. -->
+                <v-btn
                   v-else-if="state.settings.trackDailyVisits"
-                  class="ns-daily-notick"
+                  :icon="mdiCheckCircleOutline"
+                  size="x-small"
+                  variant="text"
+                  class="ns-daily-tick ns-daily-tick--placeholder"
                   aria-hidden="true"
+                  tabindex="-1"
+                  disabled
                 />
                 <a
                   :href="item.url"
@@ -547,8 +555,8 @@ function onHeadPointerDown(event) {
 /* Unlike the heart, an unticked box stays faintly visible: the whole point is
    to see at a glance what is left. */
 .ns-daily-tick { opacity: .25; margin-left: 4px; }
-/* Same width as the tick button, so labels start at one indent either way. */
-.ns-daily-notick { flex: 0 0 auto; width: 28px; margin-left: 4px; }
+/* An untracked daily's stand-in: takes the tick's exact space, shows nothing. */
+.ns-daily-tick--placeholder { visibility: hidden; }
 /* How long until this one is back, for anything not on the midnight clock. */
 .ns-daily-ready {
   flex: 0 0 auto; font-size: 9.5px; opacity: .45;

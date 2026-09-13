@@ -135,3 +135,16 @@ test('caption grid: img in a wrapper, name in a plain sibling <p>', async () => 
   // The regression that mattered: a heading above the art is not the name.
   for (const i of items) assert.notEqual(i.name, 'Rare');
 });
+
+test('gallery: img in a table cell, name in a <b> beneath it', async () => {
+  const items = await detectIn(fixture('gallery'));
+  assert.equal(items.length, 3);
+  assert.deepEqual(items.map((i) => i.name),
+    ['Zombie JubJub Morphing Potion', 'Eo Codestone', 'Fire Jug']);
+  assert.equal(items[0].imageHash, 'pot_zombie_jubjub');
+  // `title` is the description, and the row's gallery link belongs to no item.
+  for (const i of items) {
+    assert.ok(!/potion\.|training|warm/i.test(i.name), 'name must not be the description');
+    assert.notEqual(i.name, 'View whole gallery');
+  }
+});
