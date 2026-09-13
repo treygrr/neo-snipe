@@ -19,7 +19,8 @@ page or a Vue component — callers in the service worker, content script and pa
 | `neopets-search.js` | Link builders only: `SEARCHES` (Trading Post, Auction House), `searchesFor(name)`, and `INVENTORY_URL`. |
 | `premium.js` | `detectPremium(doc)` — reads the site nav for `/premium/` links or SSW widgets; returns `null` (unknown) when no nav is present. |
 | `dailies.js` | The curated daily link table `DAILIES` (grouped label/url), `DAILY_COUNT`, `isPremiumDaily`, and `dailiesFor({ premium })`. |
-| `reset-rules.js` | NST clock helpers (`nstDay`, `nextNstMidnight`, `nextNstMonth`, `nextWindow`, `DAY_MS`), rule constructors (`every`/`hours`/`minutes`/`days`, `windows`, `MONTHLY`, `ANYTIME`, `NST_MIDNIGHT`), the per-URL `resetRuleFor`, `nextResetAfter`, `isTracked`, `describeRule`. |
+| `magma.js` | **neopets.com/magma/pool.phtml + /settings/account.** `MAGMA_POOL_URL`, `MAGMA_CHECK_MS` (10 min, the window's length), `readPoolState(text)` → `open`/`closed`/`unknown`, `ACCOUNT_URL` + `readAccountName(doc)` (`#flag_username`, field or text), `accountKey`, `poolTimeAt` (NST "HH:MM"), `nextPoolOpening`, `isPoolTime`, `cleanPoolTimes`. |
+| `reset-rules.js` | NST clock helpers (`nstDay`, `nextNstMidnight`, `nextNstMonth`, `nextWindow`, `nstClock`, `nextNstTimeOfDay`, `DAY_MS`), rule constructors (`every`/`hours`/`minutes`/`days`, `windows`, `MONTHLY`, `ANYTIME`, `NST_MIDNIGHT`), the per-URL `resetRuleFor`, `nextResetAfter`, `isTracked`, `describeRule`. |
 | `daily-visits.js` | Storage-backed tick state: `dailyUrlFor(pageUrl)` matching, `expiryOf`, `listVisits`, `markVisited`, `toggleVisited`, `clearVisits`, `formatCountdown`; re-exports the reset-rule helpers. |
 | `favorites.js` | `storage.local` lists: item favourites (`favouriteId`, `listFavourites`, `toggleFavourite`, `saveFavourites`, `removeFavourite`), Food Club done marks (`listDoneBets`, `setDoneBets`), daily favourites (`listDailyFavourites`, `saveDailyFavourites`, `toggleDailyFavourite`). |
 | `positions.js` | Device-local panel/launcher positions (`PANEL`, `LAUNCHER`, `readPosition`, `writePosition`, `clearPosition`), plus `clamp` and the shared `startDrag` pointer handler with `DRAG_THRESHOLD`. |
@@ -36,6 +37,9 @@ page or a Vue component — callers in the service worker, content script and pa
   repair through `fullOrder` and move through `moveInOrder` rather than splicing the visible list.
 - **`detectPremium` can return `null`** — unknown, not "no premium".
 - **`reset-rules.js` lists only the exceptions**; any daily URL absent from its table resets at midnight NST.
+- **Magma Pool times are per account** (`magmaPoolTimes`, lowercased username → NST "HH:MM") in synced
+  settings, so they export whether or not checking is on. Import cleans them pair by pair and skips the
+  key when absent, so an older backup cannot wipe times found since. Never mutate the map — replace it.
 
 ---
 **Keep this file current.** When you change anything in this folder, update this file in the same commit.

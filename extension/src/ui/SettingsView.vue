@@ -1,11 +1,13 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { mdiContentCopy, mdiDownload, mdiUpload, mdiFileUpload, mdiRestore } from '@mdi/js';
-import { computed } from 'vue';
 import {
   state, setSetting, exportSettings, importSettings, isPremium,
   resetPanelPosition, resetLauncherPosition, resetTabOrder,
 } from './store.js';
+import { api } from '../lib/ext-api.js';
+import { nextPoolOpening, cleanPoolTimes } from '../lib/magma.js';
+import { formatCountdown } from '../lib/daily-visits.js';
 
 const detectedText = computed(() => {
   if (state.premiumDetected === null) return 'Not checked yet — open a Neopets page.';
@@ -21,6 +23,54 @@ const minutes = (event) => Math.min(
   MAX_CACHE_MINUTES,
   Math.max(0, Number(event.target.value.replace(/[^\d]/g, '')) || 0),
 );
+
+// --- Magma Pool ------------------------------------------------------------
+// The account the checker last saw logged in, which it keeps in local storage.
+// Watched rather than read once, so a time found while this view is open shows.
+const MAGMA_ACCOUNT = 'magmaAccount';
+const poolAccount = ref(null);
+
+async function readPoolAccount() {
+  const { [MAGMA_ACCOUNT]: cached } = await api.storage.local.get(MAGMA_ACCOUNT).catch(() => ({}));
+  poolAccount.value = cached?.name ?? null;
+}
+
+function onStorageChange(changes) {
+  if (MAGMA_ACCOUNT in changes) readPoolAccount();
+  if ('magmaPoolTimes' in changes) state.settings.magmaPoolTimes = changes.magmaPoolTimes.newValue ?? {};
+}
+
+onMounted(() => {
+  readPoolAccount();
+  api.storage.onChanged.addListener(onStorageChange);
+});
+onBeforeUnmount(() => api.storage.onChanged.removeListener(onStorageChange));
+
+const poolRows = computed(() => Object.entries(cleanPoolTimes(state.settings.magmaPoolTimes))
+  .map(([account, time]) => ({
+    account,
+    time,
+    current: account === poolAccount.value,
+    opensIn: formatCountdown(nextPoolOpening(time, state.now) - state.now),
+  }))
+  // This account first, then the rest by name.
+  .sort((a, b) => Number(b.current) - Number(a.current) || a.account.localeCompare(b.account)));
+
+const poolStatus = computed(() => {
+  const account = poolAccount.value;
+  const times = cleanPoolTimes(state.settings.magmaPoolTimes);
+  if (account && times[account]) return null;
+  if (!state.settings.magmaPoolCheck) return 'Switched off. Any times already found are kept, and exported with your settings.';
+  if (!account) return 'Open a Neopets page while logged in to start checking.';
+  return `Looking for ${account}'s time: the pool is checked every 10 minutes while Neopets is open.`;
+});
+
+// A new object, never an edit in place: the default map is shared.
+function forgetPoolTime(account) {
+  const kept = { ...cleanPoolTimes(state.settings.magmaPoolTimes) };
+  delete kept[account];
+  setSetting('magmaPoolTimes', kept);
+}
 
 async function copyExport() {
   if (!state.io.text) await exportSettings();
@@ -161,6 +211,49 @@ async function pickFile(event) {
       </label>
     </section>
 
+    <section class="ns-set-block ns-pool">
+      <h4 class="ns-set-title">Magma Pool</h4>
+      <p class="ns-set-hint">
+        Each account's guard naps for ten minutes at the same Neopets time every day. Once found,
+        the time is kept for that account.
+      </p>
+
+      <label class="ns-set-row">
+        <input
+          type="checkbox"
+          :checked="state.settings.magmaPoolCheck"
+          @change="setSetting('magmaPoolCheck', $event.target.checked)"
+        >
+        <span>
+          <strong>Find my Magma Pool time</strong>
+          <em>
+            Checks the pool every 10 minutes while a Neopets page is open, and adds a volcano
+            button to the bar that turns into a checkmark once your time is found.
+          </em>
+        </span>
+      </label>
+
+      <p v-if="poolStatus" class="ns-pool-status">{{ poolStatus }}</p>
+
+      <div v-if="poolRows.length" class="ns-pool-list">
+        <div
+          v-for="row in poolRows"
+          :key="row.account"
+          class="ns-pool-row"
+          :class="{ 'ns-pool-row--current': row.current }"
+        >
+          <span class="ns-pool-account">
+            {{ row.account }}<em v-if="row.current"> · this account</em>
+          </span>
+          <span class="ns-pool-time">{{ row.time }} NST</span>
+          <span class="ns-pool-in">opens in {{ row.opensIn }}</span>
+          <v-btn size="x-small" variant="text" class="ns-pool-forget" @click="forgetPoolTime(row.account)">
+            Forget
+          </v-btn>
+        </div>
+      </div>
+    </section>
+
     <section class="ns-set-block">
       <h4 class="ns-set-title">Layout</h4>
       <p class="ns-set-hint">
@@ -235,8 +328,8 @@ async function pickFile(event) {
     <section class="ns-set-block">
       <h4 class="ns-set-title">Backup</h4>
       <p class="ns-set-hint">
-        Your settings, favourites and favourited dailies. Cached prices are left out — they come
-        back on their own.
+        Your settings, favourites, favourited dailies and Magma Pool times. Cached prices are left
+        out — they come back on their own.
       </p>
 
       <div class="ns-set-actions">
@@ -288,6 +381,20 @@ async function pickFile(event) {
 .ns-set-row--off input { cursor: not-allowed; }
 .ns-set-row strong { display: block; font-size: 11.5px; font-weight: 600; }
 .ns-set-row em { display: block; font-size: 10px; opacity: .6; font-style: normal; margin-top: 1px; }
+
+.ns-pool-status { font-size: 10.5px; margin: -2px 0 6px 21px; opacity: .7; }
+.ns-pool-list { margin-left: 21px; border: 1px solid rgba(0, 0, 0, .1); border-radius: 6px; overflow: hidden; }
+.ns-pool-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px;
+  padding: 3px 4px 3px 9px; font-size: 11px;
+}
+.ns-pool-row + .ns-pool-row { border-top: 1px solid rgba(0, 0, 0, .07); }
+.ns-pool-row--current { background: rgba(194, 65, 12, .06); }
+.ns-pool-account { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.ns-pool-account em { font-style: normal; font-weight: 400; opacity: .6; }
+.ns-pool-time, .ns-pool-in { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ns-pool-in { opacity: .65; }
+.ns-pool-forget { text-transform: none; letter-spacing: 0; }
 
 .ns-set-actions { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
 .ns-set-box {

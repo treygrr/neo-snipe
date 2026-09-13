@@ -100,6 +100,24 @@ export function nextWindow(at, hoursOfDay) {
   return fromWall(midnight + DAY_MS + starts[0] * 3600_000, at);
 }
 
+/** The NST wall clock at `at`, as "HH:MM". */
+export function nstClock(at = Date.now()) {
+  const p = nstParts(at);
+  return `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`;
+}
+
+/**
+ * The next moment the NST clock reads `hhmm`, strictly after `at`: later today,
+ * or tomorrow once that minute has gone. Used for the Magma Pool, which opens
+ * at the same NST minute every day.
+ */
+export function nextNstTimeOfDay(hhmm, at = Date.now()) {
+  const [hour, minute] = String(hhmm).split(':').map(Number);
+  const wall = wallOf(at);
+  const target = startOfWallDay(wall) + (hour * 60 + minute) * 60_000;
+  return fromWall(target > wall ? target : target + DAY_MS, at);
+}
+
 // --- the rules -------------------------------------------------------------
 
 /** Midnight NST, which is what most dailies do. */

@@ -39,6 +39,13 @@ export const DEFAULTS = {
   // Reopen an item's popover on the tab you were last on, rather than on
   // whichever tab sits first in the order.
   rememberPopoverTab: false,
+  // Look for this account's Magma Pool window every ten minutes while a Neopets
+  // page is open, with its button on the bar. Off by default: it loads a page.
+  magmaPoolCheck: false,
+  // Each account's pool time once found, as NST "HH:MM", keyed by lowercased
+  // username. Kept, and exported, whether or not checking is switched on.
+  // Always replaced, never mutated: this default object is shared.
+  magmaPoolTimes: {},
   panelTabOrder: PANEL_TABS,
   popoverTabOrder: POPOVER_TABS,
 };

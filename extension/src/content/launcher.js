@@ -1,10 +1,13 @@
 // The bottom-right bar. Plain DOM for the same reason the badges are: it sits
 // on every Neopets page, so it must not pull in Vue or Vuetify. Clicking it is
 // what loads the panel.
-import { mdiBagPersonal, mdiDragVertical } from '@mdi/js';
+import {
+  mdiBagPersonal, mdiDragVertical, mdiVolcano, mdiLoading, mdiCheckCircle,
+} from '@mdi/js';
 import iconSvg from '../../icons/icon.svg?raw';
 import { LAUNCHER, readPosition, writePosition, clamp, startDrag } from '../lib/positions.js';
 import { INVENTORY_URL } from '../lib/neopets-search.js';
+import { MAGMA_POOL_URL } from '../lib/magma.js';
 
 const CLASS = 'neosnipe-launcher';
 
@@ -23,6 +26,9 @@ import SSW_ICON from '../../icons/ssw-icon.png?inline';
 const ICON_URL = `data:image/svg+xml,${encodeURIComponent(
   iconSvg.replace('<defs>', '<style>.detail{display:none}</style><defs>'),
 )}`;
+
+// The Magma Pool button's glyph for each state it can be in.
+const MAGMA_GLYPHS = { idle: mdiVolcano, loading: mdiLoading, found: mdiCheckCircle };
 
 const CSS = `
 /* The bar itself is only a container now: it carries the position, the drag
@@ -43,7 +49,7 @@ const CSS = `
   box-shadow: 0 2px 10px rgba(31,111,235,.35);
 }
 
-.${CLASS}-main, .${CLASS}-sw, .${CLASS}-ssw, .${CLASS}-inv {
+.${CLASS}-main, .${CLASS}-sw, .${CLASS}-ssw, .${CLASS}-magma, .${CLASS}-inv {
   display: flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0;
   border: 0; background: transparent; color: inherit; font: inherit;
@@ -66,7 +72,38 @@ const CSS = `
 /* The Super Shop Wizard is Premium-only, so its button is too. */
 .${CLASS}[data-premium="0"] .${CLASS}-ssw { display: none; }
 /* Matched to the app icon above, so the two buttons read as a pair. */
-.${CLASS}-inv svg { width: 20px; height: 20px; display: block; fill: currentColor; }
+.${CLASS}-inv svg, .${CLASS}-magma svg { width: 20px; height: 20px; display: block; fill: currentColor; }
+
+/* The Magma Pool button only exists while checking is switched on. */
+.${CLASS}:not([data-magma]) .${CLASS}-magma,
+.${CLASS}[data-magma="off"] .${CLASS}-magma { display: none; }
+.${CLASS}[data-magma="idle"] .${CLASS}-magma { color: #c2410c; }
+.${CLASS}[data-magma="loading"] .${CLASS}-magma { color: #c2410c; cursor: progress; }
+.${CLASS}[data-magma="loading"] .${CLASS}-magma svg { animation: ${CLASS}-spin .8s linear infinite; }
+.${CLASS}[data-magma="found"] .${CLASS}-magma { color: #2e7d32; }
+@keyframes ${CLASS}-spin { to { transform: rotate(360deg); } }
+
+/* A short message above the bar, which is where the eye already is. */
+.${CLASS}-notice {
+  position: absolute; right: 0; bottom: calc(100% + 8px);
+  display: flex; align-items: flex-start; gap: 8px;
+  box-sizing: border-box; width: max-content; max-width: min(320px, calc(100vw - 32px));
+  padding: 9px 10px 9px 12px; border-radius: 10px;
+  background: #1f2937; color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.28);
+  font: 500 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  cursor: default;
+}
+/* A bar dragged to the top of the window gets its notice underneath instead. */
+.${CLASS}[data-notice-below="1"] .${CLASS}-notice { bottom: auto; top: calc(100% + 8px); }
+.${CLASS}-notice-text { flex: 1 1 auto; min-width: 0; }
+.${CLASS}-notice-link { display: block; margin-top: 3px; color: #fdba74; font-weight: 700; text-decoration: none; }
+.${CLASS}-notice-link:hover { text-decoration: underline; }
+.${CLASS} .${CLASS}-notice-x {
+  flex: 0 0 auto; width: 18px; height: 18px; padding: 0; margin: -2px -2px 0 0;
+  border: 0; border-radius: 9px; background: transparent; color: inherit;
+  font: 16px/18px sans-serif; cursor: pointer; opacity: .7;
+}
+.${CLASS} .${CLASS}-notice-x:hover { opacity: 1; background: rgba(255,255,255,.15); }
 
 /* The handle. Hidden entirely when dragging is switched off, so the bar does
    not offer an affordance that would do nothing. */
@@ -101,12 +138,32 @@ const CSS = `
 
 
 let button = null;
+let magma = null;
+let magmaPath = null;
+let magmaHandler = null;
+let notice = null;
+let noticeTimer = null;
 // Off until settings have been read, so the button cannot be dragged away in
 // the moment before we know whether that is allowed.
 let draggable = false;
 // Set by a drag that actually moved, and cleared on the next tick, so the
 // click the browser fires at the end of a drag does not also open the panel.
 let suppressClick = false;
+
+/**
+ * An SVG glyph built as nodes. innerHTML would do it in a line, but store
+ * reviewers flag every innerHTML assignment, and the path is all that varies.
+ */
+function glyph(d, hidden = true) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  if (hidden) svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('d', d);
+  svg.append(path);
+  return { svg, path };
+}
 
 function place({ x, y }) {
   button.style.left = `${x}px`;
@@ -190,7 +247,7 @@ export function addLauncher(onActivate) {
   grip.className = `${CLASS}-grip`;
   grip.title = 'Drag to move the bar';
   grip.setAttribute('aria-hidden', 'true');
-  grip.innerHTML = `<svg viewBox="0 0 24 24"><path d="${mdiDragVertical}"/></svg>`;
+  grip.append(glyph(mdiDragVertical, false).svg);
 
   // Icon only. The name is carried by the title and the aria-label, which is
   // what a screen reader reads out, so dropping the text costs nothing there.
@@ -211,9 +268,9 @@ export function addLauncher(onActivate) {
     el.className = className;
     el.title = title;
     el.setAttribute('aria-label', title);
-    const glyph = document.createElement('span');
-    glyph.className = `${CLASS}-glyph`;
-    el.append(glyph);
+    const art = document.createElement('span');
+    art.className = `${CLASS}-glyph`;
+    el.append(art);
     el.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -226,6 +283,22 @@ export function addLauncher(onActivate) {
   const sw = viewButton('wiz', `${CLASS}-sw`, 'Shop Wizard search');
   const ssw = viewButton('ssw', `${CLASS}-ssw`, 'Super Shop Wizard search');
 
+  // The Magma Pool: a real link to the pool, so once the time is found it is
+  // an ordinary link. Before that, the checker takes the click instead.
+  magma = document.createElement('a');
+  magma.className = `${CLASS}-magma`;
+  magma.href = MAGMA_POOL_URL;
+  magma.title = 'Magma Pool';
+  magma.setAttribute('aria-label', magma.title);
+  const magmaGlyph = glyph(MAGMA_GLYPHS.idle);
+  magmaPath = magmaGlyph.path;
+  magma.append(magmaGlyph.svg);
+  magma.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (suppressClick) { event.preventDefault(); return; }
+    magmaHandler?.(event, button.dataset.magma || 'off');
+  });
+
   // A plain link, so it can be middle-clicked or opened in a new tab like any
   // other. Styled as a button because it sits in a row of them.
   const inv = document.createElement('a');
@@ -233,9 +306,9 @@ export function addLauncher(onActivate) {
   inv.href = INVENTORY_URL;
   inv.title = 'Your inventory';
   inv.setAttribute('aria-label', inv.title);
-  inv.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${mdiBagPersonal}"/></svg>`;
+  inv.append(glyph(mdiBagPersonal).svg);
 
-  button.append(grip, main, sw, ssw, inv);
+  button.append(grip, main, sw, ssw, magma, inv);
 
   main.addEventListener('click', (event) => {
     event.preventDefault();
@@ -267,4 +340,67 @@ export function setLauncherOpen(open) {
 /** The SSW button only exists for accounts that have the Super Shop Wizard. */
 export function setLauncherPremium(on) {
   if (button) button.dataset.premium = on ? '1' : '0';
+}
+
+/**
+ * The Magma Pool button's state: 'off' hides it, 'idle' shows the volcano,
+ * 'loading' spins, 'found' is a checkmark. `title` says why, on hover.
+ */
+export function setMagmaState(state, title = 'Magma Pool') {
+  if (!button || !magma) return;
+  button.dataset.magma = state;
+  if (MAGMA_GLYPHS[state]) magmaPath.setAttribute('d', MAGMA_GLYPHS[state]);
+  magma.title = title;
+  magma.setAttribute('aria-label', title);
+  magma.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+}
+
+/** Who handles a click on the Magma Pool button: `fn(event, state)`. */
+export function onMagmaClick(fn) {
+  magmaHandler = fn;
+}
+
+export function hideLauncherNotice() {
+  clearTimeout(noticeTimer);
+  notice?.remove();
+  notice = null;
+}
+
+/**
+ * A message above the bar, with an optional link. Replaces any notice already
+ * showing, and goes by itself after `ms`.
+ */
+export function showLauncherNotice(text, { href = null, label = null, ms = 12_000 } = {}) {
+  if (!button) return;
+  hideLauncherNotice();
+
+  notice = document.createElement('div');
+  notice.className = `${CLASS}-notice`;
+  notice.setAttribute('role', 'status');
+
+  const body = document.createElement('div');
+  body.className = `${CLASS}-notice-text`;
+  body.textContent = text;
+  if (href) {
+    const link = document.createElement('a');
+    link.className = `${CLASS}-notice-link`;
+    link.href = href;
+    link.textContent = label || href;
+    body.append(link);
+  }
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = `${CLASS}-notice-x`;
+  close.setAttribute('aria-label', 'Dismiss');
+  close.textContent = '×';
+  close.addEventListener('click', (event) => {
+    event.stopPropagation();
+    hideLauncherNotice();
+  });
+
+  notice.append(body, close);
+  button.dataset.noticeBelow = button.getBoundingClientRect().top < 90 ? '1' : '0';
+  button.append(notice);
+  noticeTimer = setTimeout(hideLauncherNotice, ms);
 }

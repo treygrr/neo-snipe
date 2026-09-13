@@ -89,6 +89,23 @@ await ctx.route('**/np-templates/ajax/wizard.php*', (route) => {
   return route.fulfill({ contentType: 'text/html', body });
 });
 
+// The Magma Pool, open or closed on demand, and slow enough that the checking
+// state can be seen. Counted, because every check is a real page load.
+let magmaOpen = false;
+let magmaLoads = 0;
+const MAGMA_DELAY_MS = 1500;
+await ctx.route('**://www.neopets.com/magma/pool.phtml*', async (route) => {
+  magmaLoads++;
+  await new Promise((r) => setTimeout(r, MAGMA_DELAY_MS));
+  const text = magmaOpen
+    ? "Shhh... Look! The gaurde is sleeping. Maybe you can sneak by him if you're very, very careful... Please select your Neopet to take a swim in the Magma Pool and be painted Magma."
+    : "I'm sorry, only those well-versed in the ways of Moltara are permitted to enter the Pool. Learn more and try again later.";
+  await route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body><p>${text}</p></body></html>`,
+  }).catch(() => {}); // the page may have moved on during the delay
+});
+
 await page.goto('https://www.neopets.com/inventory.phtml');
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 await page.waitForTimeout(900); // let the delayed inventory chunk load + be scanned
@@ -1149,12 +1166,13 @@ const settingsView = await inShadow((root) => ({
 }));
 check('the cog opens a settings view', settingsView.shown && settingsView.tabsHidden,
   JSON.stringify(settingsView));
-check('it offers detection, premium, hover, dailies, the margin, the caches and the layout switches',
-  settingsView.toggles.length === 11 && /Detect/.test(settingsView.toggles[0])
+check('it offers detection, premium, hover, dailies, the margin, the caches, the Magma Pool and the layout switches',
+  settingsView.toggles.length === 12 && /Detect/.test(settingsView.toggles[0])
   && /dailies/i.test(settingsView.toggles[3]) && /margin/i.test(settingsView.toggles[4])
   && /^Shop Wizard cache/.test(settingsView.toggles[5])
   && /^Super Shop Wizard cache/.test(settingsView.toggles[6])
-  && settingsView.toggles.slice(7).every((t) => /^(Move|Drag|Reopen) /.test(t)),
+  && /^Find my Magma Pool time/.test(settingsView.toggles[7])
+  && settingsView.toggles.slice(8).every((t) => /^(Move|Drag|Reopen) /.test(t)),
   JSON.stringify(settingsView.toggles));
 
 // Detection is on by default, so the manual toggle is shown but not editable.
@@ -1424,7 +1442,7 @@ const box = (el) => {
   };
 });
 check('the bar carries the grip and the wizard buttons, in order',
-  barButtons.order.join(',') === 'grip,main,sw,ssw,inv', JSON.stringify(barButtons.order));
+  barButtons.order.join(',') === 'grip,main,sw,ssw,magma,inv', JSON.stringify(barButtons.order));
 // Carried in the bundle, not fetched: hot-linked artwork would leave the
 // buttons blank the day Neopets moves those paths.
 check('the Shop Wizard button carries its icon inline',
@@ -1660,6 +1678,123 @@ await page.waitForTimeout(400);
 check('the same wizard button again closes the panel',
   (await panelState()).open === false);
 
+// --- the Magma Pool checker -------------------------------------------------
+const magmaState = () => page.evaluate(() => {
+  const bar = document.querySelector('.neosnipe-launcher');
+  const btn = bar?.querySelector('.neosnipe-launcher-magma');
+  const svg = btn?.querySelector('svg');
+  return {
+    state: bar?.dataset.magma ?? null,
+    shown: !!btn && getComputedStyle(btn).display !== 'none',
+    href: btn?.getAttribute('href') ?? null,
+    title: btn?.title ?? null,
+    spinning: !!svg && getComputedStyle(svg).animationName !== 'none',
+    notice: bar?.querySelector('.neosnipe-launcher-notice-text')?.textContent.trim() ?? null,
+  };
+});
+const reloadPage = async () => {
+  await page.reload();
+  await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+  await page.waitForTimeout(1000);
+};
+// Ten minutes having passed, without waiting ten minutes.
+const expireMagmaClock = () => opts.evaluate(() =>
+  chrome.storage.local.set({ magmaLastCheck: Date.now() - 11 * 60_000 }));
+
+const magmaOff = await magmaState();
+check('the Magma Pool button is absent while checking is off', magmaOff.shown === false,
+  JSON.stringify(magmaOff));
+check('nothing loads the pool page while checking is off', magmaLoads === 0, `${magmaLoads} loads`);
+
+magmaOpen = false;
+await opts.evaluate(() => chrome.storage.local.remove(['magmaLastCheck', 'magmaAccount']));
+await opts.evaluate(() => chrome.storage.sync.set({ magmaPoolCheck: true, magmaPoolTimes: {} }));
+await page.waitForTimeout(500);
+const magmaChecking = await magmaState();
+check('switching it on adds the button without a reload and starts checking, with a spinner',
+  magmaChecking.shown && magmaChecking.state === 'loading' && magmaChecking.spinning,
+  JSON.stringify(magmaChecking));
+
+await page.waitForTimeout(MAGMA_DELAY_MS + 1000);
+const magmaClosed = await magmaState();
+check('a closed pool leaves the volcano, saying when the next check is',
+  magmaClosed.state === 'idle' && /Next check in 10m/.test(magmaClosed.title || ''),
+  JSON.stringify(magmaClosed));
+check('one check costs one pool load', magmaLoads === 1, `${magmaLoads} loads`);
+
+await page.locator('.neosnipe-launcher-magma').click();
+await page.waitForTimeout(600);
+const magmaEarly = await magmaState();
+check('clicking before ten minutes are up does not check again, and says so',
+  magmaLoads === 1 && /every 10 minutes/.test(magmaEarly.notice || ''),
+  JSON.stringify({ loads: magmaLoads, notice: magmaEarly.notice }));
+check('and the early click does not follow the link to the pool', !page.url().includes('/magma/'),
+  page.url());
+
+await reloadPage();
+check('a new page inside the ten minutes shares the clock instead of checking',
+  magmaLoads === 1, `${magmaLoads} loads`);
+
+// The guard falls asleep.
+magmaOpen = true;
+await expireMagmaClock();
+await page.locator('.neosnipe-launcher-magma').click();
+await page.waitForTimeout(MAGMA_DELAY_MS + 1500);
+const magmaFound = await magmaState();
+const magmaStored = await opts.evaluate(() => chrome.storage.sync.get('magmaPoolTimes'));
+check('a sleeping guard turns the button into a checkmark that links to the pool',
+  magmaFound.state === 'found' && magmaFound.href === 'https://www.neopets.com/magma/pool.phtml',
+  JSON.stringify(magmaFound));
+check('you are told the pool is open, for which account',
+  /Magma Pool is open for testacct/.test(magmaFound.notice || ''), magmaFound.notice);
+check('the NST minute is saved against the logged-in account',
+  /^\d{2}:\d{2}$/.test(magmaStored.magmaPoolTimes?.testacct || ''), JSON.stringify(magmaStored));
+
+const magmaLoadsAtFound = magmaLoads;
+await expireMagmaClock();
+await reloadPage();
+check('once an account has its time, the pool is not checked again',
+  magmaLoads === magmaLoadsAtFound, `${magmaLoads} loads, ${magmaLoadsAtFound} at found`);
+check('and the checkmark is still there after a reload', (await magmaState()).state === 'found');
+
+// The settings panel shows the time, counts down to it, and exports it.
+await page.locator('.neosnipe-launcher-main').click();
+await page.waitForSelector('[data-neosnipe="popover-host"]', { timeout: 10000 });
+await page.waitForTimeout(500);
+await inShadow((root) => root.querySelector('.ns-cog')?.click());
+await page.waitForTimeout(600);
+
+const poolRows = await inShadow((root) => [...root.querySelectorAll('.ns-pool-row')]
+  .map((r) => r.textContent.replace(/\s+/g, ' ').trim()));
+check('settings list the account with its pool time and a countdown',
+  poolRows.some((t) => /testacct/.test(t) && /\d{2}:\d{2} NST/.test(t) && /opens in \S+/.test(t)),
+  JSON.stringify(poolRows));
+
+const exportedPool = async () => {
+  await inShadow((root) => [...root.querySelectorAll('.ns-settings .v-btn')]
+    .find((b) => b.textContent.trim() === 'Export')?.click());
+  await page.waitForTimeout(500);
+  const text = await inShadow((root) => root.querySelector('.ns-set-box')?.value || '');
+  try { return JSON.parse(text).settings; } catch { return null; }
+};
+const exportedOn = await exportedPool();
+check('the export carries the pool time',
+  exportedOn?.magmaPoolCheck === true && /^\d{2}:\d{2}$/.test(exportedOn?.magmaPoolTimes?.testacct || ''),
+  JSON.stringify(exportedOn && { check: exportedOn.magmaPoolCheck, times: exportedOn.magmaPoolTimes }));
+
+// Switched off: the button goes, the time stays.
+await inShadow((root) => [...root.querySelectorAll('.ns-set-row')]
+  .find((r) => /Find my Magma Pool time/.test(r.textContent))?.querySelector('input')?.click());
+await page.waitForTimeout(800);
+check('switching checking off removes the button from the bar', (await magmaState()).shown === false);
+const exportedOff = await exportedPool();
+check('and the found time is still exported while it is off',
+  exportedOff?.magmaPoolCheck === false && /^\d{2}:\d{2}$/.test(exportedOff?.magmaPoolTimes?.testacct || ''),
+  JSON.stringify(exportedOff && { check: exportedOff.magmaPoolCheck, times: exportedOff.magmaPoolTimes }));
+
+await inShadow((root) => root.querySelector('.ns-panel-head .ns-close')?.click());
+await page.waitForTimeout(300);
+
 // --- dragging the bar by its handle ----------------------------------------
 const barBox = () => page.evaluate(() => {
   const r = document.querySelector('.neosnipe-launcher').getBoundingClientRect();
@@ -1670,8 +1805,12 @@ const gripState = () => page.evaluate(() => {
   const r = g.getBoundingClientRect();
   // Left of every button, which is the claim — not flush with the bar's own
   // border box, which its padding puts a few pixels further out.
-  const others = [...document.querySelectorAll('.neosnipe-launcher > :not(.neosnipe-launcher-grip)')]
-    .map((el) => el.getBoundingClientRect().left);
+  // Visible buttons only: a hidden one (the Magma Pool's, while checking is
+  // off) measures at 0, and the notice bubble hangs off to the bar's left.
+  const others = [...document.querySelectorAll('.neosnipe-launcher > :not(.neosnipe-launcher-grip):not(.neosnipe-launcher-notice)')]
+    .map((el) => el.getBoundingClientRect())
+    .filter((r) => r.width > 0)
+    .map((r) => r.left);
   return {
     shown: getComputedStyle(g).display !== 'none',
     hasIcon: !!g.querySelector('svg path[d]'),

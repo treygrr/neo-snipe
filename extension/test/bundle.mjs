@@ -64,11 +64,18 @@ await page.route('**://images.neopets.com/**', (route) =>
 // Safari provides.
 await page.addInitScript(() => {
   const listeners = [];
+  const changeListeners = [];
   const local = {};
   const sync = { hoverOnly: true };
+  // storage.onChanged, as the real one reports it: only keys that changed, each
+  // as { oldValue, newValue }, with the area's name.
+  const notify = (changes, areaName) => {
+    if (!Object.keys(changes).length) return;
+    for (const fn of changeListeners) fn(changes, areaName);
+  };
   // Mirrors chrome.storage semantics: a key, an array of keys, an object of
   // defaults, or null for everything. Getting this wrong hides real bugs.
-  const area = (store) => ({
+  const area = (store, areaName) => ({
     async get(query) {
       if (query === null || query === undefined) return { ...store };
       if (typeof query === 'string') {
@@ -83,8 +90,21 @@ await page.addInitScript(() => {
       for (const k of Object.keys(query)) if (k in store) out[k] = store[k];
       return out;
     },
-    async set(values) { Object.assign(store, values); },
-    async remove(keys) { for (const k of [].concat(keys)) delete store[k]; },
+    async set(values) {
+      const changes = {};
+      for (const [k, v] of Object.entries(values)) changes[k] = { oldValue: store[k], newValue: v };
+      Object.assign(store, values);
+      notify(changes, areaName);
+    },
+    async remove(keys) {
+      const changes = {};
+      for (const k of [].concat(keys)) {
+        if (!(k in store)) continue;
+        changes[k] = { oldValue: store[k] };
+        delete store[k];
+      }
+      notify(changes, areaName);
+    },
   });
 
   globalThis.browser = {
@@ -96,7 +116,17 @@ await page.addInitScript(() => {
         res(undefined);
       }),
     },
-    storage: { local: area(local), sync: area(sync) },
+    storage: {
+      local: area(local, 'local'),
+      sync: area(sync, 'sync'),
+      onChanged: {
+        addListener: (fn) => changeListeners.push(fn),
+        removeListener: (fn) => {
+          const at = changeListeners.indexOf(fn);
+          if (at >= 0) changeListeners.splice(at, 1);
+        },
+      },
+    },
   };
   globalThis.__nsStubReady = true;
 });

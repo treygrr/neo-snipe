@@ -43,6 +43,13 @@ export async function installNeopetsRoutes(page) {
     body: `<!doctype html><html><body>${fc('sets-page.html')}</body></html>`,
   }));
 
+  // The account settings page, which is where the Magma Pool checker reads who
+  // is logged in. Only the element it reads is modelled.
+  await page.route('**://www.neopets.com/settings/account*', (route) => route.fulfill({
+    contentType: 'text/html',
+    body: '<!doctype html><html><body><input id="flag_username" value="TestAcct"></body></html>',
+  }));
+
   // The Super Shop Wizard endpoint, from a real captured response.
   await page.route('**/np-templates/views/shops/ssw/ssw_query.php*', (route) => route.fulfill({
     contentType: 'application/json',

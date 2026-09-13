@@ -1,5 +1,6 @@
 import { api } from './ext-api.js';
 import { DEFAULTS } from './messages.js';
+import { cleanPoolTimes } from './magma.js';
 
 // Bumped only when the shape changes in a way an importer must know about.
 // Import accepts anything from this version or older, and ignores keys it does
@@ -74,6 +75,14 @@ export function parseExport(text) {
   for (const key of SETTING_KEYS) {
     const value = data.settings?.[key];
     const fallback = DEFAULTS[key];
+
+    // An object passes a typeof check whatever it holds, so the pool times are
+    // cleaned pair by pair. Skipped when absent, so an older export does not
+    // wipe times found since.
+    if (key === 'magmaPoolTimes') {
+      if (value !== undefined) settings[key] = cleanPoolTimes(value);
+      continue;
+    }
 
     if (Array.isArray(fallback)) {
       if (Array.isArray(value) && value.every((v) => typeof v === 'string')) settings[key] = value;

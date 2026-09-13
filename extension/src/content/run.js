@@ -6,6 +6,7 @@ import {
 } from './launcher.js';
 import { detectPremium } from '../lib/premium.js';
 import { linkNpAnchorToInventory } from './npanchor.js';
+import { startMagmaPool } from './magma.js';
 import { getSettings, HELLO, OPEN_PANEL } from '../lib/messages.js';
 import { api, sendMessage } from '../lib/ext-api.js';
 // Constants and a storage read only — no Vue, so this stays on the cheap path
@@ -115,6 +116,15 @@ export function run(loadUi) {
   addLauncher((view) => {
     openPanel({ view }).catch((err) => console.error('[neo-snipe] panel failed', err));
   });
+
+  // Needs the bar in place: the checker drives the bar's Magma Pool button.
+  // Isolated, because it is optional: if it fails to start, the badges below
+  // must still go on — an uncaught throw here once left a page with none.
+  try {
+    startMagmaPool();
+  } catch (err) {
+    console.error('[neo-snipe] Magma Pool checker failed to start', err);
+  }
 
   // The Super Shop Wizard button is Premium-only. The stored answer is what a
   // previous page worked out; reading this page's nav refines it right away,

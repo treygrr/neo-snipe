@@ -62,6 +62,29 @@ test('an export from another app is refused', () => {
   assert.throws(() => parseExport(toJson({ ...good, app: 'something-else' })), ImportError);
 });
 
+test('Magma Pool times travel with the settings, account by account', () => {
+  const r = parseExport(toJson({
+    ...good,
+    settings: { ...good.settings, magmaPoolCheck: true, magmaPoolTimes: { MainAcct: '14:23', side: '03:07' } },
+  }));
+  assert.equal(r.settings.magmaPoolCheck, true);
+  assert.deepEqual(r.settings.magmaPoolTimes, { mainacct: '14:23', side: '03:07' });
+});
+
+test('a malformed pool time is dropped, not imported', () => {
+  const r = parseExport(toJson({
+    ...good,
+    settings: { ...good.settings, magmaPoolTimes: { ok: '14:23', bad: '99:99', worse: ['14:23'] } },
+  }));
+  assert.deepEqual(r.settings.magmaPoolTimes, { ok: '14:23' });
+});
+
+test('an export without pool times leaves the ones already found alone', () => {
+  // Absent, not emptied: importing an old file must not wipe times found since.
+  const r = parseExport(toJson(good));
+  assert.ok(!('magmaPoolTimes' in r.settings));
+});
+
 test('malformed input fails with a readable message', () => {
   assert.throws(() => parseExport('not json'), (e) => /valid JSON/.test(e.message));
   assert.throws(() => parseExport('[]'), (e) => /does not look like/.test(e.message));
