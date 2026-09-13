@@ -71,12 +71,49 @@ test('accounts are one key whatever the case', () => {
 
 // --- the logged-in account, from /settings/account ----------------------------
 import { parseHTML } from 'linkedom';
-import { readAccountName, ACCOUNT_URL } from '../src/lib/magma.js';
+import { readAccountName, isAccountPage, ACCOUNT_URL } from '../src/lib/magma.js';
 
 const page = (body) => parseHTML(`<!doctype html><html><body>${body}</body></html>`).document;
 
+test('the username is read from the markup Neopets actually serves', () => {
+  // Captured from https://www.neopets.com/settings/account.
+  assert.equal(readAccountName(page('<div class="settings-ro" id="flag_username" title="vothex">vothex</div>')), 'vothex');
+  // The same name is in `title`, so empty text still yields it.
+  assert.equal(readAccountName(page('<div class="settings-ro" id="flag_username" title="vothex"></div>')), 'vothex');
+});
+
+// The settings page as a fetch receives it (trimmed from a real response): the
+// username div is drawn later by script, so only the site header names the account.
+const SERVED = `
+  <script type="text/javascript">
+  var appInsightsUserName = 'vothex';
+  var userIDApp = appInsightsUserName.replace(/[,;=| ]+/g, "_");
+  </script>
+  <div class="nav-profile-dropdown__2020 nav-toggle-dropdown__2020" id="navprofiledropdown__2020">
+    <div class='nav-profile-dropdown-text' style='margin-top:15px'>Welcome, <a href="/userlookup.phtml?user=vothex" class="text-muted">vothex</a></div>
+    <div class='nav-profile-dropdown-text'>Active Pet: <a href="/petlookup.phtml?pet=Testeh" class='profile-dropdown-link'>Testeh</a></div>
+  </div>
+  <div id="app"></div>`;
+
+test('the fetched settings page, with no #flag_username yet, still names the account', () => {
+  assert.equal(readAccountName(page(SERVED)), 'vothex');
+  // Either header source alone is enough.
+  assert.equal(readAccountName(page(SERVED.replace(/<script[\s\S]*?<\/script>/, ''))), 'vothex');
+  assert.equal(readAccountName(page(SERVED.replace(/Welcome, <a[^>]*>vothex<\/a>/, 'Welcome'))), 'vothex');
+});
+
+test("another user's lookup link is never taken for the account", () => {
+  assert.equal(readAccountName(page('<td><a href="/userlookup.phtml?user=shopowner">shopowner</a></td>')), null);
+});
+
+test('the settings page is recognised with or without its trailing slash', () => {
+  assert.ok(isAccountPage('https://www.neopets.com/settings/account'));
+  assert.ok(isAccountPage('https://www.neopets.com/settings/account/'));
+  assert.ok(!isAccountPage('https://www.neopets.com/settings/privacy/'));
+});
+
 test('the username is read from #flag_username, as a field or as text', () => {
-  assert.equal(ACCOUNT_URL, 'https://www.neopets.com/settings/account');
+  assert.equal(ACCOUNT_URL, 'https://www.neopets.com/settings/account/');
   assert.equal(readAccountName(page('<input id="flag_username" value="MainAcct">')), 'mainacct');
   assert.equal(readAccountName(page('<span id="flag_username"> SideAcct </span>')), 'sideacct');
 });

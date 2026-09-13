@@ -44,10 +44,14 @@ export async function installNeopetsRoutes(page) {
   }));
 
   // The account settings page, which is where the Magma Pool checker reads who
-  // is logged in. Only the element it reads is modelled.
-  await page.route('**://www.neopets.com/settings/account*', (route) => route.fulfill({
+  // is logged in. Modelled as a fetch really receives it: `#flag_username` is
+  // drawn later by the page's script, so only the site header names the account.
+  // `**`, not `*`: a glob star stops at `/`, and the checker asks for `/settings/account/`.
+  await page.route('**://www.neopets.com/settings/account**', (route) => route.fulfill({
     contentType: 'text/html',
-    body: '<!doctype html><html><body><input id="flag_username" value="TestAcct"></body></html>',
+    body: `<!doctype html><html><head><script>var appInsightsUserName = 'TestAcct';</script></head><body>
+      <div class="nav-profile-dropdown__2020"><div class='nav-profile-dropdown-text'>Welcome, <a href="/userlookup.phtml?user=TestAcct" class="text-muted">TestAcct</a></div></div>
+      <div id="app"></div></body></html>`,
   }));
 
   // The Super Shop Wizard endpoint, from a real captured response.

@@ -89,6 +89,22 @@ await ctx.route('**/np-templates/ajax/wizard.php*', (route) => {
   return route.fulfill({ contentType: 'text/html', body });
 });
 
+// The account page, counted here rather than served from routes.mjs, so a test
+// can see the checker re-read who is logged in each time it starts.
+let accountLoads = 0;
+// `**`, not `*`: a glob star stops at `/`, and the checker asks for `/settings/account/`.
+await ctx.route('**://www.neopets.com/settings/account**', (route) => {
+  accountLoads++;
+  return route.fulfill({
+    contentType: 'text/html',
+    // As a fetch really receives it: `#flag_username` is drawn later by the
+    // page's script, so only the site header names the account.
+    body: `<!doctype html><html><head><script>var appInsightsUserName = 'TestAcct';</script></head><body>
+      <div class="nav-profile-dropdown__2020"><div class='nav-profile-dropdown-text'>Welcome, <a href="/userlookup.phtml?user=TestAcct" class="text-muted">TestAcct</a></div></div>
+      <div id="app"></div></body></html>`,
+  });
+});
+
 // The Magma Pool, open or closed on demand, and slow enough that the checking
 // state can be seen. Counted, because every check is a real page load.
 let magmaOpen = false;
@@ -104,6 +120,84 @@ await ctx.route('**://www.neopets.com/magma/pool.phtml*', async (route) => {
     contentType: 'text/html',
     body: `<!doctype html><html><body><p>${text}</p></body></html>`,
   }).catch(() => {}); // the page may have moved on during the delay
+});
+
+// The Quest Log, from the captured replies. A tiny model of the server: running
+// fishing or spinning the named wheel finishes that quest, and claiming removes
+// it from the list, which is what Neopets does. Every request is counted and
+// its body kept, so the tests can see exactly what was spent.
+const ql = (f) => readFileSync(resolve('test/fixtures/questlog', f), 'utf8');
+const QUEST_CARDS = ql('retrieve-daily.html');
+const questServer = { finished: new Set(), claimed: new Set(), posts: [] };
+const questOutput = () => {
+  let html = QUEST_CARDS;
+  for (const id of questServer.finished) {
+    html = html.replace(new RegExp(`(<div id="Quest${id}"[\\s\\S]*?)<div class="ql-task-check"></div>`),
+      '$1<div class="ql-task-check"><div class="ql-task-complete"></div></div>')
+      .replace(`data-quest="${id}" disabled>`, `data-quest="${id}" onclick="claimReward(this)">`);
+  }
+  for (const id of questServer.claimed) {
+    html = html.replace(new RegExp(`<div id="Quest${id}"[\\s\\S]*?Claim Reward</button>\\s*</div></div>\\s*</div>`), '');
+  }
+  return html;
+};
+const recordQuestPost = (route, kind) => {
+  questServer.posts.push({ kind, body: route.request().postData() || '', referrer: route.request().headers().referer || '' });
+};
+await ctx.route('**/np-templates/ajax/questlog/retrieveQuests.php', (route) => {
+  recordQuestPost(route, 'retrieve');
+  return route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ ...JSON.parse(ql('retrieve-daily.json')), output: questOutput() }),
+  });
+});
+await ctx.route('**/np-templates/ajax/questlog/claimRewards.php', (route) => {
+  recordQuestPost(route, 'claim');
+  const id = /name="quest"\r\n\r\n(\d+)/.exec(route.request().postData() || '')?.[1];
+  if (!id || !questServer.finished.has(id)) {
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: false, error: true, errMsg: 'This quest is not complete yet!' }) });
+  }
+  questServer.claimed.add(id);
+  return route.fulfill({ contentType: 'application/json', body: ql('claim-quest-np.json') });
+});
+await ctx.route('**://www.neopets.com/water/fishing.phtml', (route) => {
+  if (route.request().method() !== 'POST') return route.fallback();
+  recordQuestPost(route, 'fishing');
+  questServer.finished.add('352136013');
+  return route.fulfill({ contentType: 'text/html', body: `<!doctype html><html><body>${ql('fishing-result.html')}</body></html>` });
+});
+await ctx.route('**/np-templates/ajax/wheels/getResult.php', (route) => {
+  recordQuestPost(route, 'wheel');
+  if (/type=2/.test(route.request().postData() || '')) questServer.finished.add('352136010');
+  return route.fulfill({ contentType: 'application/json', body: ql('wheel-spin-np.json') });
+});
+
+// The item runner reads the inventory, then a candidate's popup, then uses it.
+// A fetched inventory gets its own small page — the tab itself stays on the
+// stand-in inventory the badge tests use — with the header's active pet in it.
+const QUEST_INVENTORY = `<!doctype html><html><body>
+  <div class="nav-profile-dropdown__2020"><div class='nav-profile-dropdown-text'>Active Pet: <a href="/petlookup.phtml?pet=Testeh" class='profile-dropdown-link'>Testeh</a></div></div>
+  <div class="lazy item-img" data-itemname="Headless Von Roo Plushie" data-itemtype="Plushies" data-objid="1944788389" data-itemvalue="300 NP" data-rarity="70" data-itemset="np"></div>
+  <div class="lazy item-img" data-itemname="Battle Ready!" data-itemtype="Faerie Book" data-objid="1944998704" data-itemvalue="669 NP" data-rarity="60" data-itemset="np" data-image="https://images.neopets.com/items/faeriebook_battleready.gif"></div>
+</body></html>`;
+await ctx.route('**://www.neopets.com/inventory.phtml', (route) => {
+  if (route.request().resourceType() !== 'fetch') return route.fallback();
+  recordQuestPost(route, 'inventory');
+  return route.fulfill({ contentType: 'text/html', body: QUEST_INVENTORY });
+});
+await ctx.route('**/np-templates/views/iteminfo.phtml*', (route) => {
+  recordQuestPost(route, 'iteminfo');
+  const objId = /obj_id=(\d+)/.exec(route.request().url())?.[1];
+  questServer.posts[questServer.posts.length - 1].objId = objId;
+  const body = objId === '1944998704'
+    ? '<form action="useobject.phtml" method="post"><input type="hidden" name="obj_id" value="1944998704"><div id="iteminfo_select_action"><select name="action"><option value="">Choose an Action</option><option value="Feed to Rengargh">Feed to Rengargh.</option><option value="Read to Testeh">Read to Testeh.</option><option value="safetydeposit">Put into your Safety Deposit Box</option></select></div></form>'
+    : ql('iteminfo-plushie.html');
+  return route.fulfill({ contentType: 'text/html', body });
+});
+await ctx.route('**/np-templates/views/useobject.phtml', (route) => {
+  recordQuestPost(route, 'use');
+  if (/action=Read\+to\+Testeh/.test(route.request().postData() || '')) questServer.finished.add('352136012');
+  return route.fulfill({ contentType: 'text/html', body: ql('use-read-book.html') });
 });
 
 await page.goto('https://www.neopets.com/inventory.phtml');
@@ -1442,7 +1536,7 @@ const box = (el) => {
   };
 });
 check('the bar carries the grip and the wizard buttons, in order',
-  barButtons.order.join(',') === 'grip,main,sw,ssw,magma,inv', JSON.stringify(barButtons.order));
+  barButtons.order.join(',') === 'grip,main,sw,ssw,quests,magma,inv', JSON.stringify(barButtons.order));
 // Carried in the bundle, not fetched: hot-linked artwork would leave the
 // buttons blank the day Neopets moves those paths.
 check('the Shop Wizard button carries its icon inline',
@@ -1678,6 +1772,281 @@ await page.waitForTimeout(400);
 check('the same wizard button again closes the panel',
   (await panelState()).open === false);
 
+// --- the Quest Log panel ------------------------------------------------------
+// Neopets puts its session token on every page. The stand-in page has none, so
+// one is added the way some real forms carry it.
+await page.evaluate(() => {
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = '_ref_ck';
+  input.value = '0123456789abcdef0123456789abcdef';
+  document.body.append(input);
+});
+
+const questView = () => inShadow((root) => ({
+  title: root.querySelector('.ns-panel-title')?.textContent.trim(),
+  bonus: root.querySelector('.ns-quests-bonus')?.textContent.replace(/\s+/g, ' ').trim() || null,
+  expiry: root.querySelector('.ns-quests-expiry')?.textContent.trim() || null,
+  error: root.querySelector('.ns-quests-error')?.textContent.replace(/\s+/g, ' ').trim() || null,
+  toast: root.querySelector('.ns-toast-text')?.textContent.trim() || null,
+  quests: [...root.querySelectorAll('.ns-quest')].map((q) => ({
+    title: q.querySelector('.ns-quest-title')?.textContent.replace(/\s+/g, ' ').trim(),
+    run: q.querySelector('.ns-quest-run')?.textContent.trim() || null,
+    claim: !!q.querySelector('.ns-quest-claim'),
+    link: q.querySelector('.ns-quest-link')?.getAttribute('href') || null,
+  })),
+}));
+const questPosts = (kind) => questServer.posts.filter((p) => p.kind === kind);
+const questNamed = (view, title) => view.quests.find((q) => q.title.includes(title));
+const pressQuest = (title, selector) => inShadow((root, [t, s]) => {
+  const row = [...root.querySelectorAll('.ns-quest')]
+    .find((q) => q.querySelector('.ns-quest-title')?.textContent.includes(t));
+  const btn = row?.querySelector(s);
+  btn?.click();
+  return !!btn;
+}, [title, selector]);
+const formField = (body, name) => new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`).exec(body || '')?.[1] ?? null;
+
+check('nothing reads the Quest Log before its panel is opened', questPosts('retrieve').length === 0,
+  `${questPosts('retrieve').length} reads`);
+
+await page.locator('.neosnipe-launcher-quests').click();
+await page.waitForSelector('[data-neosnipe="popover-host"]', { timeout: 10000 });
+await page.waitForTimeout(900);
+const questsOpen = await questView();
+check("the bar's Quest Log button opens the panel on the Quest Log", questsOpen.title === 'Quest Log',
+  JSON.stringify(questsOpen.title));
+const firstRead = questPosts('retrieve')[0];
+check("opening it reads today's quests once, with the page's token",
+  questPosts('retrieve').length === 1
+  && formField(firstRead?.body, '_ref_ck') === '0123456789abcdef0123456789abcdef'
+  && formField(firstRead?.body, 'tab') === '2',
+  JSON.stringify({ reads: questPosts('retrieve').length, ck: formField(firstRead?.body, '_ref_ck'), tab: formField(firstRead?.body, 'tab') }));
+check("all six quests are listed, in Neopets' order",
+  questsOpen.quests.map((q) => q.title).join('|')
+    === 'Purchase an Item|Spin the Wheel|Customise a Pet|Play a Game|Go Fishing|Read to a Pet',
+  JSON.stringify(questsOpen.quests.map((q) => q.title)));
+check('the bonus and the time to reset are shown',
+  questsOpen.bonus === 'Bonus 0/5' && /^resets in \S/.test(questsOpen.expiry || ''),
+  JSON.stringify({ bonus: questsOpen.bonus, expiry: questsOpen.expiry, error: questsOpen.error }));
+const runButtons = Object.fromEntries(questsOpen.quests.map((q) => [q.title, q.run]));
+check('fishing, the named wheel, the item quest and shopping get buttons, and nothing else does',
+  runButtons['Go Fishing'] === 'Fish' && runButtons['Spin the Wheel'] === 'Spin' && runButtons['Read to a Pet'] === 'Read'
+  && runButtons['Purchase an Item'] === 'Shop' && runButtons['Customise a Pet'] === 'Customise'
+  && ['Play a Game'].every((t) => runButtons[t] === null),
+  JSON.stringify(runButtons));
+check('every quest links to where it is done by hand, the wheel to the wheel it names',
+  questsOpen.quests.every((q) => /^https:\/\/www\.neopets\.com\//.test(q.link || ''))
+  && questNamed(questsOpen, 'Spin the Wheel')?.link === 'https://www.neopets.com/faerieland/wheel.phtml',
+  JSON.stringify(questsOpen.quests.map((q) => q.link)));
+check('no claim buttons while nothing is finished', questsOpen.quests.every((q) => !q.claim));
+
+// Fish.
+await pressQuest('Go Fishing', '.ns-quest-run');
+await page.waitForTimeout(1200);
+const afterFish = await questView();
+check('Fish posts the fishing form once, as the vortex page does',
+  questPosts('fishing').length === 1 && questPosts('fishing')[0].body === 'go_fish=1'
+  && questPosts('fishing')[0].referrer === 'https://www.neopets.com/water/fishing.phtml',
+  JSON.stringify(questPosts('fishing')));
+check('and says what was caught', /reeled in Waterfish!.*skill is now 7/.test(afterFish.toast || ''), afterFish.toast);
+check('the list is read again, and fishing now offers its reward',
+  questPosts('retrieve').length === 2 && questNamed(afterFish, 'Go Fishing')?.claim === true
+  && !questNamed(afterFish, 'Go Fishing')?.run,
+  JSON.stringify({ reads: questPosts('retrieve').length, fishing: questNamed(afterFish, 'Go Fishing') }));
+
+// Claim.
+const hasNpCounter = await page.evaluate(() => !!document.getElementById('npanchor'));
+await pressQuest('Go Fishing', '.ns-quest-claim');
+await page.waitForTimeout(1200);
+const afterClaim = await questView();
+const claimPost = questPosts('claim')[0];
+check("Claim posts that quest's id, with the token",
+  questPosts('claim').length === 1 && formField(claimPost?.body, 'mode') === 'quest'
+  && formField(claimPost?.body, 'quest') === '352136013'
+  && formField(claimPost?.body, '_ref_ck') === '0123456789abcdef0123456789abcdef',
+  JSON.stringify({ claims: questPosts('claim').length, mode: formField(claimPost?.body, 'mode'), quest: formField(claimPost?.body, 'quest') }));
+check('and reports the NP it gave', /Claimed 3,286 NP for "Go Fishing"/.test(afterClaim.toast || ''), afterClaim.toast);
+check('a claimed quest leaves the list, as it does on Neopets',
+  afterClaim.quests.length === 5 && !questNamed(afterClaim, 'Go Fishing'),
+  JSON.stringify(afterClaim.quests.map((q) => q.title)));
+if (hasNpCounter) {
+  const np = await page.evaluate(() => document.getElementById('npanchor').textContent.trim());
+  check("the header's NP counter shows the new total", np === '946,017', np);
+}
+
+// Spin.
+await pressQuest('Spin the Wheel', '.ns-quest-run');
+await page.waitForTimeout(1200);
+const afterSpin = await questView();
+const spinPost = questPosts('wheel')[0];
+check("Spin posts the Wheel of Excitement's type, as its page does",
+  questPosts('wheel').length === 1 && spinPost.body === 'type=2&token='
+  && spinPost.referrer === 'https://www.neopets.com/faerieland/wheel.phtml',
+  JSON.stringify(questPosts('wheel')));
+check('and says what it landed on', /Wheel of Excitement: 2,500 NP/.test(afterSpin.toast || ''), afterSpin.toast);
+check('the wheel quest can now be claimed', questNamed(afterSpin, 'Spin the Wheel')?.claim === true,
+  JSON.stringify(questNamed(afterSpin, 'Spin the Wheel')));
+// Read to a Pet: the runner picks the book, not the cheaper plushie, asks that
+// book's own popup, and reads it to the active pet named in the header.
+await pressQuest('Read to a Pet', '.ns-quest-run');
+await page.waitForTimeout(1500);
+const afterRead = await questView();
+const usePost = questPosts('use')[0];
+check('Read looks up the inventory, then only the book it means to use',
+  questPosts('inventory').length === 1
+  && questPosts('iteminfo').length === 1 && questPosts('iteminfo')[0].objId === '1944998704',
+  JSON.stringify({ inventory: questPosts('inventory').length, iteminfo: questPosts('iteminfo').map((p) => p.objId) }));
+check('and reads it to the active pet, exactly as the inventory page posts it',
+  questPosts('use').length === 1 && usePost.body === 'obj_id=1944998704&action=Read+to+Testeh&petcare=0',
+  JSON.stringify(questPosts('use')));
+check('and says which item went, and what the pet thought',
+  /Used Battle Ready! on Testeh\. Testeh says 'Thats one of my favourites, thanks!!'/.test(afterRead.toast || ''),
+  afterRead.toast);
+check('the read quest can now be claimed', questNamed(afterRead, 'Read to a Pet')?.claim === true,
+  JSON.stringify(questNamed(afterRead, 'Read to a Pet')));
+
+check('nothing ran that was not pressed',
+  questPosts('fishing').length === 1 && questPosts('wheel').length === 1 && questPosts('claim').length === 1
+  && questPosts('use').length === 1,
+  JSON.stringify({ fishing: questPosts('fishing').length, wheel: questPosts('wheel').length, claim: questPosts('claim').length, use: questPosts('use').length }));
+
+// The bar's count of quests ready to claim: written whenever the panel reads
+// the list, and shared through storage with every tab.
+const questCount = () => page.evaluate(() => {
+  const btn = document.querySelector('.neosnipe-launcher-quests');
+  return { count: btn?.querySelector('.neosnipe-launcher-count')?.textContent ?? null, title: btn?.title ?? null };
+});
+const countAfterRuns = await questCount();
+check('the Quest Log button counts the quests ready to claim',
+  countAfterRuns.count === '2' && /2 ready to claim/.test(countAfterRuns.title || ''), JSON.stringify(countAfterRuns));
+await opts.evaluate(() => chrome.storage.local.set({ questReady: { count: 12, at: Date.now() } }));
+await page.waitForTimeout(400);
+const countMany = await questCount();
+check("another tab's count reaches this one, shown as 9+ past nine", countMany.count === '9+', JSON.stringify(countMany));
+await opts.evaluate(() => chrome.storage.local.set({ questReady: { count: 0, at: Date.now() } }));
+await page.waitForTimeout(400);
+const countNone = await questCount();
+check('with nothing to claim the count goes away', countNone.count === null && countNone.title === 'Quest Log',
+  JSON.stringify(countNone));
+
+// --- the Purchase an Item helper ---------------------------------------------
+// Every shop answers with the captured in-stock page, so whichever shop is
+// picked at random its cheapest item is Battle Ready! at 669 NP. The haggle
+// page counts POSTs: the helper must never send one.
+let hagglePosts = 0;
+await ctx.route((url) => url.hostname === 'www.neopets.com' && url.pathname === '/objects.phtml'
+  && url.searchParams.get('type') === 'shop', (route) => route.fulfill({
+  contentType: 'text/html',
+  body: `<!doctype html><html><body>${ql('shop-in-stock.html')}</body></html>`,
+}));
+await ctx.route((url) => url.hostname === 'www.neopets.com' && url.pathname === '/haggle.phtml', (route) => {
+  if (route.request().method() === 'POST') hagglePosts++;
+  const accepted = new URL(route.request().url()).searchParams.get('accepted') === '1';
+  return route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body>${ql(accepted ? 'haggle-accepted.html' : 'haggle-offer.html')}</body></html>`,
+  });
+});
+const shopPlan = async () => (await opts.evaluate(() => chrome.storage.local.get('questShopping'))).questShopping ?? null;
+
+const shopTabOpened = ctx.waitForEvent('page', { timeout: 10000 });
+await pressQuest('Purchase an Item', '.ns-quest-run');
+const shopTab = await shopTabOpened;
+await shopTab.waitForURL(/objects\.phtml\?type=shop&obj_type=\d+$/, { timeout: 15000 });
+await shopTab.waitForSelector('.neosnipe-shop-target', { timeout: 10000 }).catch(() => {});
+const planned = await shopPlan();
+const marked = await shopTab.evaluate(() => {
+  const card = document.querySelector('.neosnipe-shop-target');
+  return {
+    name: card?.querySelector('.item-name')?.textContent.trim() ?? null,
+    label: card?.querySelector('.neosnipe-shop-label')?.textContent.trim() ?? null,
+    marks: document.querySelectorAll('.neosnipe-shop-target').length,
+  };
+});
+check('Shop saves a plan for the quest: a random shop with stock and its cheapest item',
+  planned?.questId === '352136009' && planned.total === 3 && planned.remaining === 3
+  && planned.item?.name === 'Battle Ready!' && planned.item?.price === 669
+  && shopTab.url().endsWith(`obj_type=${planned.shopId}`),
+  JSON.stringify({ planned, url: shopTab.url() }));
+check('and opens that shop in a new tab with just that item marked',
+  marked.marks === 1 && marked.name === 'Battle Ready!' && /buy 1 of 3/.test(marked.label || ''), JSON.stringify(marked));
+
+// You click the item and Yes; that lands on its haggle page.
+await shopTab.goto('https://www.neopets.com/haggle.phtml?obj_info_id=8982&stock_id=617600191&g=3');
+await shopTab.waitForTimeout(1500);
+const haggleState = await shopTab.evaluate(() => ({
+  offer: document.querySelector('input[name="current_offer"]')?.value ?? null,
+  focused: document.activeElement?.value ?? document.activeElement?.tagName ?? null,
+}));
+check('the haggle page gets the asking price filled in and Haggle! focused, and nothing is sent',
+  haggleState.offer === '669' && haggleState.focused === 'Haggle!' && hagglePosts === 0,
+  JSON.stringify({ ...haggleState, hagglePosts }));
+
+// You press Haggle!; the shopkeeper accepts.
+await shopTab.goto('https://www.neopets.com/haggle.phtml?accepted=1');
+await shopTab.waitForTimeout(2500);
+const afterBuy = await shopPlan();
+const buyNotice = await shopTab.evaluate(() => ({
+  text: document.querySelector('.neosnipe-launcher-notice-text')?.textContent.trim() ?? null,
+  href: document.querySelector('.neosnipe-launcher-notice-link')?.getAttribute('href') ?? null,
+}));
+check('a buy that went through is counted, and the next shop is offered as a link to follow',
+  afterBuy?.remaining === 2 && /Bought Battle Ready! for 669 NP \(1 of 3\)/.test(buyNotice.text || '')
+  && /objects\.phtml\?type=shop&obj_type=\d+$/.test(buyNotice.href || ''),
+  JSON.stringify({ remaining: afterBuy?.remaining, notice: buyNotice }));
+await shopTab.reload();
+await shopTab.waitForTimeout(1500);
+check('reloading the accepted page does not count the buy twice', (await shopPlan())?.remaining === 2,
+  JSON.stringify((await shopPlan())?.remaining));
+check('and the helper never submitted a haggle itself', hagglePosts === 0, `${hagglePosts} posts`);
+await shopTab.close();
+
+// --- Customise a Pet ------------------------------------------------------------
+// The runner reads who is logged in and the active pet from the page header, so
+// the stand-in page gets one the way every real page carries it.
+await page.evaluate(() => {
+  const nav = document.createElement('div');
+  nav.className = 'nav-profile-dropdown__2020';
+  nav.innerHTML = `<div class="nav-profile-dropdown-text">Welcome, <a href="/userlookup.phtml?user=vothex" class="text-muted">vothex</a></div>
+    <div class="nav-profile-dropdown-text">Active Pet: <a href="/petlookup.phtml?pet=Testeh" class="profile-dropdown-link">Testeh</a></div>`;
+  nav.hidden = true;
+  document.body.append(nav);
+});
+const customisePosts = [];
+await ctx.route('**/amfphp/services/jss/apiservices.phtml', (route) => {
+  const body = route.request().postData() || '';
+  const method = formField(body, 'method');
+  customisePosts.push({ method, username: formField(body, 'username'), petname: formField(body, 'petname'), equipped: formField(body, 'equippedbyzone') });
+  if (method === 'custompetsavedata') {
+    questServer.finished.add('352136011');
+    return route.fulfill({ contentType: 'text/html', body: ql('customise-save.json') });
+  }
+  return route.fulfill({ contentType: 'application/json', body: ql('customise-editor.json') });
+});
+
+await pressQuest('Customise a Pet', '.ns-quest-run');
+await page.waitForTimeout(1500);
+const afterCustomise = await questView();
+const saves = customisePosts.filter((p) => p.method === 'custompetsavedata').map((p) => JSON.parse(p.equipped || 'null'));
+const original = { 3: 10618245, 45: 10618158 };
+const added = saves[0] ? Object.entries(saves[0]).filter(([z]) => !(z in original)) : [];
+check("Customise loads the active pet's wardrobe for the logged-in account",
+  customisePosts[0]?.method === 'custompeteditordata' && customisePosts[0]?.username === 'vothex' && customisePosts[0]?.petname === 'Testeh',
+  JSON.stringify(customisePosts[0]));
+check('then saves the outfit with exactly one wearable added and nothing taken off',
+  saves.length === 2 && added.length === 1 && Object.entries(original).every(([z, id]) => saves[0][z] === id)
+  && [10618239, 10618241, 5755845, 6742490].includes(added[0][1]),
+  JSON.stringify(saves));
+check('then saves the original outfit back', JSON.stringify(saves[1]) === JSON.stringify(original), JSON.stringify(saves[1]));
+check('and says what it tried on', /Customised Testeh: tried on .+, then put their outfit back as it was\./.test(afterCustomise.toast || ''),
+  afterCustomise.toast);
+check('the customise quest can now be claimed', questNamed(afterCustomise, 'Customise a Pet')?.claim === true,
+  JSON.stringify(questNamed(afterCustomise, 'Customise a Pet')));
+
+await inShadow((root) => root.querySelector('.ns-panel-head .ns-close')?.click());
+await page.waitForTimeout(300);
+
 // --- the Magma Pool checker -------------------------------------------------
 const magmaState = () => page.evaluate(() => {
   const bar = document.querySelector('.neosnipe-launcher');
@@ -1705,6 +2074,7 @@ const magmaOff = await magmaState();
 check('the Magma Pool button is absent while checking is off', magmaOff.shown === false,
   JSON.stringify(magmaOff));
 check('nothing loads the pool page while checking is off', magmaLoads === 0, `${magmaLoads} loads`);
+check('nor the account page', accountLoads === 0, `${accountLoads} loads`);
 
 magmaOpen = false;
 await opts.evaluate(() => chrome.storage.local.remove(['magmaLastCheck', 'magmaAccount']));
@@ -1731,9 +2101,14 @@ check('clicking before ten minutes are up does not check again, and says so',
 check('and the early click does not follow the link to the pool', !page.url().includes('/magma/'),
   page.url());
 
+const accountLoadsBeforeReload = accountLoads;
 await reloadPage();
 check('a new page inside the ten minutes shares the clock instead of checking',
   magmaLoads === 1, `${magmaLoads} loads`);
+// The name read moments ago is well inside its ten minutes, so a fetch here is
+// the page start asking, not an expired cache.
+check('starting on a new page reads the username from the settings page again',
+  accountLoads > accountLoadsBeforeReload, `${accountLoadsBeforeReload} -> ${accountLoads}`);
 
 // The guard falls asleep.
 magmaOpen = true;

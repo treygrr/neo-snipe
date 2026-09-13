@@ -1,0 +1,38 @@
+{
+  "editordata": {
+    "_explicitType": "customNeopet.EditorDataVO",
+    "custom_pet": {
+      "_explicitType": "customNeopet.CustomNeopetVO",
+      "name": "Testeh",
+      "owner": "vothex",
+      "slot": 1,
+      "body_id": 836,
+      "equipped_by_zone": {
+        "3": { "_explicitType": "customNeopet.EquippedItemAssetVO", "asset_id": 24096, "zone_id": 3, "closet_obj_id": 10618245 },
+        "45": { "_explicitType": "customNeopet.EquippedItemAssetVO", "asset_id": 676570, "zone_id": 45, "closet_obj_id": 10618158 }
+      }
+    },
+    "closet_items": {
+      "10618245": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 10618245, "obj_info_id": 900001, "applied_to": "Testeh", "is_wishlist": false, "expiration": "N/A" },
+      "10618158": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 10618158, "obj_info_id": 900002, "applied_to": "Testeh", "is_wishlist": false, "expiration": "N/A" },
+      "5755845": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 5755845, "obj_info_id": 41960, "applied_to": "", "is_wishlist": false, "expiration": "N/A" },
+      "6742490": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 6742490, "obj_info_id": 63661, "applied_to": "", "is_wishlist": false, "expiration": "N/A" },
+      "10618239": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 10618239, "obj_info_id": 78334, "applied_to": "", "is_wishlist": false, "expiration": "N/A" },
+      "10618241": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 10618241, "obj_info_id": 82011, "applied_to": "", "is_wishlist": false, "expiration": "N/A" },
+      "900101": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 900101, "obj_info_id": 37748, "applied_to": "", "is_wishlist": false, "expiration": "N/A" },
+      "900102": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 900102, "obj_info_id": 63661, "applied_to": "Rengargh", "is_wishlist": false, "expiration": "N/A" },
+      "900103": { "_explicitType": "customNeopet.ClosetItemVO", "closet_obj_id": 900103, "obj_info_id": 999999, "applied_to": "", "is_wishlist": false, "expiration": "N/A" }
+    },
+    "object_info_registry": {
+      "900001": { "_explicitType": "customNeopet.ItemDataVO", "obj_info_id": 900001, "name": "Haunted Trees Background", "assets_by_zone": { "3": 24096 }, "zones_restrict": "0000000000000000000000000000000000000000000000000000", "is_compatible": true, "is_paid": false },
+      "900002": { "_explicitType": "customNeopet.ItemDataVO", "obj_info_id": 900002, "name": "Pile of Treasure Foreground", "assets_by_zone": { "45": 676570 }, "zones_restrict": "0000000000000000000000000000000000000000000000000000", "is_compatible": true, "is_paid": false },
+      "41960": { "_explicitType": "customNeopet.ItemDataVO", "obj_info_id": 41960, "name": "Confetti Shower", "assets_by_zone": { "52": 1 }, "zones_restrict": "0000000000000000000000000000000000000000000000000000", "is_compatible": true, "is_paid": true },
+      "63661": { "_explicitType": "customNeopet.ItemDataVO", "obj_info_id": 63661, "name": "Intricate Border Ink Frame", "assets_by_zone": { "44": 1 }, "zones_restrict": "0000000000000000000000000000000000000000000000000000", "is_compatible": true, "is_paid": false },
+      "78334": { "_explicitType": "customNeopet.ItemDataVO", "obj_info_id": 78334, "name": "Sunny Background Frame", "assets_by_zone": { "48": 1 }, "zones_restrict": "0000000000000000000000000000000000000000000000000000", "is_compatible": true, "is_paid": false },
+      "82011": { "_explicitType": "customNeopet.ItemDataVO", "obj_info_id": 82011, "name": "Neovian Clocktower Lights Garland", "assets_by_zone": { "48": 1 }, "zones_restrict": "0000000000000000000000000000000000000000000000000000", "is_compatible": true, "is_paid": false },
+      "37748": { "_explicitType": "customNeopet.ItemDataVO", "obj_info_id": 37748, "name": "Mystical Surroundings", "assets_by_zone": { "3": 9435 }, "zones_restrict": "0000000000000000000000000000000000000000000000000000", "is_compatible": true, "is_paid": false, "category": "Special", "type": "Mystical Surroundings", "rarity": "Very Rare", "rarity_index": 91, "price": 1300 }
+    },
+    "object_asset_registry": {}
+  },
+  "pbitems": []
+}

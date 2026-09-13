@@ -2,7 +2,7 @@
 // on every Neopets page, so it must not pull in Vue or Vuetify. Clicking it is
 // what loads the panel.
 import {
-  mdiBagPersonal, mdiDragVertical, mdiVolcano, mdiLoading, mdiCheckCircle,
+  mdiBagPersonal, mdiDragVertical, mdiVolcano, mdiLoading, mdiCheckCircle, mdiScriptText,
 } from '@mdi/js';
 import iconSvg from '../../icons/icon.svg?raw';
 import { LAUNCHER, readPosition, writePosition, clamp, startDrag } from '../lib/positions.js';
@@ -49,7 +49,7 @@ const CSS = `
   box-shadow: 0 2px 10px rgba(31,111,235,.35);
 }
 
-.${CLASS}-main, .${CLASS}-sw, .${CLASS}-ssw, .${CLASS}-magma, .${CLASS}-inv {
+.${CLASS}-main, .${CLASS}-sw, .${CLASS}-ssw, .${CLASS}-quests, .${CLASS}-magma, .${CLASS}-inv {
   display: flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0;
   border: 0; background: transparent; color: inherit; font: inherit;
@@ -72,7 +72,17 @@ const CSS = `
 /* The Super Shop Wizard is Premium-only, so its button is too. */
 .${CLASS}[data-premium="0"] .${CLASS}-ssw { display: none; }
 /* Matched to the app icon above, so the two buttons read as a pair. */
-.${CLASS}-inv svg, .${CLASS}-magma svg { width: 20px; height: 20px; display: block; fill: currentColor; }
+.${CLASS}-inv svg, .${CLASS}-magma svg, .${CLASS}-quests svg { width: 20px; height: 20px; display: block; fill: currentColor; }
+
+/* Quests ready to claim, as a count on the Quest Log button's corner. */
+.${CLASS}-quests { position: relative; }
+.${CLASS}-count {
+  position: absolute; top: -3px; right: -4px;
+  min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box;
+  border-radius: 7px; background: #2e7d32; color: #fff;
+  font: 700 9px/14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-align: center; pointer-events: none;
+}
 
 /* The Magma Pool button only exists while checking is switched on. */
 .${CLASS}:not([data-magma]) .${CLASS}-magma,
@@ -282,6 +292,9 @@ export function addLauncher(onActivate) {
 
   const sw = viewButton('wiz', `${CLASS}-sw`, 'Shop Wizard search');
   const ssw = viewButton('ssw', `${CLASS}-ssw`, 'Super Shop Wizard search');
+  // Same click path, drawn from the icon set rather than Neopets' artwork.
+  const quests = viewButton('quests', `${CLASS}-quests`, 'Quest Log');
+  quests.replaceChildren(glyph(mdiScriptText).svg);
 
   // The Magma Pool: a real link to the pool, so once the time is found it is
   // an ordinary link. Before that, the checker takes the click instead.
@@ -308,7 +321,7 @@ export function addLauncher(onActivate) {
   inv.setAttribute('aria-label', inv.title);
   inv.append(glyph(mdiBagPersonal).svg);
 
-  button.append(grip, main, sw, ssw, magma, inv);
+  button.append(grip, main, sw, ssw, quests, magma, inv);
 
   main.addEventListener('click', (event) => {
     event.preventDefault();
@@ -358,6 +371,31 @@ export function setMagmaState(state, title = 'Magma Pool') {
 /** Who handles a click on the Magma Pool button: `fn(event, state)`. */
 export function onMagmaClick(fn) {
   magmaHandler = fn;
+}
+
+/**
+ * How many quests are ready to claim, as a small count on the Quest Log
+ * button. Zero removes it rather than showing a 0.
+ */
+export function setQuestCount(count) {
+  const el = button?.querySelector(`.${CLASS}-quests`);
+  if (!el) return;
+  const n = Math.max(0, Math.floor(Number(count)) || 0);
+  let bubble = el.querySelector(`.${CLASS}-count`);
+  if (!n) {
+    bubble?.remove();
+    el.title = 'Quest Log';
+  } else {
+    if (!bubble) {
+      bubble = document.createElement('span');
+      bubble.className = `${CLASS}-count`;
+      bubble.setAttribute('aria-hidden', 'true');
+      el.append(bubble);
+    }
+    bubble.textContent = n > 9 ? '9+' : String(n);
+    el.title = `Quest Log — ${n} ready to claim`;
+  }
+  el.setAttribute('aria-label', el.title);
 }
 
 export function hideLauncherNotice() {

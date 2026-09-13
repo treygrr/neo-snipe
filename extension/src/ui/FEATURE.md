@@ -20,6 +20,7 @@ and writes one reactive `state` in `store.js`, which talks to the service worker
 | `SettingsView.vue` | The cog panel (includes the Magma Pool section: `magmaPoolCheck` toggle, per-account times with a `nextPoolOpening` countdown, Forget; it reads the checker's cached `magmaAccount` and listens to `storage.onChanged`): checkboxes wired to `setSetting` (premium auto/manual, hover-only badges, daily tracking, movable panel/launcher/tabs), worth-buying margin, position/tab-order resets, and export/import (clipboard, file download, file pick → `importSettings`). |
 | `OptionsApp.vue` | Standalone options page: hover-only switch, Firefox "Grant access to Jelly Neo" (`requestJellyNeoAccess`), "Test a lookup" (a real `neosnipe:lookup`), clear-cache. |
 | `WizardSearch.vue` | Both search panels (`kind` = `wiz`/`ssw`). A `v-combobox` whose menu lists the page's items with inline art only once clicked; clear × inside, search button in the outer append. Results: name/summary/refresh and a `v-btn-toggle` sort on one row, a budgeted-height table, and the other wizard's cache folded to one line. Searches start only from a pick, Enter or the button — single-mode VCombobox writes its model on every keystroke. |
+| `QuestLog.vue` | The `quests` panel view: reads the list on open (`loadQuests`), bonus count and reset countdown, one row per quest with its reward, a Claim button once finished (`claimQuest`), a Fish/Spin/Read/Feed/Play/Groom/Visit button for quests a runner can do, and Shop for Purchase an Item (finds a random shop with stock and its cheapest item, saves the plan and opens the shop — the buying stays your click), and Customise (adds a random wearable to the active pet, saves, then saves the original outfit back) (`runQuest`; the item quests use your least valuable suitable item on your active pet, checked against that item's own action list), and a link to do it by hand. |
 | `store.js` | The single reactive `state` + all actions. See below. |
 | `useTabDrag.js` | `useTabDrag(move, enabled)` — HTML5 drag-reorder for a tab strip; returns handlers plus `wasDragged`/`isDragging`/`isOver`. Shared by `Panel` and `HistoryTabs`. |
 | `vuetify.js` | `makeVuetify(attach)` and `THEME`: explicit component imports (no auto-import), `mdi-svg` icon set, and a global `attach` default. |
@@ -40,7 +41,11 @@ Search: `openPanelView`, `setPageItems`, `setSearchQuery`/`setSearchSort`, `runS
 daily visits (`visitDaily`, `toggleDailyVisited`, `clearVisitedDailies`, `readyIn`, `nextReadyIn`);
 panel (`togglePanel`, `closePanel`, `showSettings`, `watchPanel`, `watchLauncher`, panel-position and
 `panelTabs`/`popoverTabs`/`move*Tab`/`resetTabOrder`); Food Club (`loadFoodClub`, `setFoodClubLevel`,
-`setFoodClubAmount`, `currentBets`, `placeBet`, `toggleBetDone`, `showToast`/`dismissToast`).
+`setFoodClubAmount`, `currentBets`, `placeBet`, `toggleBetDone`, `showToast`/`dismissToast`); Quest Log
+`quests` (list, bonus, expiresAt, busy) via `loadQuests`, `claimQuest`, `claimBonus` (the header's Claim once the bonus carries a `claimId`), `runQuest`, `isQuestBusy` — each
+posts same-origin with the page's `_ref_ck` and re-reads the list afterwards; each read also stores the
+ready-to-claim count (`questReady`) the bar shows. The `visit` runner loads the NC Mall's popular items
+`no-cors` — another subdomain, so its reply is unreadable and the re-read list is the confirmation.
 
 ## Rules
 

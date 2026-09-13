@@ -9,15 +9,15 @@ import { api, readSettings, writeSettings } from '../lib/ext-api.js';
 import { DEFAULTS } from '../lib/messages.js';
 import {
   MAGMA_POOL_URL, MAGMA_CHECK_MS, ACCOUNT_URL,
-  readPoolState, readAccountName, poolTimeAt, cleanPoolTimes,
+  readPoolState, readAccountName, isAccountPage, poolTimeAt, cleanPoolTimes,
 } from '../lib/magma.js';
 import { setMagmaState, onMagmaClick, showLauncherNotice } from './launcher.js';
 
 // When any tab last loaded the pool page, so ten minutes means ten minutes
 // however many tabs are open.
 const LAST_CHECK = 'magmaLastCheck';
-// The logged-in account, kept briefly so each page load does not also load
-// the settings page. Read by the settings view too.
+// The logged-in account, as last read from the settings page. Read by the
+// settings view too.
 export const ACCOUNT = 'magmaAccount';
 const ACCOUNT_TTL_MS = MAGMA_CHECK_MS;
 // Only asks storage whether a check is due; the check itself is ten minutes apart.
@@ -42,16 +42,18 @@ async function fetchDoc(url) {
 const here = () => location.origin + location.pathname;
 
 /**
- * Who is logged in, or null. `fresh` skips the cache: a time is only ever
- * saved against a name read just now, so switching accounts cannot file one
- * account's time under another.
+ * Who is logged in, or null. `fresh` goes to the settings page rather than the
+ * cache, which is what happens when checking starts on a page, when a click
+ * asks to try again, and before a time is saved — so a stale or failed read
+ * never lingers, and switching accounts cannot file one account's time under
+ * another. Ticks in between use the name that read left behind.
  */
 async function currentAccount({ fresh = false } = {}) {
   if (!fresh) {
     const { [ACCOUNT]: cached } = await api.storage.local.get(ACCOUNT).catch(() => ({}));
     if (cached && Date.now() - cached.at < ACCOUNT_TTL_MS) return cached.name ?? null;
   }
-  const doc = here() === ACCOUNT_URL ? document : await fetchDoc(ACCOUNT_URL);
+  const doc = isAccountPage(here()) ? document : await fetchDoc(ACCOUNT_URL);
   const name = readAccountName(doc);
   await api.storage.local.set({ [ACCOUNT]: { name, at: Date.now() } }).catch(() => {});
   return name;
@@ -85,14 +87,15 @@ export function startMagmaPool() {
 
   /**
    * One check, if one is due: 'off', 'no-account', 'found' (already known),
-   * 'not-due', 'open' or 'closed'.
+   * 'not-due', 'open' or 'closed'. `freshAccount` re-reads who is logged in
+   * from the settings page first.
    */
-  async function check() {
+  async function check({ freshAccount = false } = {}) {
     if (busy) return 'busy';
     const { enabled, times } = await readPoolSettings();
     if (!enabled) { await render(); return 'off'; }
 
-    const account = await currentAccount().catch(() => null);
+    const account = await currentAccount({ fresh: freshAccount }).catch(() => null);
     if (!account) { await render(); return 'no-account'; }
     if (times[account]) { await render(); return 'found'; }
 
@@ -133,12 +136,13 @@ export function startMagmaPool() {
   }
 
   // Found: the button is a plain link to the pool, so let it be one. Otherwise a
-  // click asks for a check now, which still has to wait for the ten minutes.
+  // click asks for a check now, which still has to wait for the ten minutes, and
+  // reads who is logged in again in case the last read failed.
   onMagmaClick(async (event, state) => {
     if (state === 'found') return;
     event.preventDefault();
     if (state === 'loading') return;
-    const result = await check();
+    const result = await check({ freshAccount: true });
     if (result === 'not-due') {
       const wait = await lastCheck() + MAGMA_CHECK_MS - Date.now();
       showLauncherNotice(`The Magma Pool can be checked every 10 minutes. Next check in ${minutesUntil(wait)}m.`);
@@ -149,15 +153,21 @@ export function startMagmaPool() {
     }
   });
 
-  const tick = () => { check().catch(() => {}); };
+  const tick = (options) => { check(options).catch(() => {}); };
 
   // The settings toggle, a Forget, or another tab finding the time all arrive
-  // here, so every open tab's button agrees without reloading.
+  // here, so every open tab's button agrees without reloading. Checking being
+  // switched on is a start like any other, so it reads the account afresh.
   // Without onChanged the 30-second tick still catches up, only more slowly.
   api.storage.onChanged?.addListener((changes) => {
-    if ('magmaPoolCheck' in changes || 'magmaPoolTimes' in changes) tick();
+    const switchedOn = changes.magmaPoolCheck?.newValue === true;
+    if (switchedOn || 'magmaPoolCheck' in changes || 'magmaPoolTimes' in changes) {
+      tick({ freshAccount: switchedOn });
+    }
   });
 
-  tick();
+  // Starting on a page: read who is logged in from the settings page, not the
+  // cache, then carry on ticking from what that read left behind.
+  tick({ freshAccount: true });
   setInterval(tick, TICK_MS);
 }

@@ -7,6 +7,8 @@ import {
 import { detectPremium } from '../lib/premium.js';
 import { linkNpAnchorToInventory } from './npanchor.js';
 import { startMagmaPool } from './magma.js';
+import { startQuestBadge } from './quests.js';
+import { startShopping } from './shopping.js';
 import { getSettings, HELLO, OPEN_PANEL } from '../lib/messages.js';
 import { api, sendMessage } from '../lib/ext-api.js';
 // Constants and a storage read only — no Vue, so this stays on the cheap path
@@ -124,6 +126,20 @@ export function run(loadUi) {
     startMagmaPool();
   } catch (err) {
     console.error('[neo-snipe] Magma Pool checker failed to start', err);
+  }
+
+  // The Quest Log button's ready-to-claim count. Optional in the same way.
+  try {
+    startQuestBadge();
+  } catch (err) {
+    console.error('[neo-snipe] Quest Log count failed to start', err);
+  }
+
+  // The Purchase an Item helper on shop and haggle pages. Optional again.
+  try {
+    startShopping();
+  } catch (err) {
+    console.error('[neo-snipe] shopping helper failed to start', err);
   }
 
   // The Super Shop Wizard button is Premium-only. The stored answer is what a

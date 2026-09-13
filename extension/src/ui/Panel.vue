@@ -15,6 +15,7 @@ import {
 import SettingsView from './SettingsView.vue';
 import WizardSearch from './WizardSearch.vue';
 import FoodClub from './FoodClub.vue';
+import QuestLog from './QuestLog.vue';
 import { dailiesFor, isPremiumDaily } from '../lib/dailies.js';
 import { startDrag } from '../lib/positions.js';
 import { useTabDrag } from './useTabDrag.js';
@@ -131,6 +132,7 @@ const PANEL_TITLES = {
   settings: 'neo-snipe',
   wiz: 'Shop Wizard',
   ssw: 'Super Shop Wizard',
+  quests: 'Quest Log',
 };
 
 const tabDrag = useTabDrag(movePanelTab, () => state.settings.movableTabs);
@@ -245,6 +247,8 @@ function onHeadPointerDown(event) {
           :key="state.panelView"
           :kind="state.panelView"
         />
+
+        <QuestLog v-else-if="state.panelView === 'quests'" />
 
         <!-- Favourites -->
         <template v-else-if="state.panelTab === 'favourites'">

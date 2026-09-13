@@ -30,6 +30,22 @@ import {
 import {
   PANEL_TABS, POPOVER_TABS, fullOrder, visibleOrder, moveInOrder,
 } from '../lib/tab-order.js';
+import {
+  RETRIEVE_URL, CLAIM_URL, FISHING_URL, WHEEL_RESULT_URL, QUESTLOG_URL,
+  readRefCk, retrieveBody, claimBody, fishingBody, wheelBody,
+  parseQuestList, parseClaim, parseFishing, parseWheel, QuestLogError,
+  NC_POPULAR_URL, QUEST_READY_KEY, readyCount, claimBonusBody,
+} from '../lib/questlog.js';
+import { readAccountName } from '../lib/magma.js';
+import {
+  USES, INVENTORY_URL, USE_OBJECT_URL, itemInfoUrl, readInventory, candidatesFor, readActivePet,
+  readItemActions, actionFor, useBody, parseUse, ItemUseError,
+} from '../lib/item-use.js';
+import { SHOPPING_KEY, shopUrl, findShopWithStock, purchasesLeft } from '../lib/shops.js';
+import {
+  CUSTOMISE_API_URL, CUSTOMISE_URL, editorBody, saveBody, readEditor, readEquipped, wearableCandidates,
+  pickRandom, withItem, parseSave, CustomiseError,
+} from '../lib/customise.js';
 
 // One popover, one piece of state — badges write into this rather than each
 // owning a Vue instance.
@@ -113,6 +129,9 @@ export const state = reactive({
   now: Date.now(),
   // True while a favourite is being re-fetched, so the popover can say so.
   refreshing: false,
+  // Today's Quest Log, read when its view opens. `busy` is the id of the quest
+  // being claimed or run, so only its button spins and the rest wait.
+  quests: { loading: false, error: null, list: null, bonus: null, expiresAt: null, loadedAt: null, busy: null },
 });
 
 function blankSearch() {
@@ -852,6 +871,235 @@ export function closePanel() {
   state.panelOpen = false;
   stopWatchingDayRollover();
   onPanelChange?.(false);
+}
+
+// --- Quest Log -------------------------------------------------------------
+// Same-origin like Food Club: the panel lives in the Neopets page, so these
+// requests carry your session, and the token Neopets checks comes off the page.
+
+const QUEST_UNREACHABLE = 'Could not read the Quest Log. Are you logged in to Neopets?';
+const parseHtml = (html) => new DOMParser().parseFromString(html, 'text/html');
+
+/**
+ * `ajax` marks it the way the page's own scripts do; the fishing form is a
+ * plain form post, so it goes without. `form` sends URL-encoded fields rather
+ * than FormData, which is how the fishing form and the wheel's jQuery post.
+ */
+async function questPost(url, body, { referrer = QUESTLOG_URL, form = false, ajax = true } = {}) {
+  const headers = {};
+  if (ajax) headers['X-Requested-With'] = 'XMLHttpRequest';
+  if (form) headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    referrer,
+    headers,
+    body: form ? body.toString() : body,
+  });
+  if (!res.ok) throw new QuestLogError(`Neopets returned ${res.status}.`);
+  return res;
+}
+
+function pageToken() {
+  const ck = readRefCk(document);
+  if (!ck) throw new QuestLogError('Log in to Neopets to use the Quest Log.');
+  return ck;
+}
+
+// The header's NP counter, so a reward shows without a reload.
+function setNpCounter(value) {
+  const n = Number(String(value ?? '').replace(/[^\d]/g, ''));
+  const el = document.getElementById('npanchor');
+  if (el && n) el.textContent = n.toLocaleString('en-US');
+}
+
+export async function loadQuests() {
+  if (state.quests.loading) return;
+  state.quests.loading = true;
+  state.quests.error = null;
+  try {
+    const res = await questPost(RETRIEVE_URL, retrieveBody(pageToken()));
+    const { quests, bonus, expiresInMs } = parseQuestList(await res.json(), parseHtml);
+    state.quests.list = quests;
+    state.quests.bonus = bonus;
+    state.quests.expiresAt = expiresInMs == null ? null : Date.now() + expiresInMs;
+    state.quests.loadedAt = Date.now();
+    // The bar's count, for this tab and every other one.
+    api.storage.local.set({ [QUEST_READY_KEY]: { count: readyCount(quests), at: Date.now() } }).catch(() => {});
+  } catch (err) {
+    state.quests.error = err instanceof QuestLogError ? err.message : QUEST_UNREACHABLE;
+  } finally {
+    state.quests.loading = false;
+  }
+}
+
+export const isQuestBusy = (quest) => state.quests.busy === quest?.id;
+
+/**
+ * One quest at a time. Whatever happened, the list is read again afterwards:
+ * what Neopets now says beats a guess — a claim removes the quest, and a run
+ * may or may not have counted.
+ */
+async function withQuest(quest, work) {
+  if (state.quests.busy) return;
+  state.quests.busy = quest.id;
+  try {
+    await work();
+  } catch (err) {
+    showToast(err instanceof QuestLogError || err instanceof ItemUseError || err instanceof CustomiseError
+      ? err.message
+      : `Could not finish "${quest.title}". Are you logged in to Neopets?`, { tone: 'bad' });
+  } finally {
+    state.quests.busy = null;
+  }
+  await loadQuests();
+}
+
+export function claimQuest(quest) {
+  return withQuest(quest, async () => {
+    const res = await questPost(CLAIM_URL, claimBody(pageToken(), quest.id));
+    const got = parseClaim(await res.json());
+    setNpCounter(got.newNp);
+    const what = got.reward === 'np' && got.np
+      ? `${got.np.toLocaleString('en-US')} NP`
+      : (got.itemName || quest.reward.label);
+    showToast(`Claimed ${what} for "${quest.title}".`);
+  });
+}
+
+/** The daily bonus, once every quest is done and its Claim carries an id. */
+export function claimBonus() {
+  const id = state.quests.bonus?.claimId;
+  if (!id) return undefined;
+  return withQuest({ id: 'bonus', title: 'the daily bonus' }, async () => {
+    const res = await questPost(CLAIM_URL, claimBonusBody(pageToken(), id));
+    const got = parseClaim(await res.json());
+    setNpCounter(got.newNp);
+    const what = got.reward === 'item' ? (got.itemName || state.quests.bonus.reward) : (got.np ? `${got.np.toLocaleString('en-US')} NP` : state.quests.bonus.reward);
+    showToast(`Claimed the daily bonus: ${what}.`);
+  });
+}
+
+/**
+ * Feed, Groom, Play With or Read to: the least valuable suitable item in your
+ * inventory, used on your active pet. Each candidate's own action list is read
+ * first, so nothing is ever used on another pet or in a way Neopets does not
+ * offer for that item.
+ */
+async function useItemFor(quest) {
+  const use = USES[quest.kind];
+  const invRes = await fetch(INVENTORY_URL, { credentials: 'include' });
+  if (!invRes.ok) throw new QuestLogError(`Neopets returned ${invRes.status}.`);
+  const inventory = parseHtml(await invRes.text());
+
+  const pet = readActivePet(document) || readActivePet(inventory);
+  if (!pet) throw new QuestLogError('Could not tell which pet is active. Are you logged in to Neopets?');
+
+  const candidates = candidatesFor(quest.kind, readInventory(inventory));
+  if (!candidates.length) {
+    throw new QuestLogError(`No ${use.noun} in your inventory to ${use.label.toLowerCase()} with — get one, then try again.`);
+  }
+
+  // A few at most: each is a popup read, and the first usually does.
+  for (const item of candidates.slice(0, 5)) {
+    const info = await questPost(itemInfoUrl(item.objId), new URLSearchParams(), { referrer: INVENTORY_URL, form: true });
+    const action = actionFor(quest.kind, readItemActions(parseHtml(await info.text())), pet);
+    if (!action) continue;
+    const res = await questPost(USE_OBJECT_URL, useBody(item.objId, action), { referrer: INVENTORY_URL, form: true });
+    const got = parseUse(parseHtml(await res.text()));
+    showToast(`Used ${item.name} on ${pet}. ${got.message}`);
+    return;
+  }
+  throw new QuestLogError(`None of your ${use.noun} items can be used to ${use.label.toLowerCase()} ${pet}.`);
+}
+
+/** Does the quest's task itself, then re-reads the list. */
+export function runQuest(quest) {
+  if (!quest?.runner) return undefined;
+  return withQuest(quest, async () => {
+    if (quest.runner === 'use') {
+      await useItemFor(quest);
+      return;
+    }
+    if (quest.runner === 'visit') {
+      // Another subdomain, so the reply cannot be read from here — but the
+      // visit is the request itself, sent with your session like a link click.
+      // The list read afterwards is what says whether it counted.
+      await fetch(NC_POPULAR_URL, { mode: 'no-cors', credentials: 'include' });
+      showToast("Visited the NC Mall's popular items.");
+      return;
+    }
+    if (quest.runner === 'shop') {
+      // Opened before anything is awaited, while the click still counts as
+      // yours — a window opened after the shop search would be blocked.
+      const tab = window.open('about:blank', '_blank');
+      try {
+        const plan = await findShopWithStock(async (url) => {
+          const res = await fetch(url, { credentials: 'include' });
+          if (!res.ok) throw new QuestLogError(`Neopets returned ${res.status}.`);
+          return parseHtml(await res.text());
+        });
+        if (!plan) {
+          throw new QuestLogError('Every shop tried just now was sold out. Shops restock every few minutes — try again shortly.');
+        }
+        const total = purchasesLeft(quest);
+        // The shop and haggle pages read this; the buying is still your click.
+        await api.storage.local.set({
+          [SHOPPING_KEY]: { questId: quest.id, total, remaining: total, ...plan, at: Date.now() },
+        });
+        if (tab) tab.location.href = shopUrl(plan.shopId);
+        else window.open(shopUrl(plan.shopId), '_blank');
+        showToast(`${plan.item.name} for ${plan.item.price.toLocaleString('en-US')} NP is the cheapest at ${plan.shopName} — opened it for you to buy.`);
+      } catch (err) {
+        tab?.close();
+        throw err;
+      }
+      return;
+    }
+    if (quest.runner === 'customise') {
+      // The pet in your header, and the account it belongs to.
+      const petname = readActivePet(document);
+      const username = readAccountName(document);
+      if (!petname || !username) throw new QuestLogError('Could not tell who is logged in or which pet is active.');
+
+      const post = async (body) => {
+        const res = await fetch(CUSTOMISE_API_URL, { method: 'POST', credentials: 'include', referrer: CUSTOMISE_URL, body });
+        if (!res.ok) throw new QuestLogError(`Neopets returned ${res.status}.`);
+        return res.text();
+      };
+      let loaded = null;
+      try { loaded = JSON.parse((await post(editorBody(username, petname))).trim()); } catch { loaded = null; }
+      const editor = readEditor(loaded);
+
+      // A save is the whole outfit, so both saves start from what is worn now.
+      const original = readEquipped(editor);
+      const item = pickRandom(wearableCandidates(editor, petname));
+      if (!item) {
+        throw new QuestLogError(`Nothing in your closet can be added to ${petname} without changing what they wear.`);
+      }
+      parseSave(await post(saveBody(username, petname, withItem(original, item))));
+      try {
+        parseSave(await post(saveBody(username, petname, original)));
+      } catch {
+        throw new QuestLogError(`${petname} is still wearing ${item.name} — take it off on the Customise page.`);
+      }
+      showToast(`Customised ${petname}: tried on ${item.name}, then put their outfit back as it was.`);
+      return;
+    }
+    if (quest.runner === 'fishing') {
+      const res = await questPost(FISHING_URL, fishingBody(), { referrer: FISHING_URL, form: true, ajax: false });
+      const got = parseFishing(parseHtml(await res.text()));
+      const skill = got.skill ? ` Fishing skill is now ${got.skill}.` : '';
+      showToast(`You reeled in ${got.caught || 'something'}!${skill}`);
+      return;
+    }
+    // The wheel page is where this is normally posted from.
+    const { wheel } = quest;
+    const res = await questPost(WHEEL_RESULT_URL, wheelBody(wheel.type), { referrer: wheel.url, form: true });
+    const got = parseWheel(await res.json());
+    setNpCounter(got.neopoints);
+    showToast(`Wheel of ${wheel.name}: ${got.prize || got.message || 'spun'}.`);
+  });
 }
 
 // --- Food Club -------------------------------------------------------------

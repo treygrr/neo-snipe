@@ -43,20 +43,53 @@ export const nextPoolOpening = (time, at = Date.now()) => nextNstTimeOfDay(time,
 /** Neopets usernames ignore case, so one account is one key however it is typed. */
 export const accountKey = (name) => String(name ?? '').trim().toLowerCase();
 
-// Where the logged-in username can be read, and the element that carries it.
-export const ACCOUNT_URL = 'https://www.neopets.com/settings/account';
+// Where the logged-in username can be read. `/settings/account` redirects here,
+// so asking for this spelling saves a round trip.
+export const ACCOUNT_URL = 'https://www.neopets.com/settings/account/';
 const USERNAME_ID = 'flag_username';
 
+/** Whether an origin + path is the account settings page, with or without the slash. */
+export const isAccountPage = (href) =>
+  String(href ?? '').replace(/\/+$/, '') === ACCOUNT_URL.replace(/\/+$/, '');
+
+// The header's "Welcome, <a href="/userlookup.phtml?user=name">name</a>", scoped
+// to the profile dropdown so a shop owner's lookup link elsewhere never counts.
+const WELCOME_LINK = '.nav-profile-dropdown-text a[href*="userlookup.phtml?user="]';
+const INSIGHTS_NAME = /appInsightsUserName\s*=\s*'([^']*)'/;
+
+function fromWelcomeLink(doc) {
+  const a = doc?.querySelector?.(WELCOME_LINK);
+  if (!a) return '';
+  const href = a.getAttribute('href') ?? '';
+  const user = /[?&]user=([^&#]*)/.exec(href)?.[1];
+  return accountKey(user ? decodeURIComponent(user) : a.textContent);
+}
+
+function fromInsightsScript(doc) {
+  for (const s of doc?.querySelectorAll?.('script') ?? []) {
+    const m = INSIGHTS_NAME.exec(s.textContent ?? '');
+    if (m) return accountKey(m[1]);
+  }
+  return '';
+}
+
 /**
- * The logged-in account on a parsed settings page, as its key, or null when the
- * page does not say — logged out, or a layout that has moved on. The element
- * may be a form field or plain text, so both are read.
+ * The logged-in account on a parsed Neopets page, as its key, or null when the
+ * page does not say — logged out, or a layout that has moved on.
+ *
+ * On the live settings page it is `<div class="settings-ro" id="flag_username"
+ * title="name">name</div>`, but that div is drawn by the page's own script: the
+ * HTML a fetch gets back has only an empty `#app`. That same HTML carries the
+ * name twice in the site header — the "Welcome," profile link and the
+ * `appInsightsUserName` script variable — so those are read when the div is not
+ * there. Being logged out removes all three.
  */
 export function readAccountName(doc) {
   const el = doc?.getElementById?.(USERNAME_ID);
-  if (!el) return null;
-  const key = accountKey(el.value || el.getAttribute?.('value') || el.textContent);
-  return key || null;
+  const fromField = el
+    ? [el.value, el.getAttribute?.('value'), el.textContent, el.getAttribute?.('title')].map(accountKey).find(Boolean)
+    : '';
+  return fromField || fromWelcomeLink(doc) || fromInsightsScript(doc) || null;
 }
 
 /**
