@@ -17,11 +17,13 @@ const rows = computed(() => sortedListings(props.kind));
 const label = computed(() => (props.kind === 'wiz' ? 'Shop Wizard' : 'Super Shop Wizard'));
 const icon = computed(() => (props.kind === 'wiz' ? SW_ICON : SSW_ICON));
 
+// Short labels, so four of them fit beside the item's name; the title says it
+// in full.
 const SORTS = [
-  { id: 'price-asc', label: 'Price ↑' },
-  { id: 'price-desc', label: 'Price ↓' },
-  { id: 'name-asc', label: 'A–Z' },
-  { id: 'name-desc', label: 'Z–A' },
+  { id: 'price-asc', label: 'NP ↑', title: 'Cheapest first' },
+  { id: 'price-desc', label: 'NP ↓', title: 'Dearest first' },
+  { id: 'name-asc', label: 'A–Z', title: 'Shop name, A to Z' },
+  { id: 'name-desc', label: 'Z–A', title: 'Shop name, Z to A' },
 ];
 
 // The page's own items, offered when the box is clicked rather than listed all
@@ -95,22 +97,31 @@ const otherSummary = computed(() => {
 // Nothing searched yet, nothing in flight, nothing wrong.
 const idle = computed(() => !slot.value.listings && !slot.value.loading && !slot.value.error);
 
-// The panel body is a fixed 340px. Padding, the field and the header take 122
-// of it, so a lone table capped at 216 fits with no second scrollbar. A table
-// takes only the height its rows need below that: a fixed box around three
-// rows would just be empty space.
+// The panel body is a fixed 340px. Padding (24), the field (40), the header (38)
+// and the gaps between them take 120, leaving 220 for a table and its 2px
+// border — so 216 fits a lone table with no second scrollbar. The folded row
+// for the other wizard's find costs 45 more (35 plus a gap), hence 172 when it
+// is there. Unfolding it is asking to scroll, so that case only keeps both
+// tables a readable size. Below the cap a table takes just the height its rows
+// need: a fixed box around three rows would be empty space.
 const ROW = 26;
 const HEAD = 28;
 const tableHeight = (count, cap) => Math.min(HEAD + count * ROW, cap);
-const mainCap = computed(() => (other.value && showOther.value ? 150 : 216));
+const mainCap = computed(() => {
+  if (!other.value) return 216;
+  return showOther.value ? 150 : 172;
+});
 </script>
 
 <template>
   <div class="ns-wiz">
+    <!-- `|| null`: an empty string is still a value to VCombobox, which makes
+         it a one-item selection titled '' — hiding the placeholder and
+         showing a clear button on an empty box. -->
     <v-combobox
       v-model:menu="menuOpen"
       class="ns-wiz-input"
-      :model-value="slot.query"
+      :model-value="slot.query || null"
       :items="items"
       :placeholder="`Search the ${label}`"
       :menu-icon="false"
@@ -215,7 +226,7 @@ const mainCap = computed(() => (other.value && showOther.value ? 150 : 216));
         <div class="ns-wiz-bar-text">
           <div class="ns-wiz-name" :title="slot.name">{{ slot.name }}</div>
           <div class="ns-wiz-summary">
-            <span>{{ summary }}</span>
+            <span class="ns-wiz-summary-text" :title="summary">{{ summary }}</span>
             <button
               type="button"
               class="ns-wiz-again"
@@ -245,6 +256,7 @@ const mainCap = computed(() => (other.value && showOther.value ? 150 : 216));
             :value="s.id"
             class="ns-wiz-sort"
             :class="{ 'ns-wiz-sort--on': slot.sort === s.id }"
+            :title="s.title"
             size="small"
           >{{ s.label }}</v-btn>
         </v-btn-toggle>
@@ -293,7 +305,7 @@ const mainCap = computed(() => (other.value && showOther.value ? 150 : 216));
       >
         <v-icon :icon="mdiHistory" size="15" class="ns-wiz-other-icon" />
         <span class="ns-wiz-other-title">Already found by the {{ other.label }}</span>
-        <span class="ns-wiz-other-meta">{{ otherSummary }} · cached {{ since(other.at) }}</span>
+        <span class="ns-wiz-other-meta">{{ otherSummary }} · {{ since(other.at) }}</span>
         <v-icon :icon="showOther ? mdiChevronUp : mdiChevronDown" size="16" />
       </button>
 
@@ -378,19 +390,24 @@ const mainCap = computed(() => (other.value && showOther.value ? 150 : 216));
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ns-wiz-summary {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; min-width: 0;
   font-size: 12px; line-height: 1.35; color: rgba(0, 0, 0, .58); font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+/* The counts give way before the refresh does; the full text is its title. */
+.ns-wiz-summary-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ns-wiz-again {
-  display: inline-flex; align-items: center; gap: 3px;
+  display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto;
   padding: 0 4px; margin: 0; border: 0; border-radius: 4px;
   background: transparent; color: inherit; font: inherit; cursor: pointer;
 }
 .ns-wiz-again:hover { color: rgb(var(--v-theme-primary)); background: rgba(0, 0, 0, .04); }
 
 .ns-wiz-sorts { flex: 0 0 auto; }
-.ns-wiz-sort { text-transform: none; letter-spacing: 0; font-size: 12px; min-width: 0 !important; padding: 0 10px !important; }
+.ns-wiz-sort {
+  flex: 0 0 auto; min-width: 0 !important; padding: 0 10px !important;
+  text-transform: none; letter-spacing: 0; font-size: 12px;
+}
 
 .ns-wiz-rows {
   border: 1px solid rgba(0, 0, 0, .1); border-radius: 8px; overflow: hidden;
@@ -416,14 +433,14 @@ const mainCap = computed(() => (other.value && showOther.value ? 150 : 216));
 
 /* The other wizard's find: one quiet line that unfolds on request. */
 .ns-wiz-other-head {
-  display: flex; align-items: center; gap: 8px; width: 100%;
+  display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0;
   padding: 8px 10px; margin: 0;
   border: 1px solid rgba(0, 0, 0, .1); border-radius: 8px;
   background: #f9fafb; color: rgba(0, 0, 0, .7); font: inherit; font-size: 12px;
   text-align: left; cursor: pointer;
 }
 .ns-wiz-other-head:hover { background: #f1f3f5; }
-.ns-wiz-other-icon { opacity: .6; }
+.ns-wiz-other-icon { opacity: .6; flex: 0 0 auto; }
 .ns-wiz-other-title { font-weight: 600; white-space: nowrap; }
 .ns-wiz-other-meta {
   margin-left: auto; min-width: 0;

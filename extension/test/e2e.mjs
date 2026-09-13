@@ -1495,13 +1495,19 @@ const scrollers = await inShadow((root) => {
   return {
     bodyScrolls: body.scrollHeight > body.clientHeight + 1,
     sortsHeight: Math.round(sorts.getBoundingClientRect().height),
-    sortsClipped: sorts.scrollWidth > sorts.clientWidth + 1,
+    // A visible scrollbar is what went wrong, so that is what is checked. A raw
+    // scrollWidth comparison cannot tell: Vuetify's focus ring overhangs every
+    // button by a few pixels, so it reads as overflow when nothing is wrong.
+    sortsScrollbar: getComputedStyle(sorts).overflowX !== 'hidden' && sorts.scrollWidth > sorts.clientWidth,
+    labelsClipped: [...sorts.querySelectorAll('.v-btn__content')]
+      .some((c) => c.scrollWidth > c.clientWidth + 1),
   };
 });
 check('a result fits the panel without a second scrollbar',
   scrollers.bodyScrolls === false, JSON.stringify(scrollers));
-check('the sort buttons are drawn at full height, not squashed',
-  scrollers.sortsHeight >= 24 && !scrollers.sortsClipped, JSON.stringify(scrollers));
+check('the sort buttons are drawn whole: full height, no scrollbar, no clipped labels',
+  scrollers.sortsHeight >= 24 && !scrollers.sortsScrollbar && !scrollers.labelsClipped,
+  JSON.stringify(scrollers));
 
 const sortBy = async (index) => {
   await page.evaluate((i) => {

@@ -10,6 +10,11 @@
   line-height: 1.4;
   color: rgba(0, 0, 0, .87);
   text-align: left;
+  /* Vuetify's reset is `* { box-sizing: inherit }` under an `html` set to
+     border-box. No `html` exists inside a shadow root, so everything inherited
+     the host's content-box from the Neopets page instead: a compact field's
+     40px min-height had its padding added on top and came out 56. */
+  box-sizing: border-box;
 }
 
 /* v-app wants to be a full-page surface with its own background; here it is
