@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 
 /**
- * Drag-to-reorder for a tab strip, shared by the panel and the popover.
+ * Drag-to-reorder for a tab strip, used by the price popover's tab strip.
  *
  * HTML5 drag and drop rather than pointer events, to match how the favourites
  * lists already reorder — and because a tab is a button, so the browser's own

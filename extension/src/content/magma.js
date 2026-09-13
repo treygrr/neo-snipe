@@ -66,6 +66,8 @@ async function lastCheck() {
 
 export function startMagmaPool() {
   let busy = false;
+  // Whether this page has put the button on the bar yet — see check().
+  let placed = false;
 
   /** Puts the bar's button in the state storage says it is in. */
   async function render() {
@@ -94,6 +96,22 @@ export function startMagmaPool() {
     if (busy) return 'busy';
     const { enabled, times } = await readPoolSettings();
     if (!enabled) { await render(); return 'off'; }
+
+    // Switched on means on the bar, straight away. Everything below waits on
+    // the account page, and a button that only popped in once that had loaded
+    // looked like the bar was still settling. It starts in the state the last
+    // known account had, so a found time shows its checkmark from the first
+    // moment rather than a volcano that does nothing when clicked. Once per
+    // page: later checks would otherwise flash that state while they run.
+    if (!placed && !busy) {
+      const { [ACCOUNT]: known } = await api.storage.local.get(ACCOUNT).catch(() => ({}));
+      if (known?.name && times[known.name]) {
+        setMagmaState('found', `Magma Pool — ${known.name}'s guard naps at ${times[known.name]} NST daily. Go to the pool.`);
+      } else {
+        setMagmaState('idle', 'Magma Pool — checking your account…');
+      }
+    }
+    placed = true;
 
     const account = await currentAccount({ fresh: freshAccount }).catch(() => null);
     if (!account) { await render(); return 'no-account'; }

@@ -1,5 +1,5 @@
 import { readSettings } from './ext-api.js';
-import { PANEL_TABS, POPOVER_TABS } from './tab-order.js';
+import { POPOVER_TABS } from './tab-order.js';
 
 export const LOOKUP = 'neosnipe:lookup';
 export const TP_LOOKUP = 'neosnipe:trading-post';
@@ -33,8 +33,8 @@ export const DEFAULTS = {
   // default corner without forgetting the position.
   movablePanel: true,
   movableLauncher: true,
-  // Drag the tabs in either bar to reorder them. The stored order covers every
-  // tab this build knows about, including any hidden right now.
+  // Drag the price popover's tabs to reorder them. The stored order covers
+  // every tab this build knows about, including any hidden right now.
   movableTabs: true,
   // Reopen an item's popover on the tab you were last on, rather than on
   // whichever tab sits first in the order.
@@ -46,7 +46,9 @@ export const DEFAULTS = {
   // username. Kept, and exported, whether or not checking is switched on.
   // Always replaced, never mutated: this default object is shared.
   magmaPoolTimes: {},
-  panelTabOrder: PANEL_TABS,
+  // Put the day's cached Jelly Neo prices and trading post histories in an
+  // export, so another browser starts with them. Off: they bloat the file.
+  exportIncludeCache: false,
   popoverTabOrder: POPOVER_TABS,
 };
 

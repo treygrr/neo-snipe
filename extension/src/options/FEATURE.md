@@ -21,7 +21,7 @@ with a Vuetify instance. All real behaviour lives in `OptionsApp.vue`; this fold
 - `makeVuetify`'s component list is tuned for the popover; components only the options page uses
   must be registered by hand in `main.js` (currently `VContainer`, `VMain`, `VSwitch`). Adding a
   Vuetify component to `OptionsApp.vue` without adding it here fails at runtime, not at build.
-- This is **not** `../ui/SettingsView.vue`. `SettingsView` is the cog panel inside the popover
+- This is **not** `../ui/SettingsView.vue`. `SettingsView` is the settings view of the in-page panel (its bar button)
   (layout, favourites, backup/export-import, driven by `ui/store.js`). `OptionsApp.vue` is the
   separate browser-level page: the `hoverOnly` switch, the Firefox host-permission grant, a live
   "Test a lookup", and clear-cache — it talks to `lib/messages.js` and `lib/ext-api.js` directly.

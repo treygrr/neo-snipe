@@ -3,31 +3,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PANEL_TABS, POPOVER_TABS, fullOrder, visibleOrder, moveInOrder,
+  POPOVER_TABS, fullOrder, visibleOrder, moveInOrder,
 } from '../src/lib/tab-order.js';
 
 test('an empty or missing order is just the shipped one', () => {
-  assert.deepEqual(fullOrder(undefined, PANEL_TABS), PANEL_TABS);
-  assert.deepEqual(fullOrder([], PANEL_TABS), PANEL_TABS);
-  assert.deepEqual(fullOrder('nonsense', PANEL_TABS), PANEL_TABS);
+  assert.deepEqual(fullOrder(undefined, POPOVER_TABS), POPOVER_TABS);
+  assert.deepEqual(fullOrder([], POPOVER_TABS), POPOVER_TABS);
+  assert.deepEqual(fullOrder('nonsense', POPOVER_TABS), POPOVER_TABS);
 });
 
 test('a saved order is kept, and junk in it is discarded', () => {
   assert.deepEqual(
-    fullOrder(['foodclub', 'dailies', 'favourites'], PANEL_TABS),
-    ['foodclub', 'dailies', 'favourites'],
+    fullOrder(['shops', 'wiz', 'tp', 'price'], POPOVER_TABS),
+    ['shops', 'wiz', 'tp', 'price'],
   );
   // A tab this build no longer has, and a duplicate, are both dropped.
   assert.deepEqual(
-    fullOrder(['foodclub', 'retired-tab', 'foodclub', 'dailies', 'favourites'], PANEL_TABS),
-    ['foodclub', 'dailies', 'favourites'],
+    fullOrder(['shops', 'retired-tab', 'shops', 'wiz', 'tp', 'price'], POPOVER_TABS),
+    ['shops', 'wiz', 'tp', 'price'],
   );
 });
 
 test('a tab added by a later build lands where it was declared, not last', () => {
-  // Someone who reordered before 'dailies' existed should not get it at the end.
-  const saved = ['foodclub', 'favourites'];
-  assert.deepEqual(fullOrder(saved, PANEL_TABS), ['foodclub', 'dailies', 'favourites']);
+  // Someone who reordered before 'tp' existed should not get it at the end.
+  const saved = ['wiz', 'price'];
+  assert.deepEqual(fullOrder(saved, POPOVER_TABS), ['wiz', 'tp', 'price', 'shops']);
 });
 
 test('hidden tabs are left out of what renders', () => {

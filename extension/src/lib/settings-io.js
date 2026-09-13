@@ -1,21 +1,23 @@
 import { api } from './ext-api.js';
 import { DEFAULTS } from './messages.js';
 import { cleanPoolTimes } from './magma.js';
+import { freshCacheEntries } from './price-cache.js';
 
 // Bumped only when the shape changes in a way an importer must know about.
 // Import accepts anything from this version or older, and ignores keys it does
 // not recognise, so a file written by a newer build still loads what it can.
+// The optional `cache` is one of those: an older build simply skips it.
 export const EXPORT_VERSION = 1;
 
 const SETTING_KEYS = Object.keys(DEFAULTS);
 
 /**
- * Everything worth keeping: your settings and your lists.
+ * Everything worth keeping: your settings and your lists — and, with
+ * `exportIncludeCache` on, the Jelly Neo prices and trading post histories
+ * still inside their day (`p2:`/`tp2:`), so another browser starts with them.
  *
- * Deliberately not included — cached prices (`p2:`/`tp2:`), which are a
- * throwaway copy of Jelly Neo and would bloat the file, and Food Club done
- * marks, which are scoped to a round that will be over by the time anyone
- * imports this.
+ * Never included: Food Club done marks, which are scoped to a round that will
+ * be over by the time anyone imports this.
  */
 export async function collectSettings() {
   const [sync, local] = await Promise.all([
@@ -29,7 +31,7 @@ export async function collectSettings() {
     settings[key] = sync[key] ?? local[key] ?? DEFAULTS[key];
   }
 
-  return {
+  const data = {
     app: 'neo-snipe',
     version: EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
@@ -37,6 +39,10 @@ export async function collectSettings() {
     favourites: Array.isArray(local.favorites) ? local.favorites : [],
     dailyFavourites: Array.isArray(local.dailyFavorites) ? local.dailyFavorites : [],
   };
+  if (settings.exportIncludeCache === true) {
+    data.cache = freshCacheEntries(await api.storage.local.get(null).catch(() => ({})));
+  }
+  return data;
 }
 
 export const toJson = (data) => JSON.stringify(data, null, 2);
@@ -48,8 +54,11 @@ export class ImportError extends Error {
   }
 }
 
-/** Parses and validates a file, without touching storage. */
-export function parseExport(text) {
+/**
+ * Parses and validates a file, without touching storage. `now` decides which
+ * cached entries are still inside their day.
+ */
+export function parseExport(text, { now = Date.now() } = {}) {
   let data;
   try {
     data = JSON.parse(text);
@@ -69,8 +78,9 @@ export function parseExport(text) {
   }
 
   // Keep only what we recognise and can trust the shape of. `typeof` alone
-  // cannot tell an array from any other object, and the tab orders are arrays
-  // of ids, so those are checked element by element.
+  // cannot tell an array from any other object, and the popover's tab order is
+  // an array of ids, so it is checked element by element. A retired key, such
+  // as the old `panelTabOrder`, is not in SETTING_KEYS and so is never read.
   const settings = {};
   for (const key of SETTING_KEYS) {
     const value = data.settings?.[key];
@@ -109,10 +119,16 @@ export function parseExport(text) {
     settings,
     favourites: items(data.favourites),
     dailyFavourites: dailies(data.dailyFavourites),
+    // Only current-version cache keys still inside their day, so an import can
+    // never write anything but the worker's own kind of entry.
+    cache: freshCacheEntries(data.cache, now),
   };
 }
 
-/** Writes a parsed export. Replaces the lists rather than merging them. */
+/**
+ * Writes a parsed export. Replaces the lists rather than merging them; cached
+ * entries are added alongside what is already cached, never instead of it.
+ */
 export async function applyImport(parsed) {
   const writes = [];
   if (Object.keys(parsed.settings).length) {
@@ -124,11 +140,14 @@ export async function applyImport(parsed) {
     favorites: parsed.favourites,
     dailyFavorites: parsed.dailyFavourites,
   }));
+  const cache = parsed.cache ?? {};
+  if (Object.keys(cache).length) writes.push(api.storage.local.set(cache));
   await Promise.all(writes);
 
   return {
     settings: Object.keys(parsed.settings).length,
     favourites: parsed.favourites.length,
     dailyFavourites: parsed.dailyFavourites.length,
+    cache: Object.keys(cache).length,
   };
 }

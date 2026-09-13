@@ -93,3 +93,28 @@ test("the reply says what the pet thought and whether the item is gone", () => {
   assert.equal(parseUse(doc('<p>Testeh plays with the plushie happily.</p>')).usedUp, false);
   assert.throws(() => parseUse(doc('   ')), ItemUseError);
 });
+
+// --- where the items come from ---------------------------------------------------
+import { INVENTORY_ITEMS_URL, INVENTORY_AJAX_HEADERS, parseInventoryReply } from '../src/lib/item-use.js';
+
+const parse = (html) => parseHTML(`<!doctype html><html>${html}</html>`).document;
+
+test('items come from the call the inventory page fills itself in with, asked as the page asks', () => {
+  assert.equal(INVENTORY_ITEMS_URL,
+    'https://www.neopets.com/np-templates/ajax/inventory.php?itemType=np&alpha=&itemStack=1&action=');
+  assert.deepEqual(INVENTORY_AJAX_HEADERS, { 'X-Requested-With': 'XMLHttpRequest' });
+});
+
+test("the item call's reply is read cell by cell, and a refusal is an error, not an empty inventory", () => {
+  const reply = `<div class='inv-total-count'>Total Items: <b>37</b> / <b>50</b></div>
+    <div id='tableRowsId' class='itemgrid7__2020 item-grid'>
+      <div class='grid-item'>${cell({ name: 'Homemade Marmalade', type: 'Food', objid: '1800968731', value: '0 NP', rarity: 10, img: 'marmalade' })}</div>
+      <div class='grid-item'>${cell({ name: 'Neo Crackers', type: 'Food', objid: '1801704692', value: '106 NP', rarity: 20, img: 'crackers' })}</div>
+    </div>`;
+  const items = parseInventoryReply(reply, parse);
+  assert.deepEqual(items.map((i) => i.name), ['Homemade Marmalade', 'Neo Crackers']);
+  assert.equal(candidatesFor('feed', items)[0].name, 'Homemade Marmalade');
+
+  assert.throws(() => parseInventoryReply('{"error":true,"message":"Request denied"}', parse),
+    (err) => err instanceof ItemUseError && /Request denied/.test(err.message));
+});

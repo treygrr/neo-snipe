@@ -92,9 +92,12 @@ await ctx.route('**/np-templates/ajax/wizard.php*', (route) => {
 // The account page, counted here rather than served from routes.mjs, so a test
 // can see the checker re-read who is logged in each time it starts.
 let accountLoads = 0;
+// Held back on demand, so a check can look at the bar before the account is known.
+let accountDelayMs = 0;
 // `**`, not `*`: a glob star stops at `/`, and the checker asks for `/settings/account/`.
-await ctx.route('**://www.neopets.com/settings/account**', (route) => {
+await ctx.route('**://www.neopets.com/settings/account**', async (route) => {
   accountLoads++;
+  if (accountDelayMs) await new Promise((r) => setTimeout(r, accountDelayMs));
   return route.fulfill({
     contentType: 'text/html',
     // As a fetch really receives it: `#flag_username` is drawn later by the
@@ -180,10 +183,24 @@ const QUEST_INVENTORY = `<!doctype html><html><body>
   <div class="lazy item-img" data-itemname="Headless Von Roo Plushie" data-itemtype="Plushies" data-objid="1944788389" data-itemvalue="300 NP" data-rarity="70" data-itemset="np"></div>
   <div class="lazy item-img" data-itemname="Battle Ready!" data-itemtype="Faerie Book" data-objid="1944998704" data-itemvalue="669 NP" data-rarity="60" data-itemset="np" data-image="https://images.neopets.com/items/faeriebook_battleready.gif"></div>
 </body></html>`;
+// As on Neopets, the inventory page arrives without items and fills in from
+// this call, which is refused unless it carries the page's XHR header.
+await ctx.route('**/np-templates/ajax/inventory.php*', (route) => {
+  recordQuestPost(route, 'inventory');
+  const ajax = !!route.request().headers()['x-requested-with'];
+  questServer.posts[questServer.posts.length - 1].ajax = ajax;
+  return ajax
+    ? route.fulfill({ contentType: 'text/html', body: QUEST_INVENTORY })
+    : route.fulfill({ contentType: 'application/json', body: '{"error":true,"message":"Request denied"}' });
+});
+// A fetched inventory page, only ever asked for its header's active pet.
 await ctx.route('**://www.neopets.com/inventory.phtml', (route) => {
   if (route.request().resourceType() !== 'fetch') return route.fallback();
-  recordQuestPost(route, 'inventory');
-  return route.fulfill({ contentType: 'text/html', body: QUEST_INVENTORY });
+  recordQuestPost(route, 'inventoryPage');
+  return route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body><div class="nav-profile-dropdown__2020"><div class='nav-profile-dropdown-text'>Active Pet: <a href="/petlookup.phtml?pet=Testeh" class='profile-dropdown-link'>Testeh</a></div></div></body></html>`,
+  });
 });
 await ctx.route('**/np-templates/views/iteminfo.phtml*', (route) => {
   recordQuestPost(route, 'iteminfo');
@@ -553,27 +570,55 @@ check('hover overlay is subtle, not a solid black wash',
 await page.mouse.move(0, 0);
 
 // --- the bottom-right bar, favourites and dailies ---------------------------
-/**
- * Opens the panel if it is not already open. Toggling blindly makes each
- * section depend on what the last one left behind, which has bitten twice.
- */
-const reopenPanel = async () => {
-  // Opening is what reloads favourites from storage, so a test that writes
-  // storage directly has to close the panel first for the change to show.
-  const open = await page.evaluate(() => !!document.querySelector('[data-neosnipe="popover-host"]')
-    ?.shadowRoot?.querySelector('.ns-panel'));
-  if (open) { await page.locator('.neosnipe-launcher-main').click(); await page.waitForTimeout(300); }
-  await ensurePanelOpen();
+// Each panel view has its own bar button, and the panel wears the view's name.
+const VIEW_BUTTON = {
+  favourites: 'fav', dailies: 'dailies', foodclub: 'foodclub', settings: 'settings',
+  wiz: 'sw', ssw: 'ssw', quests: 'quests',
 };
+const VIEW_TITLE = {
+  favourites: 'Favourites', dailies: 'Dailies', foodclub: 'Food Club', settings: 'Settings',
+  wiz: 'Shop Wizard', ssw: 'Super Shop Wizard', quests: 'Quest Log',
+};
+// null while no panel is open.
+const panelTitle = () => page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  if (!root?.querySelector('.ns-panel')) return null;
+  return root.querySelector('.ns-panel-title')?.textContent.trim() ?? null;
+});
+// Which bar buttons say their view is open.
+const pressedButtons = () => page.evaluate(() =>
+  [...document.querySelectorAll('.neosnipe-launcher [aria-pressed="true"]')]
+    .map((b) => b.className.replace('neosnipe-launcher-', '')));
 
-const ensurePanelOpen = async () => {
+/**
+ * Shows the panel on `view`. Every bar button is a toggle, so clicking blindly
+ * would close a panel already on that view; it is only clicked when the panel
+ * is not showing it. Toggling blindly made each section depend on what the
+ * last one left behind, which has bitten twice.
+ */
+const openView = async (view = 'favourites') => {
   await page.keyboard.press('Escape'); // any popover covering the bar
   await page.waitForTimeout(300);
-  const open = await page.evaluate(() => !!document.querySelector('[data-neosnipe="popover-host"]')
-    ?.shadowRoot?.querySelector('.ns-panel'));
-  if (!open) await page.locator('.neosnipe-launcher-main').click();
+  if (await panelTitle() !== VIEW_TITLE[view]) {
+    await page.locator(`.neosnipe-launcher-${VIEW_BUTTON[view]}`).click();
+  }
   await page.waitForSelector('.ns-panel', { timeout: 5000 });
+  await page.waitForFunction((t) => document.querySelector('[data-neosnipe="popover-host"]')
+    ?.shadowRoot?.querySelector('.ns-panel-title')?.textContent.trim() === t, VIEW_TITLE[view], { timeout: 5000 });
   await page.waitForTimeout(300);
+};
+
+const closeViews = async () => {
+  await page.evaluate(() => document.querySelector('[data-neosnipe="popover-host"]')
+    ?.shadowRoot?.querySelector('.ns-panel-head .ns-close')?.click());
+  await page.waitForTimeout(300);
+};
+
+// Opening is what reloads favourites from storage, so a test that writes
+// storage directly has to close the panel first for the change to show.
+const reopenPanel = async (view = 'favourites') => {
+  await closeViews();
+  await openView(view);
 };
 
 const sr = (sel, fn = 'textContent') => page.evaluate(([s, f]) => {
@@ -664,8 +709,8 @@ const stored = await opts.evaluate(() => chrome.storage.local.get('favorites'));
 check('the heart saves a favourite', (stored.favorites || []).length === 1,
   JSON.stringify((stored.favorites || []).map((f) => f.name)));
 
-// Open the panel from the launcher.
-await page.locator('.neosnipe-launcher-main').click();
+// Open the panel from the launcher's Favourites button.
+await page.locator('.neosnipe-launcher-fav').click();
 await page.waitForTimeout(500);
 // Not just "the element exists": it rendered off-screen once, and an
 // existence check happily passed while nothing was visible.
@@ -686,8 +731,13 @@ const panelBox = await page.evaluate(() => {
 check('launcher opens the panel, visible on screen',
   panelBox?.onScreen === true, JSON.stringify(panelBox));
 check('panel is anchored bottom-right', panelBox?.bottomRight === true);
+check('the Favourites button opens the panel titled Favourites',
+  await panelTitle() === 'Favourites', String(await panelTitle()));
 check('launcher shows it is open',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 1);
+const favPressed = await pressedButtons();
+check('only the Favourites button is marked as open',
+  favPressed.join(',') === 'fav', JSON.stringify(favPressed));
 
 // The favourite records the Neopets item you clicked, not the Jelly Neo name
 // it resolved to — that is what a re-lookup searches for.
@@ -695,12 +745,22 @@ const favRow = (await sr('.ns-fav-name'))?.trim();
 check('the favourite is listed in the panel',
   favRow === stored.favorites[0].name, `panel="${favRow}" stored="${stored.favorites[0].name}"`);
 
-// Dailies tab: the links must be real neopets.com URLs.
-await page.evaluate(() => {
-  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /dailies/i.test(t.textContent)).click();
-});
+// Dailies: its button switches the open panel over. The links must be real
+// neopets.com URLs.
+await page.locator('.neosnipe-launcher-dailies').click();
 await page.waitForTimeout(400);
+const dailiesSwitch = await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  return {
+    panels: root.querySelectorAll('.ns-panel').length,
+    title: root.querySelector('.ns-panel-title')?.textContent.trim(),
+  };
+});
+check('the Dailies button switches the open panel to Dailies, without a second panel',
+  dailiesSwitch.panels === 1 && dailiesSwitch.title === 'Dailies', JSON.stringify(dailiesSwitch));
+const dailiesPressed = await pressedButtons();
+check('the mark moves to the Dailies button',
+  dailiesPressed.join(',') === 'dailies', JSON.stringify(dailiesPressed));
 const dailies = await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
   const links = [...root.querySelectorAll('.ns-daily')];
@@ -836,11 +896,7 @@ await opts.evaluate(() => chrome.storage.local.set({
     { label: 'Second Daily', url: 'https://www.neopets.com/neolodge.phtml' },
   ],
 }));
-await reopenPanel();
-await inShadow((root) => {
-  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /dailies/i.test(t.textContent)).click();
-});
-await page.waitForTimeout(400);
+await reopenPanel('dailies');
 
 const pinnedBefore = await inShadow((root) =>
   [...root.querySelectorAll('.ns-group--pinned .ns-daily')].map((a) => a.textContent.trim()));
@@ -910,11 +966,9 @@ check('both labs are listed',
   labs.group && labs.lab === 'https://www.neopets.com/lab.phtml'
   && labs.petpet === 'https://www.neopets.com/petpetlab.phtml', JSON.stringify(labs));
 
-// Opening a favourite must re-fetch, not serve the cached price.
-await page.evaluate(() => {
-  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
-  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /favourites/i.test(t.textContent)).click();
-});
+// Opening a favourite must re-fetch, not serve the cached price. The panel is
+// on Dailies, so the Favourites button switches it back.
+await page.locator('.neosnipe-launcher-fav').click();
 await page.waitForTimeout(300);
 const requestsBeforeRefresh = jellyNeoRequests;
 await page.evaluate(() => {
@@ -948,6 +1002,8 @@ await page.evaluate(() => {
 await page.waitForTimeout(300);
 check('closing the panel un-highlights the launcher',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
+check('closing the panel unmarks every bar button', (await pressedButtons()).length === 0,
+  JSON.stringify(await pressedButtons()));
 
 // --- reordering favourites by dragging --------------------------------------
 // Add a second favourite so there is an order to change.
@@ -957,11 +1013,7 @@ await opts.evaluate(() => chrome.storage.local.set({
     { name: 'Beta Item', imageHash: 'beta', imageUrl: null, addedAt: 1 },
   ],
 }));
-await ensurePanelOpen(); // opening reloads favourites from storage
-await inShadow((root) => {
-  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /favourites/i.test(t.textContent)).click();
-});
-await page.waitForTimeout(300);
+await openView('favourites'); // opening reloads favourites from storage
 
 const orderBefore = await inShadow((root) =>
   [...root.querySelectorAll('.ns-fav-name')].map((e) => e.textContent.trim()));
@@ -1020,14 +1072,17 @@ check('an item with no asking price shows no margin at all',
   await inShadow((root) => !root.querySelector('.ns-margin')));
 
 // --- Food Club: read the round, pick a risk level, place a bet --------------
-await ensurePanelOpen();
-await inShadow((root) => {
-  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /food club/i.test(t.textContent)).click();
-});
+// Nothing else asks for the round, so bets showing up here prove that opening
+// the view is what loads it.
+await openView('foodclub');
 await page.waitForFunction(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
   return root.querySelector('.ns-bet') || root.querySelector('.ns-fc-error');
 }, null, { timeout: 15000 }).catch(() => {});
+check('the Food Club button opens the panel titled Food Club',
+  await panelTitle() === 'Food Club', String(await panelTitle()));
+check('opening the Food Club view loads the round',
+  await inShadow((root) => root.querySelectorAll('.ns-bet').length > 0));
 
 const fcState = await inShadow((root) => ({
   error: root.querySelector('.ns-fc-error')?.textContent?.trim() || null,
@@ -1234,10 +1289,9 @@ check('the buttons come back after a refusal',
     .querySelector('.ns-btn-place').disabled === false));
 await page.unroute('**://www.neopets.com/pirates/process_foodclub.phtml*');
 
-// --- settings: the cog, the premium toggle, export and import --------------
-await ensurePanelOpen();
-await inShadow((root) => root.querySelector('.ns-cog').click());
-await page.waitForTimeout(400);
+// --- settings: the settings button, the premium toggle, export and import ---
+await openView('settings');
+await page.waitForTimeout(100);
 
 // Clicking `.ns-set-row input` by index broke the moment a toggle was added
 // above it, so these are addressed by their label instead.
@@ -1254,19 +1308,25 @@ const toggleState = (label) => inShadow((root, l) => {
 
 const settingsView = await inShadow((root) => ({
   shown: !!root.querySelector('.ns-settings'),
-  tabsHidden: !root.querySelector('.ns-panel-tabs'),
+  title: root.querySelector('.ns-panel-title')?.textContent.trim(),
+  // Settings has its own bar button now, so neither the old tab strip nor the
+  // cog in the panel's head should be left behind.
+  noCog: !root.querySelector('.ns-cog'),
+  noTabs: !root.querySelector('.ns-panel-tabs'),
   toggles: [...root.querySelectorAll('.ns-set-row strong')].map((e) => e.textContent.trim()),
   premiumOn: root.querySelector('.ns-set-row input')?.checked,
 }));
-check('the cog opens a settings view', settingsView.shown && settingsView.tabsHidden,
-  JSON.stringify(settingsView));
-check('it offers detection, premium, hover, dailies, the margin, the caches, the Magma Pool and the layout switches',
-  settingsView.toggles.length === 12 && /Detect/.test(settingsView.toggles[0])
+check('the settings button opens the settings view',
+  settingsView.shown && settingsView.title === 'Settings' && settingsView.noCog && settingsView.noTabs,
+  JSON.stringify({ ...settingsView, toggles: undefined }));
+check('it offers detection, premium, hover, dailies, the margin, the caches, the Magma Pool, the layout and backup switches',
+  settingsView.toggles.length === 13 && /Detect/.test(settingsView.toggles[0])
   && /dailies/i.test(settingsView.toggles[3]) && /margin/i.test(settingsView.toggles[4])
   && /^Shop Wizard cache/.test(settingsView.toggles[5])
   && /^Super Shop Wizard cache/.test(settingsView.toggles[6])
   && /^Find my Magma Pool time/.test(settingsView.toggles[7])
-  && settingsView.toggles.slice(8).every((t) => /^(Move|Drag|Reopen) /.test(t)),
+  && settingsView.toggles.slice(8, 12).every((t) => /^(Move|Drag|Reopen) /.test(t))
+  && /^Include cached prices in the export/.test(settingsView.toggles[12]),
   JSON.stringify(settingsView.toggles));
 
 // Detection is on by default, so the manual toggle is shown but not editable.
@@ -1297,6 +1357,25 @@ check('the export carries settings and both lists',
   && Array.isArray(parsed.dailyFavourites), JSON.stringify(parsed?.settings));
 check('cached prices are left out of the export',
   !JSON.stringify(parsed || {}).includes('p2:'));
+
+// Switched on, the day's Jelly Neo lookups go in too — only the worker's own
+// current entries — and switched back off they are left out again.
+await clickToggle('Include cached prices in the export');
+await page.waitForTimeout(400);
+await inShadow((root) => [...root.querySelectorAll('.ns-set-actions .v-btn')]
+  .find((b) => b.textContent.trim() === 'Export').click());
+await page.waitForTimeout(700);
+const withCache = await inShadow((root) => {
+  try { return JSON.parse(root.querySelector('.ns-set-box')?.value || ''); } catch { return null; }
+});
+const cacheKeys = Object.keys(withCache?.cache ?? {});
+check('with the switch on, the export carries the cached prices',
+  withCache?.settings?.exportIncludeCache === true && cacheKeys.length > 0
+  && cacheKeys.every((k) => /^(p2|tp2):/.test(k))
+  && Object.values(withCache.cache).every((e) => e && typeof e.value === 'object' && Number.isFinite(e.at)),
+  JSON.stringify({ switch: withCache?.settings?.exportIncludeCache, keys: cacheKeys.slice(0, 3), count: cacheKeys.length }));
+await clickToggle('Include cached prices in the export');
+await page.waitForTimeout(400);
 
 const edited = JSON.stringify({
   ...parsed,
@@ -1356,12 +1435,8 @@ check('turning Premium off hides the SSW tab',
   }));
 
 // Premium-only dailies go too — a link to a page you cannot use is noise.
-await inShadow((root) => root.querySelector('.ns-cog').click());
-await page.waitForTimeout(300);
-await inShadow((root) => {
-  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /dailies/i.test(t.textContent)).click();
-});
-await page.waitForTimeout(400);
+// The Escape in openView also clears the popover left from the SSW-tab check.
+await openView('dailies');
 const withoutPremium = await inShadow((root) => {
   const links = [...root.querySelectorAll('.ns-daily')];
   return { count: links.length, premiumLinks: links.filter((a) => /\/premium\//.test(a.href)).length };
@@ -1371,16 +1446,10 @@ check('premium-only dailies are hidden without Premium',
   JSON.stringify(withoutPremium));
 
 // Turn it back on: the premium daily returns.
-await inShadow((root) => root.querySelector('.ns-cog').click());
-await page.waitForTimeout(300);
+await openView('settings');
 await clickToggle('I have Neopets Premium');
 await page.waitForTimeout(400);
-await inShadow((root) => root.querySelector('.ns-cog').click());
-await page.waitForTimeout(300);
-await inShadow((root) => {
-  [...root.querySelectorAll('.ns-panel-tab')].find((t) => /dailies/i.test(t.textContent)).click();
-});
-await page.waitForTimeout(400);
+await openView('dailies');
 const withPremium = await inShadow((root) => {
   const links = [...root.querySelectorAll('.ns-daily')];
   return {
@@ -1404,23 +1473,19 @@ check('the premium daily can be favourited while Premium is on',
   await inShadow((root) => [...root.querySelectorAll('.ns-group--pinned .ns-daily')]
     .some((a) => a.href === 'https://www.neopets.com/premium/wheel.phtml')));
 
-await inShadow((root) => root.querySelector('.ns-cog').click());
-await page.waitForTimeout(300);
+await openView('settings');
 await clickToggle('I have Neopets Premium');   // Premium off
 await page.waitForTimeout(300);
-await inShadow((root) => root.querySelector('.ns-cog').click());
-await page.waitForTimeout(400);
+await openView('dailies');
 check('and disappears from the pinned group when Premium goes off',
   await inShadow((root) => ![...root.querySelectorAll('.ns-daily')]
     .some((a) => /\/premium\//.test(a.href))));
 
 // Restore: Premium on, and unfavourite it again.
-await inShadow((root) => root.querySelector('.ns-cog').click());
-await page.waitForTimeout(300);
+await openView('settings');
 await clickToggle('I have Neopets Premium');
 await page.waitForTimeout(300);
-await inShadow((root) => root.querySelector('.ns-cog').click());
-await page.waitForTimeout(400);
+await openView('dailies');
 await inShadow((root) => {
   const row = [...root.querySelectorAll('.ns-group--pinned .ns-daily-row')]
     .find((r) => /\/premium\//.test(r.querySelector('.ns-daily')?.href || ''));
@@ -1428,7 +1493,7 @@ await inShadow((root) => {
 });
 await page.waitForTimeout(300);
 
-// Premium is back on and the panel is on its tabs already.
+// Premium is back on and the panel is open on Dailies.
 
 // --- the toolbar button ------------------------------------------------------
 // It must do nothing away from Neopets. Rather than take the "tabs" permission
@@ -1472,14 +1537,21 @@ const fromToolbar = await page.evaluate(() => {
     top: Math.round(r.top),
     fromRight: Math.round(innerWidth - r.right),
     onScreen: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0,
+    title: root.querySelector('.ns-panel-title')?.textContent.trim(),
   };
 });
 check('the toolbar opens the panel under the button, top right',
   fromToolbar?.anchored === 'ns-panel--top' && fromToolbar.top < 40
   && fromToolbar.fromRight < 40 && fromToolbar.onScreen, JSON.stringify(fromToolbar));
+check('the toolbar opens it on Favourites', fromToolbar?.title === 'Favourites',
+  JSON.stringify(fromToolbar?.title));
+const toolbarPressed = await pressedButtons();
+check('and the bar marks the Favourites button', toolbarPressed.join(',') === 'fav',
+  JSON.stringify(toolbarPressed));
 
-// The in-page bar still opens it above itself.
-await page.locator('.neosnipe-launcher-main').click();
+// The in-page bar still opens it above itself. Same view from a different
+// opener, so the click moves the panel rather than closing it.
+await page.locator('.neosnipe-launcher-fav').click();
 await page.waitForTimeout(600);
 check('the in-page bar still anchors the panel above itself',
   await page.evaluate(() => {
@@ -1487,10 +1559,21 @@ check('the in-page bar still anchors the panel above itself',
     return root.querySelector('.ns-panel')?.classList.contains('ns-panel--bottom');
   }));
 
-check('the launcher shows the app icon', await page.evaluate(() => {
-  const icon = document.querySelector('.neosnipe-launcher-icon');
-  return !!icon && getComputedStyle(icon).backgroundImage.startsWith('url("data:image/svg+xml');
+const iconButtons = await page.evaluate(() => ['fav', 'dailies', 'foodclub', 'settings', 'toggle'].map((name) => {
+  const el = document.querySelector(`.neosnipe-launcher-${name}`);
+  const svg = el?.querySelector('svg');
+  const r = svg?.getBoundingClientRect();
+  return {
+    name,
+    path: !!svg?.querySelector('path[d]'),
+    w: r ? Math.round(r.width) : 0,
+    h: r ? Math.round(r.height) : 0,
+    label: el?.getAttribute('aria-label') || '',
+  };
 }));
+check("the bar's icon-set buttons draw a 20px glyph and carry a name",
+  iconButtons.every((b) => b.path && b.w === 20 && b.h === 20 && b.label.length > 0),
+  JSON.stringify(iconButtons));
 
 // --- the Shop Wizard / Super Shop Wizard search panels ----------------------
 const panelState = () => inShadow((root) => ({
@@ -1498,7 +1581,7 @@ const panelState = () => inShadow((root) => ({
   panels: root.querySelectorAll('.ns-panel').length,
   title: root.querySelector('.ns-panel-title')?.textContent.trim(),
   hasSearch: !!root.querySelector('.ns-wiz-input'),
-  hasTabs: !!root.querySelector('.ns-panel-tabs'),
+  hasFavourites: !!root.querySelector('.ns-fav, .ns-group'),
   items: [...root.querySelectorAll('.ns-wiz-item')].map((b) => ({
     name: b.querySelector('.ns-wiz-item-name')?.textContent.trim(),
     thumb: b.querySelector('.ns-wiz-thumb')?.getAttribute('src') || null,
@@ -1526,17 +1609,17 @@ const box = (el) => {
     if (!el) return null;
     return { image: getComputedStyle(el).backgroundImage, ...box(el) };
   };
-  const appIcon = box(bar.querySelector('.neosnipe-launcher-icon'));
   return {
     order: [...bar.children].map((c) => c.className.replace('neosnipe-launcher-', '')),
     sw: glyph('.neosnipe-launcher-sw'),
     ssw: glyph('.neosnipe-launcher-ssw'),
-    appSize: appIcon,
+    barIcon: box(bar.querySelector('.neosnipe-launcher-fav svg')),
     sswShown: getComputedStyle(bar.querySelector('.neosnipe-launcher-ssw')).display !== 'none',
   };
 });
-check('the bar carries the grip and the wizard buttons, in order',
-  barButtons.order.join(',') === 'grip,main,sw,ssw,quests,magma,inv', JSON.stringify(barButtons.order));
+check('the bar carries the grip, the view buttons, the links, settings and the collapse arrow, in order',
+  barButtons.order.join(',') === 'grip,fav,dailies,foodclub,sw,ssw,quests,magma,inv,settings,toggle',
+  JSON.stringify(barButtons.order));
 // Carried in the bundle, not fetched: hot-linked artwork would leave the
 // buttons blank the day Neopets moves those paths.
 check('the Shop Wizard button carries its icon inline',
@@ -1549,14 +1632,13 @@ check('neither is fetched from images.neopets.com',
   !/images.neopets.com/.test(barButtons.sw.image + barButtons.ssw.image));
 // Measured, not declared: a glyph left inline reports its declared 20px while
 // painting into a zero-height box, which is exactly how these first shipped.
-check('both wizard icons are actually drawn, at the app icon size',
-  barButtons.sw.w === barButtons.appSize.w && barButtons.sw.h === barButtons.appSize.h
-  && barButtons.ssw.w === barButtons.appSize.w && barButtons.ssw.h === barButtons.appSize.h
-  && barButtons.appSize.h > 0,
-  JSON.stringify({ sw: barButtons.sw, ssw: barButtons.ssw, app: barButtons.appSize }));
+check('both wizard icons are actually drawn, at the bar icon size',
+  barButtons.sw.w === barButtons.barIcon.w && barButtons.sw.h === barButtons.barIcon.h
+  && barButtons.ssw.w === barButtons.barIcon.w && barButtons.ssw.h === barButtons.barIcon.h
+  && barButtons.barIcon.h > 0,
+  JSON.stringify({ sw: barButtons.sw, ssw: barButtons.ssw, bar: barButtons.barIcon }));
 check('the SSW button is shown while Premium is on', barButtons.sswShown === true);
 
-// Opening one shows a search panel rather than the favourites tabs.
 const closePanel = async () => {
   await page.evaluate(() => {
     const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
@@ -1565,7 +1647,49 @@ const closePanel = async () => {
   await page.waitForTimeout(300);
 };
 
+// --- each view button is a toggle ---------------------------------------------
+// Opens its own titled view, marks only itself, and a second click closes it.
 await closePanel();
+const viewRuns = [];
+for (const view of ['favourites', 'dailies', 'foodclub', 'settings']) {
+  await page.locator(`.neosnipe-launcher-${VIEW_BUTTON[view]}`).click();
+  await page.waitForTimeout(600);
+  const opened = { title: await panelTitle(), pressed: (await pressedButtons()).join(',') };
+  await page.locator(`.neosnipe-launcher-${VIEW_BUTTON[view]}`).click();
+  await page.waitForTimeout(400);
+  const closed = { title: await panelTitle(), pressed: (await pressedButtons()).join(',') };
+  viewRuns.push({ view, opened, closed });
+}
+for (const { view, opened, closed } of viewRuns) {
+  check(`the ${VIEW_TITLE[view]} button opens the panel titled ${VIEW_TITLE[view]}, marking only itself`,
+    opened.title === VIEW_TITLE[view] && opened.pressed === VIEW_BUTTON[view], JSON.stringify(opened));
+  check(`a second click on the ${VIEW_TITLE[view]} button closes it and clears the mark`,
+    closed.title === null && closed.pressed === '', JSON.stringify(closed));
+}
+
+// Switching from one view to another keeps the one panel and moves the mark.
+await page.locator('.neosnipe-launcher-foodclub').click();
+await page.waitForTimeout(600);
+await page.locator('.neosnipe-launcher-dailies').click();
+await page.waitForTimeout(500);
+const switched = await inShadow((root) => ({
+  panels: root.querySelectorAll('.ns-panel').length,
+  title: root.querySelector('.ns-panel-title')?.textContent.trim(),
+  // The tab strip and the head's cog are gone for good, not merely hidden.
+  leftovers: root.querySelectorAll('.ns-panel-tabs, .ns-panel-tab, .ns-cog').length,
+}));
+const switchedPressed = await pressedButtons();
+check('switching from Food Club to Dailies shows Dailies in the same single panel',
+  switched.panels === 1 && switched.title === 'Dailies', JSON.stringify(switched));
+check('the switch moves the mark from Food Club to Dailies',
+  switchedPressed.join(',') === 'dailies', JSON.stringify(switchedPressed));
+check('the panel has no tab strip and no cog', switched.leftovers === 0, JSON.stringify(switched));
+await page.locator('.neosnipe-launcher-dailies').click();
+await page.waitForTimeout(400);
+check('clicking the open view\'s button again leaves no panel and no mark',
+  await panelTitle() === null && (await pressedButtons()).length === 0);
+
+// Opening a wizard shows a search panel rather than the favourites view.
 await page.locator('.neosnipe-launcher-sw').click();
 await page.waitForTimeout(600);
 
@@ -1573,7 +1697,9 @@ const wizPanel = await panelState();
 check('the Shop Wizard button opens its own panel',
   wizPanel.open && wizPanel.title === 'Shop Wizard' && wizPanel.hasSearch,
   JSON.stringify({ title: wizPanel.title, search: wizPanel.hasSearch }));
-check('the search panel replaces the favourites tabs', wizPanel.hasTabs === false);
+check('the search panel replaces the favourites view', wizPanel.hasFavourites === false);
+const wizPressed = await pressedButtons();
+check('the bar marks the Shop Wizard button', wizPressed.join(',') === 'sw', JSON.stringify(wizPressed));
 
 // The page's items wait behind the search box rather than filling the panel.
 check('page items are not listed until the search box is clicked',
@@ -1893,10 +2019,10 @@ await pressQuest('Read to a Pet', '.ns-quest-run');
 await page.waitForTimeout(1500);
 const afterRead = await questView();
 const usePost = questPosts('use')[0];
-check('Read looks up the inventory, then only the book it means to use',
-  questPosts('inventory').length === 1
+check("Read asks for the inventory's items the way the page does, then only the book it means to use",
+  questPosts('inventory').length === 1 && questPosts('inventory')[0].ajax === true
   && questPosts('iteminfo').length === 1 && questPosts('iteminfo')[0].objId === '1944998704',
-  JSON.stringify({ inventory: questPosts('inventory').length, iteminfo: questPosts('iteminfo').map((p) => p.objId) }));
+  JSON.stringify({ inventory: questPosts('inventory').map((p) => ({ ajax: p.ajax })), iteminfo: questPosts('iteminfo').map((p) => p.objId) }));
 check('and reads it to the active pet, exactly as the inventory page posts it',
   questPosts('use').length === 1 && usePost.body === 'obj_id=1944998704&action=Read+to+Testeh&petcare=0',
   JSON.stringify(questPosts('use')));
@@ -2132,11 +2258,30 @@ check('once an account has its time, the pool is not checked again',
   magmaLoads === magmaLoadsAtFound, `${magmaLoads} loads, ${magmaLoadsAtFound} at found`);
 check('and the checkmark is still there after a reload', (await magmaState()).state === 'found');
 
+// The account page is what the checker waits on. Held back well past the
+// moment the bar is looked at, the button must already be there — and already
+// the checkmark, since this account's time is known — not pop in afterwards.
+accountDelayMs = 4000;
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+await page.waitForTimeout(700);
+const magmaOnLoad = await magmaState();
+const accountLoadsWhileHeld = accountLoads;
+check('with checking on, the button is on the bar before the account page has loaded, already found',
+  magmaOnLoad.shown && magmaOnLoad.state === 'found'
+  && magmaOnLoad.href === 'https://www.neopets.com/magma/pool.phtml',
+  JSON.stringify(magmaOnLoad));
+accountDelayMs = 0;
+await page.waitForTimeout(4500);
+check('and it is still the checkmark once the account page has answered',
+  (await magmaState()).state === 'found' && accountLoads >= accountLoadsWhileHeld,
+  JSON.stringify(await magmaState()));
+
 // The settings panel shows the time, counts down to it, and exports it.
-await page.locator('.neosnipe-launcher-main').click();
+await page.locator('.neosnipe-launcher-settings').click();
 await page.waitForSelector('[data-neosnipe="popover-host"]', { timeout: 10000 });
-await page.waitForTimeout(500);
-await inShadow((root) => root.querySelector('.ns-cog')?.click());
+await page.waitForFunction(() => document.querySelector('[data-neosnipe="popover-host"]')
+  ?.shadowRoot?.querySelector('.ns-panel-title')?.textContent.trim() === 'Settings', null, { timeout: 10000 });
 await page.waitForTimeout(600);
 
 const poolRows = await inShadow((root) => [...root.querySelectorAll('.ns-pool-row')]
@@ -2169,6 +2314,110 @@ check('and the found time is still exported while it is off',
 
 await inShadow((root) => root.querySelector('.ns-panel-head .ns-close')?.click());
 await page.waitForTimeout(300);
+
+// --- collapsing the bar ------------------------------------------------------
+// Before the drag below, while the bar is in its corner under the panel.
+// What each child shows expanded, so expanding can be held to exactly that:
+// SSW follows Premium and the Magma Pool button is off with checking.
+const barDisplays = () => page.evaluate(() =>
+  Object.fromEntries([...document.querySelectorAll('.neosnipe-launcher > :not(.neosnipe-launcher-notice)')]
+    .map((el) => [el.className.replace('neosnipe-launcher-', ''), getComputedStyle(el).display])));
+const arrowState = () => page.evaluate(() => {
+  const bar = document.querySelector('.neosnipe-launcher');
+  const t = bar.querySelector('.neosnipe-launcher-toggle');
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return {
+    collapsed: bar.dataset.collapsed ?? null,
+    expanded: t.getAttribute('aria-expanded'),
+    label: t.getAttribute('aria-label'),
+    title: t.title,
+    d: t.querySelector('path')?.getAttribute('d'),
+    visible: [...bar.querySelectorAll(':scope > :not(.neosnipe-launcher-notice)')]
+      .filter((el) => el.getBoundingClientRect().width > 0)
+      .map((el) => el.className.replace('neosnipe-launcher-', '')),
+    panelTitle: root?.querySelector('.ns-panel') ? root.querySelector('.ns-panel-title')?.textContent.trim() : null,
+  };
+});
+
+await openView('favourites');
+const displaysBefore = await barDisplays();
+const expanded0 = await arrowState();
+check('the bar starts expanded, with the arrow saying so',
+  expanded0.collapsed === null && expanded0.expanded === 'true' && /^Hide/.test(expanded0.label),
+  JSON.stringify(expanded0));
+
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(300);
+const collapsedState = await arrowState();
+check('the arrow collapses the bar to its grip and itself',
+  collapsedState.collapsed === '1' && collapsedState.visible.join(',') === 'grip,toggle',
+  JSON.stringify(collapsedState.visible));
+// Folded rather than removed, so it can animate — and once folded, hidden, so
+// the tab key cannot land on a button nobody can see.
+const folded = await page.evaluate(() => [...document.querySelectorAll('.neosnipe-launcher-fav, .neosnipe-launcher-settings')]
+  .map((el) => {
+    const s = getComputedStyle(el);
+    return { visibility: s.visibility, animated: /max-width/.test(s.transitionProperty) && parseFloat(s.transitionDuration) > 0 };
+  }));
+check('collapsing folds the buttons away with an animation and takes them out of reach',
+  folded.length === 2 && folded.every((f) => f.visibility === 'hidden' && f.animated), JSON.stringify(folded));
+check('the collapsed arrow says it will show the buttons',
+  collapsedState.expanded === 'false' && collapsedState.label === 'Show the neo-snipe buttons'
+  && collapsedState.title === 'Show the neo-snipe buttons' && collapsedState.d !== expanded0.d,
+  JSON.stringify({ ...collapsedState, d: undefined, visible: undefined }));
+check('collapsing leaves the open panel open', collapsedState.panelTitle === 'Favourites',
+  JSON.stringify(collapsedState.panelTitle));
+
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(300);
+const expandedAgain = await arrowState();
+const displaysAfter = await barDisplays();
+check('the arrow expands the bar back to exactly what it showed before',
+  JSON.stringify(displaysAfter) === JSON.stringify(displaysBefore),
+  JSON.stringify({ before: displaysBefore, after: displaysAfter }));
+check('the expanded arrow says it will hide the buttons again',
+  expandedAgain.collapsed === null && expandedAgain.expanded === 'true'
+  && expandedAgain.label === 'Hide the neo-snipe buttons' && expandedAgain.d === expanded0.d,
+  JSON.stringify({ ...expandedAgain, visible: undefined, d: undefined }));
+
+// The arrow is a real button, so the keyboard works it too, and focus stays
+// on it: it does not vanish with the buttons it hides.
+const arrowFocus = () => page.evaluate(() =>
+  document.activeElement?.classList.contains('neosnipe-launcher-toggle') === true);
+await page.locator('.neosnipe-launcher-toggle').focus();
+await page.keyboard.press('Enter');
+await page.waitForTimeout(300);
+const byEnter = await arrowState();
+check('Enter on the arrow collapses the bar and keeps focus on the arrow',
+  byEnter.collapsed === '1' && byEnter.expanded === 'false' && await arrowFocus(),
+  JSON.stringify({ ...byEnter, d: undefined }));
+await page.keyboard.press('Space');
+await page.waitForTimeout(300);
+const bySpace = await arrowState();
+check('and Space expands it again, focus still on the arrow',
+  bySpace.collapsed === null && bySpace.expanded === 'true' && await arrowFocus(),
+  JSON.stringify({ ...bySpace, d: undefined }));
+
+// A phone-width window: the whole expanded bar and the panel still fit.
+await page.setViewportSize({ width: 400, height: 720 });
+await page.waitForTimeout(400);
+const narrow = await page.evaluate(() => {
+  const r = document.querySelector('.neosnipe-launcher').getBoundingClientRect();
+  const panel = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot
+    ?.querySelector('.ns-panel')?.getBoundingClientRect();
+  return {
+    width: window.innerWidth,
+    barLeft: Math.round(r.left), barRight: Math.round(r.right),
+    panelLeft: panel && Math.round(panel.left), panelRight: panel && Math.round(panel.right),
+  };
+});
+check('at 400px wide the expanded bar fits inside the window',
+  narrow.barLeft >= 0 && narrow.barRight <= narrow.width, JSON.stringify(narrow));
+check('and the panel\'s right edge is still inside the window',
+  narrow.panelRight != null && narrow.panelRight <= narrow.width, JSON.stringify(narrow));
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.waitForTimeout(400);
+await closeViews();
 
 // --- dragging the bar by its handle ----------------------------------------
 const barBox = () => page.evaluate(() => {
@@ -2215,22 +2464,89 @@ check('dragging the handle moves the whole bar by that much',
 // The drag must not have opened anything on the way past.
 check('dragging the bar opens no panel',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
+check('and marks no button', (await pressedButtons()).length === 0);
 
 // Buttons still work after a drag, since the capture was on the grip.
-await page.locator('.neosnipe-launcher-main').click();
+await page.locator('.neosnipe-launcher-fav').click();
 await page.waitForTimeout(500);
 check('the buttons still work once the bar has been moved',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 1);
+check('and the Favourites button is marked', (await pressedButtons()).join(',') === 'fav');
 await page.evaluate(() => {
   const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
   root.querySelector('.ns-panel-head .ns-close')?.click();
 });
 await page.waitForTimeout(300);
 
+// Expanding a moved bar re-clamps it. The pointer is over the arrow each time,
+// which lifts the bar a pixel, and that lift must not be taken as a move.
+const inlinePos = () => page.evaluate(() => {
+  const bar = document.querySelector('.neosnipe-launcher');
+  return { left: bar.style.left, top: bar.style.top, moved: bar.dataset.moved ?? null };
+});
+const movedPos = await inlinePos();
+for (let i = 0; i < 4; i++) {
+  await page.locator('.neosnipe-launcher-toggle').click();
+  await page.waitForTimeout(250);
+}
+const afterToggles = await inlinePos();
+check('collapsing and expanding a moved bar leaves it exactly where it was',
+  JSON.stringify(afterToggles) === JSON.stringify(movedPos) && movedPos.moved === '1',
+  JSON.stringify({ movedPos, afterToggles }));
+
+// Collapsed and pushed against the right edge, so expanding has to pull it back.
+const dragGripTo = async (x) => {
+  const g = await page.locator('.neosnipe-launcher-grip').boundingBox();
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, g.y + g.height / 2, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+};
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(300);
+await dragGripTo(1275);
+const savedLauncher = () => opts.evaluate(async () => (await chrome.storage.local.get('positions')).positions?.launcher ?? null);
+const savedAtEdge = await savedLauncher();
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(400);
+const atEdge = await page.evaluate(() => {
+  const bar = document.querySelector('.neosnipe-launcher');
+  const r = bar.getBoundingClientRect();
+  return {
+    left: Math.round(r.left), right: Math.round(r.right), width: window.innerWidth,
+    moved: bar.dataset.moved ?? null, collapsed: bar.dataset.collapsed ?? null,
+  };
+});
+check('expanding a bar moved against the edge keeps it inside the window',
+  atEdge.collapsed === null && atEdge.left >= 0 && atEdge.right <= atEdge.width && atEdge.moved === '1',
+  JSON.stringify(atEdge));
+check('and that clamp does not save a new position',
+  savedAtEdge !== null && JSON.stringify(await savedLauncher()) === JSON.stringify(savedAtEdge),
+  JSON.stringify(savedAtEdge));
+
+// Leave it collapsed going into the reload below, which must forget that.
+// Done with the panel closed: it keeps to the window's corner rather than
+// following a moved bar, so it would sit over the arrow here.
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(300);
+check('collapsed again before the reload', (await arrowState()).collapsed === '1');
+
 // Turning dragging off takes the handle away rather than leaving it inert.
 await opts.evaluate(() => chrome.storage.sync.set({ movableLauncher: false }));
 await page.reload();
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+const afterReload = await page.evaluate(() => {
+  const bar = document.querySelector('.neosnipe-launcher');
+  return {
+    collapsed: bar.dataset.collapsed ?? null,
+    expanded: bar.querySelector('.neosnipe-launcher-toggle')?.getAttribute('aria-expanded'),
+    favShown: getComputedStyle(bar.querySelector('.neosnipe-launcher-fav')).display !== 'none',
+  };
+});
+check('a reload starts the bar expanded, even after collapsing it',
+  afterReload.collapsed === null && afterReload.expanded === 'true' && afterReload.favShown,
+  JSON.stringify(afterReload));
 check('with dragging off the handle is gone',
   (await gripState()).shown === false);
 
@@ -2241,7 +2557,7 @@ check('and comes back with it on', (await gripState()).shown === true);
 
 // The reloads above left the page with no UI mounted, and the host only comes
 // into being on first use; the sections below expect it there.
-await page.locator('.neosnipe-launcher-main').click();
+await page.locator('.neosnipe-launcher-fav').click();
 await page.waitForSelector('[data-neosnipe="popover-host"]', { timeout: 10000 });
 await page.waitForTimeout(400);
 await page.evaluate(() => {
@@ -2254,20 +2570,24 @@ await page.waitForTimeout(300);
 const invLink = await page.evaluate(() => {
   const a = document.querySelector('.neosnipe-launcher-inv');
   const bar = document.querySelector('.neosnipe-launcher');
-  const main = document.querySelector('.neosnipe-launcher-main');
+  const quests = document.querySelector('.neosnipe-launcher-quests');
+  const settings = document.querySelector('.neosnipe-launcher-settings');
   if (!a) return null;
+  const r = a.getBoundingClientRect();
   return {
     href: a.getAttribute('href'),
     tag: a.tagName,
     title: a.title,
     hasIcon: !!a.querySelector('svg path[d]'),
-    insideBar: bar.contains(a) && bar.contains(main),
-    // Both sit on one row, the inventory link to the right of the main button.
-    rightOfMain: a.getBoundingClientRect().left >= main.getBoundingClientRect().right - 1,
+    insideBar: bar.contains(a),
+    // All on one row, the inventory link between Quest Log and settings.
+    afterQuests: r.left >= quests.getBoundingClientRect().right - 1,
+    beforeSettings: r.right <= settings.getBoundingClientRect().left + 1,
   };
 });
-check('the launcher carries an inventory link beside the main button',
-  invLink?.insideBar === true && invLink.rightOfMain === true, JSON.stringify(invLink));
+check('the launcher carries an inventory link between the Quest Log and settings buttons',
+  invLink?.insideBar === true && invLink.afterQuests === true && invLink.beforeSettings === true,
+  JSON.stringify(invLink));
 check('it points at the inventory and is a real link',
   invLink?.href === 'https://www.neopets.com/inventory.phtml' && invLink.tag === 'A',
   JSON.stringify(invLink));
@@ -2291,6 +2611,7 @@ await page.waitForTimeout(400);
 // here; the href asserted above is what proves the destination.
 check('clicking the inventory link does not open the panel',
   await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
+check('nor mark any view button', (await pressedButtons()).length === 0);
 await page.evaluate((url) => {
   document.querySelector('.neosnipe-launcher-inv').setAttribute('href', url);
 }, 'https://www.neopets.com/inventory.phtml');
@@ -2383,8 +2704,41 @@ check('the popover opens on the first tab, not price', reordered.selected === 'T
 check('that tab is fetched on open rather than left empty',
   reordered.stats === true && reordered.rows > 0, JSON.stringify(reordered));
 
-// Put the shipped order back before the error-path checks reuse the popover.
-await opts.evaluate(() => chrome.storage.sync.set({ popoverTabOrder: ['price', 'tp', 'wiz', 'shops'] }));
+// The popover's own strip still reorders by dragging, though the panel's went.
+// A real HTML5 drag: Price dropped on TP, which leads the strip from above.
+const stripOrder = () => inShadow((root) => [...root.querySelectorAll('.ns-tab')].map((t) => t.textContent.trim()));
+const stripBefore = await stripOrder();
+check('the popover tabs are draggable', await inShadow((root) =>
+  [...root.querySelectorAll('.ns-tab')].every((t) => t.getAttribute('draggable') === 'true')));
+await page.locator('.ns-tab', { hasText: 'Price' }).first()
+  .dragTo(page.locator('.ns-tab', { hasText: 'TP' }).first());
+await page.waitForTimeout(600);
+const stripAfter = await stripOrder();
+const storedStrip = await opts.evaluate(() => chrome.storage.sync.get('popoverTabOrder'));
+check('dragging a popover tab reorders the strip',
+  stripBefore[0] === 'TP' && stripAfter[0] === 'Price' && stripAfter[1] === 'TP',
+  JSON.stringify({ stripBefore, stripAfter }));
+check('and the dragged order is saved',
+  (storedStrip.popoverTabOrder || []).slice(0, 2).join(',') === 'price,tp',
+  JSON.stringify(storedStrip.popoverTabOrder));
+
+// Settings' Reset tabs puts the shipped order back, both saved and on screen.
+await openView('settings');
+await inShadow((root) => [...root.querySelectorAll('button')]
+  .find((b) => b.textContent.trim() === 'Reset tabs')?.click());
+await page.waitForTimeout(500);
+const storedReset = await opts.evaluate(() => chrome.storage.sync.get('popoverTabOrder'));
+check('Reset tabs saves the popover\'s shipped tab order',
+  (storedReset.popoverTabOrder || []).join(',') === 'price,tp,wiz,shops',
+  JSON.stringify(storedReset.popoverTabOrder));
+await closeViews();
+await page.locator('.neosnipe-badge').first().click();
+await page.waitForFunction(() => !!document.querySelector('[data-neosnipe="popover-host"]')
+  ?.shadowRoot?.querySelector('.ns-tab'), null, { timeout: 15000 });
+await page.waitForTimeout(400);
+const stripReset = await stripOrder();
+check('and the popover strip is back to Price, TP',
+  stripReset[0] === 'Price' && stripReset[1] === 'TP', JSON.stringify(stripReset));
 
 // --- remembering the last tab ----------------------------------------------
 // Off by default: every item opens on the first tab whatever you last looked at.

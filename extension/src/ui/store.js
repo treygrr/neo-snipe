@@ -28,7 +28,7 @@ import {
   PANEL, LAUNCHER, readPosition, writePosition, clearPosition, clamp,
 } from '../lib/positions.js';
 import {
-  PANEL_TABS, POPOVER_TABS, fullOrder, visibleOrder, moveInOrder,
+  POPOVER_TABS, fullOrder, visibleOrder, moveInOrder,
 } from '../lib/tab-order.js';
 import {
   RETRIEVE_URL, CLAIM_URL, FISHING_URL, WHEEL_RESULT_URL, QUESTLOG_URL,
@@ -38,8 +38,8 @@ import {
 } from '../lib/questlog.js';
 import { readAccountName } from '../lib/magma.js';
 import {
-  USES, INVENTORY_URL, USE_OBJECT_URL, itemInfoUrl, readInventory, candidatesFor, readActivePet,
-  readItemActions, actionFor, useBody, parseUse, ItemUseError,
+  USES, INVENTORY_URL, INVENTORY_ITEMS_URL, INVENTORY_AJAX_HEADERS, USE_OBJECT_URL, itemInfoUrl,
+  parseInventoryReply, candidatesFor, readActivePet, readItemActions, actionFor, useBody, parseUse, ItemUseError,
 } from '../lib/item-use.js';
 import { SHOPPING_KEY, shopUrl, findShopWithStock, purchasesLeft } from '../lib/shops.js';
 import {
@@ -92,8 +92,9 @@ export const state = reactive({
   // 'top' when opened from the toolbar button, so it appears under the button.
   panelOpen: false,
   panelAnchor: 'bottom',
-  // 'tabs' or 'settings' — the cog swaps the panel body.
-  panelView: 'tabs',
+  // Which view the panel shows. Each has its own bar button:
+  // favourites, dailies, foodclub, settings, wiz, ssw, quests.
+  panelView: 'favourites',
   // Everything the content script found on this page, offered as starting
   // points in the search panels. Replaced on every scan.
   pageItems: [],
@@ -106,7 +107,7 @@ export const state = reactive({
   settings: {
     hoverOnly: true, premium: false, premiumAuto: true, minMargin: 1000,
     trackDailyVisits: true, movablePanel: true, movableLauncher: true, movableTabs: true,
-    panelTabOrder: PANEL_TABS, popoverTabOrder: POPOVER_TABS,
+    popoverTabOrder: POPOVER_TABS,
   },
   // What the nav said, or null if no page has told us yet.
   premiumDetected: null,
@@ -118,7 +119,6 @@ export const state = reactive({
   // Cleared on every open: a popover belongs to the badge that opened it.
   popoverPos: null,
   panelDragging: false,
-  panelTab: 'favourites',
   favourites: [],
   dailyFavourites: [],
   // `{ dailyUrl: visitedAt }` for everything still counting as done. Each
@@ -469,14 +469,6 @@ export async function setSetting(key, value) {
   if (key === 'movableLauncher') onLauncherDrag?.(value);
 }
 
-export function showSettings(show) {
-  state.panelView = show ? 'settings' : 'tabs';
-  if (show) {
-    state.io = { status: null, message: '', text: '' };
-    loadSettings();
-  }
-}
-
 /** Fills the box with everything worth keeping, ready to copy or save. */
 export async function exportSettings() {
   state.io = { status: 'ok', message: 'Copy this, or save it to a file.', text: toJson(await collectSettings()) };
@@ -492,7 +484,8 @@ export async function importSettings(text) {
     state.io = {
       status: 'ok',
       message: `Imported ${counts.favourites} favourites, ${counts.dailyFavourites} dailies`
-        + ` and ${counts.settings} settings.`,
+        + ` and ${counts.settings} settings`
+        + (counts.cache ? `, plus ${counts.cache} cached prices.` : '.'),
       text,
     };
   } catch (err) {
@@ -622,11 +615,6 @@ export async function resetLauncherPosition() {
 
 // --- tab order -------------------------------------------------------------
 
-/** Every panel tab is always available. */
-export const panelTabs = () => visibleOrder(
-  fullOrder(state.settings.panelTabOrder, PANEL_TABS), PANEL_TABS,
-);
-
 /** The SSW tab only exists with Premium, so the available set is narrower. */
 export function popoverTabs() {
   const available = POPOVER_TABS.filter((id) => id !== 'shops' || isPremium());
@@ -639,18 +627,14 @@ async function moveTab(key, known, available, from, to) {
   await setSetting(key, next);
 }
 
-export const movePanelTab = (from, to) =>
-  moveTab('panelTabOrder', PANEL_TABS, PANEL_TABS, from, to);
-
 export const movePopoverTab = (from, to) => moveTab(
   'popoverTabOrder', POPOVER_TABS,
   POPOVER_TABS.filter((id) => id !== 'shops' || isPremium()),
   from, to,
 );
 
-/** Back to the order the tabs ship in. */
-export async function resetTabOrder() {
-  await setSetting('panelTabOrder', [...PANEL_TABS]);
+/** Back to the order the popover's tabs ship in. */
+export async function resetPopoverTabOrder() {
   await setSetting('popoverTabOrder', [...POPOVER_TABS]);
 }
 
@@ -696,7 +680,7 @@ export function openFavourite(anchor, favourite) {
 }
 
 // The launcher lives in the page's DOM, outside Vue, so it needs telling when
-// the panel is closed from inside the panel itself.
+// the panel opens, closes or changes view: `fn(open, view)`.
 let onPanelChange = null;
 export function watchPanel(fn) { onPanelChange = fn; }
 
@@ -716,7 +700,7 @@ export function togglePanel({ anchor = 'bottom' } = {}) {
   } else {
     stopWatchingDayRollover();
   }
-  onPanelChange?.(state.panelOpen);
+  onPanelChange?.(state.panelOpen, state.panelView);
 }
 
 /** Replaced wholesale on each scan: the page is the source of truth. */
@@ -724,25 +708,41 @@ export function setPageItems(items) {
   state.pageItems = Array.isArray(items) ? items : [];
 }
 
+// What showing a view needs beyond rendering it. Settings starts with a clean
+// import box and re-reads storage, which another tab may have changed. Food
+// Club fetches the round; its own 60-second guard keeps a quick back-and-forth
+// from refetching.
+function enterPanelView(view) {
+  if (view === 'settings') {
+    state.io = { status: null, message: '', text: '' };
+    loadSettings();
+  } else if (view === 'foodclub') {
+    loadFoodClub();
+  }
+}
+
 /**
  * The launcher's buttons all land here. Opening the panel on the view it is
  * already showing closes it, which is what makes each button a toggle.
  */
-export function openPanelView(view = 'panel', { anchor = 'bottom' } = {}) {
-  const next = view === 'panel' ? 'tabs' : view;
-
+export function openPanelView(view = 'favourites', { anchor = 'bottom' } = {}) {
   // Asking for a view the panel is not showing always shows it, rather than
   // closing the panel on you.
-  if (state.panelOpen && state.panelView !== next) {
-    state.panelView = next;
+  if (state.panelOpen && state.panelView !== view) {
+    state.panelView = view;
     state.panelAnchor = anchor;
-    return undefined;
+    enterPanelView(view);
+    onPanelChange?.(true, view);
+    return;
   }
 
   // Otherwise it is the same button again, so `togglePanel` decides: close it,
-  // or move it when the click came from a different opener.
-  state.panelView = next;
-  return togglePanel({ anchor });
+  // or move it when the click came from a different opener. Only a real open
+  // enters the view; a move leaves the settings import box as it was.
+  const wasOpen = state.panelOpen;
+  state.panelView = view;
+  togglePanel({ anchor });
+  if (state.panelOpen && !wasOpen) enterPanelView(view);
 }
 
 const CACHES = { wiz: () => wizCache, ssw: () => sswCache };
@@ -870,7 +870,7 @@ export function clearSearch(kind) {
 export function closePanel() {
   state.panelOpen = false;
   stopWatchingDayRollover();
-  onPanelChange?.(false);
+  onPanelChange?.(false, state.panelView);
 }
 
 // --- Quest Log -------------------------------------------------------------
@@ -988,14 +988,23 @@ export function claimBonus() {
  */
 async function useItemFor(quest) {
   const use = USES[quest.kind];
-  const invRes = await fetch(INVENTORY_URL, { credentials: 'include' });
+  // The inventory page arrives empty and fills itself in with this call, so
+  // this is what is asked — the way the page asks it, or Neopets refuses.
+  const invRes = await fetch(INVENTORY_ITEMS_URL, {
+    method: 'POST', credentials: 'include', referrer: INVENTORY_URL, headers: INVENTORY_AJAX_HEADERS,
+  });
   if (!invRes.ok) throw new QuestLogError(`Neopets returned ${invRes.status}.`);
-  const inventory = parseHtml(await invRes.text());
+  const items = parseInventoryReply(await invRes.text(), parseHtml);
 
-  const pet = readActivePet(document) || readActivePet(inventory);
+  // The header names the active pet. A page without one asks the inventory page.
+  let pet = readActivePet(document);
+  if (!pet) {
+    const page = await fetch(INVENTORY_URL, { credentials: 'include' });
+    if (page.ok) pet = readActivePet(parseHtml(await page.text()));
+  }
   if (!pet) throw new QuestLogError('Could not tell which pet is active. Are you logged in to Neopets?');
 
-  const candidates = candidatesFor(quest.kind, readInventory(inventory));
+  const candidates = candidatesFor(quest.kind, items);
   if (!candidates.length) {
     throw new QuestLogError(`No ${use.noun} in your inventory to ${use.label.toLowerCase()} with — get one, then try again.`);
   }

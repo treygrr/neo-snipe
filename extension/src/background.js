@@ -2,18 +2,12 @@ import { LOOKUP, TP_LOOKUP, HELLO, OPEN_PANEL } from './lib/messages.js';
 import { api, hasJellyNeoAccess } from './lib/ext-api.js';
 import { dedupe } from './lib/queue.js';
 import { lookupItem, lookupTradingPost, NotFoundError, ScrapeError } from './lib/jellyneo.js';
-
-const TTL_MS = 24 * 60 * 60 * 1000;
-const MAX_ENTRIES = 2000;
-
-// Bump when a change makes existing cached entries wrong. v2: entries written
-// before this could hold the wrong item entirely, because a Neopets
-// obj_info_id was being used as a Jelly Neo item id.
-const CACHE_VERSION = 2;
-const PRICE_PREFIX = `p${CACHE_VERSION}:`;
-const TP_PREFIX = `tp${CACHE_VERSION}:`;
-const isCurrent = (k) => k.startsWith(PRICE_PREFIX) || k.startsWith(TP_PREFIX);
-const isCacheKey = (k) => /^(p|tp)\d*:/.test(k);
+// Versioning, lifetime and size live in one place, so a backup carries exactly
+// the entries this worker would still use.
+import {
+  CACHE_TTL_MS as TTL_MS, CACHE_MAX_ENTRIES as MAX_ENTRIES, PRICE_PREFIX, TP_PREFIX,
+  isCurrentCacheKey as isCurrent, isCacheKey,
+} from './lib/price-cache.js';
 
 const key = ({ name, imageHash }) =>
   `${PRICE_PREFIX}${String(name || '').toLowerCase().replace(/\s+/g, ' ').trim()}|${imageHash || ''}`;

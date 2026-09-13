@@ -35,8 +35,18 @@ test('an older file still loads what it can', () => {
 });
 
 test('unknown keys are ignored, not copied into storage', () => {
-  const r = parseExport(toJson({ ...good, settings: { ...good.settings, somethingElse: 'x' }, extra: 1 }));
+  // `panelTabOrder` is what older builds wrote before the panel's tabs moved
+  // onto the bar: their exports must still import.
+  const settings = { ...good.settings, somethingElse: 'x', panelTabOrder: ['foodclub', 'dailies', 'favourites'] };
+  const r = parseExport(toJson({ ...good, settings, extra: 1 }));
   assert.deepEqual(Object.keys(r.settings).sort(), ['hoverOnly', 'premium']);
+  assert.ok(!('panelTabOrder' in r.settings));
+});
+
+test("the popover's tab order still imports", () => {
+  const order = ['tp', 'price', 'wiz', 'shops'];
+  const r = parseExport(toJson({ ...good, settings: { ...good.settings, popoverTabOrder: order } }));
+  assert.deepEqual(r.settings.popoverTabOrder, order);
 });
 
 test('settings of the wrong type are dropped', () => {
@@ -89,6 +99,48 @@ test('malformed input fails with a readable message', () => {
   assert.throws(() => parseExport('not json'), (e) => /valid JSON/.test(e.message));
   assert.throws(() => parseExport('[]'), (e) => /does not look like/.test(e.message));
   assert.throws(() => parseExport('null'), ImportError);
+});
+
+// --- cached prices in a backup ------------------------------------------------
+import { PRICE_PREFIX, TP_PREFIX, CACHE_TTL_MS, CACHE_MAX_ENTRIES } from '../src/lib/price-cache.js';
+import { DEFAULTS } from '../src/lib/messages.js';
+
+test('the cache export toggle is a setting, off by default, that travels like the rest', () => {
+  assert.equal(DEFAULTS.exportIncludeCache, false);
+  assert.equal(parseExport(toJson({ ...good, settings: { exportIncludeCache: true } })).settings.exportIncludeCache, true);
+});
+
+test('cached entries are imported only while current and still inside their day', () => {
+  const now = Date.parse('2026-09-13T20:00:00Z');
+  const entry = (at, value = { name: 'Eo Codestone', price: 1000 }) => ({ value, at });
+  const r = parseExport(toJson({
+    ...good,
+    cache: {
+      [`${PRICE_PREFIX}eo codestone|codestone5`]: entry(now - 60_000),
+      [`${TP_PREFIX}5554`]: entry(now - 3_600_000),
+      [`${PRICE_PREFIX}yesterday|x`]: entry(now - CACHE_TTL_MS - 1),
+      [`${PRICE_PREFIX}tomorrow|x`]: entry(now + 3_600_000),
+      'p1:an older cache version|x': entry(now),
+      favorites: entry(now),
+      [`${PRICE_PREFIX}not an object|x`]: { value: 'nope', at: now },
+      [`${PRICE_PREFIX}no time|x`]: { value: {} },
+    },
+  }), { now });
+  assert.deepEqual(Object.keys(r.cache).sort(), [`${PRICE_PREFIX}eo codestone|codestone5`, `${TP_PREFIX}5554`].sort());
+  assert.deepEqual(r.cache[`${TP_PREFIX}5554`], entry(now - 3_600_000));
+});
+
+test('an export without a cache imports none, and an oversized one keeps the newest', () => {
+  assert.deepEqual(parseExport(toJson(good)).cache, {});
+  assert.deepEqual(parseExport(toJson({ ...good, cache: ['nope'] })).cache, {});
+
+  const now = Date.now();
+  const cache = Object.fromEntries(Array.from({ length: CACHE_MAX_ENTRIES + 5 }, (_, i) =>
+    [`${PRICE_PREFIX}item ${i}|`, { value: { i }, at: now - i * 1000 }]));
+  const kept = parseExport(toJson({ ...good, cache }), { now }).cache;
+  assert.equal(Object.keys(kept).length, CACHE_MAX_ENTRIES);
+  assert.ok(`${PRICE_PREFIX}item 0|` in kept);
+  assert.ok(!(`${PRICE_PREFIX}item ${CACHE_MAX_ENTRIES + 4}|` in kept));
 });
 
 // --- premium-only dailies --------------------------------------------------

@@ -43,7 +43,7 @@ There is no auto-update: these are unpacked builds, so a new version is a new fo
 yourself. Whether your favourites survive that depends on whether the browser thinks it is the
 same extension, which is worth knowing before you overwrite anything.
 
-**Back up first, every time.** Panel → **cog** → **Backup** → **Save file** writes
+**Back up first, every time.** The bar's **Settings** button → **Backup** → **Save file** writes
 `neo-snipe-settings-<date>.json` to your downloads: your settings, your favourite items and your
 favourited dailies. It takes a second and it is the only copy that does not depend on the browser
 keeping your storage.
@@ -65,9 +65,9 @@ loaded, if you are not sure whether an update took.
 Settings do not travel by themselves — `storage.sync` syncs within one browser account, never
 between two different browsers.
 
-1. In the old browser: panel → cog → **Save file**.
+1. In the old browser: the bar's **Settings** button → **Save file**.
 2. Install the new browser's build (see the README in its release folder).
-3. In the new browser: panel → cog → **Load file**, pick the JSON, press **Import**.
+3. In the new browser: the bar's **Settings** button → **Load file**, pick the JSON, press **Import**.
 
 The same file works for moving between profiles or machines, and a file from an older version
 still imports — it carries a version number, and a build reads anything up to its own rather than
@@ -173,8 +173,11 @@ enough to change what the app loads.
 
 ## The bar
 
-A small **neo-snipe** bar sits in the bottom-right of every Neopets page. Clicking it opens a panel
-with three tabs:
+A small **neo-snipe** bar sits in the bottom-right of every Neopets page. From left to right: a drag
+handle, **Favourites**, **Dailies**, **Food Club**, **Shop Wizard**, **Super Shop Wizard** (Premium
+only), **Quest Log**, **Magma Pool** (while checking is on), **Inventory**, **Settings**, and an
+arrow that folds the bar down to its handle and itself. Each view button opens the panel on that
+view and closes it when that view is already open. The bar always starts expanded on a page load.
 
 On a page that shows what an item costs — main shops carry it as `data-price`, and as
 "Cost: 387 NP" under the item — the popover adds a **margin line**: what this shop is asking, and
@@ -296,8 +299,8 @@ discipline as the Neopets selectors, and for the same reason.
   placed, rather than being guessed at. The sets come from someone's personal pet page: if they
   change its layout the tab says so instead of showing nothing.
 
-A **cog** beside the panel's close button opens settings: Premium detection, the hover-only badge
-toggle, and **export/import**.
+The bar's **Settings** button opens settings: Premium detection, the hover-only badge toggle, and
+**export/import**.
 
 Premium is **detected from the site navigation**, which carries links to `/premium/…` and the Super
 Shop Wizard icon only for subscribers. Verified on one account before and after subscribing: the

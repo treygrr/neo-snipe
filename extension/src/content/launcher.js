@@ -1,15 +1,17 @@
 // The bottom-right bar. Plain DOM for the same reason the badges are: it sits
-// on every Neopets page, so it must not pull in Vue or Vuetify. Clicking it is
-// what loads the panel.
+// on every Neopets page, so it must not pull in Vue or Vuetify. Its buttons are
+// what load the panel.
 import {
   mdiBagPersonal, mdiDragVertical, mdiVolcano, mdiLoading, mdiCheckCircle, mdiScriptText,
+  mdiHeart, mdiClockOutline, mdiFood, mdiCog, mdiChevronLeft, mdiChevronRight,
 } from '@mdi/js';
-import iconSvg from '../../icons/icon.svg?raw';
 import { LAUNCHER, readPosition, writePosition, clamp, startDrag } from '../lib/positions.js';
 import { INVENTORY_URL } from '../lib/neopets-search.js';
 import { MAGMA_POOL_URL } from '../lib/magma.js';
 
 const CLASS = 'neosnipe-launcher';
+// How long the bar takes to fold or unfold, in ms — the .2s in its CSS below.
+const FOLD_MS = 200;
 
 // Neopets' own artwork, inlined at build time. Hot-linking images.neopets.com
 // would leave the buttons blank the moment those paths move, and a data URI
@@ -17,22 +19,13 @@ const CLASS = 'neosnipe-launcher';
 import SW_ICON from '../../icons/shopwizard-icon.png?inline';
 import SSW_ICON from '../../icons/ssw-icon.png?inline';
 
-// The app icon, as a data URI. A data-URI SVG is its own document, so its
-// gradient ids cannot collide with anything Neopets has defined — inlining the
-// markup into the page would risk exactly that.
-//
-// At this size the fine detail turns to mud, the same way it does at 16px, so
-// the same `.detail` hook the icon build uses is switched off here too.
-const ICON_URL = `data:image/svg+xml,${encodeURIComponent(
-  iconSvg.replace('<defs>', '<style>.detail{display:none}</style><defs>'),
-)}`;
-
 // The Magma Pool button's glyph for each state it can be in.
 const MAGMA_GLYPHS = { idle: mdiVolcano, loading: mdiLoading, found: mdiCheckCircle };
 
 const CSS = `
-/* The bar itself is only a container now: it carries the position, the drag
-   and the open state, while each button inside owns its own click. */
+/* The bar itself is only a container: it carries the position, the drag and
+   whether it is collapsed, while each button inside owns its own click and
+   shows whether its view is open. */
 .${CLASS} {
   position: fixed; right: 16px; bottom: 16px; z-index: 2147482000;
   display: flex; align-items: center; gap: 2px;
@@ -44,12 +37,9 @@ const CSS = `
   transition: box-shadow .12s ease, transform .12s ease;
 }
 .${CLASS}:hover { box-shadow: 0 4px 14px rgba(0,0,0,.24); transform: translateY(-1px); }
-.${CLASS}[data-open="1"] {
-  background: #e8f0fe; border-color: #1f6feb; color: #14459c;
-  box-shadow: 0 2px 10px rgba(31,111,235,.35);
-}
 
-.${CLASS}-main, .${CLASS}-sw, .${CLASS}-ssw, .${CLASS}-quests, .${CLASS}-magma, .${CLASS}-inv {
+.${CLASS}-fav, .${CLASS}-dailies, .${CLASS}-foodclub, .${CLASS}-sw, .${CLASS}-ssw, .${CLASS}-quests,
+.${CLASS}-magma, .${CLASS}-inv, .${CLASS}-settings, .${CLASS}-toggle {
   display: flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0;
   border: 0; background: transparent; color: inherit; font: inherit;
@@ -58,6 +48,12 @@ const CSS = `
 .${CLASS} button:hover, .${CLASS} a:hover { background: rgba(31,111,235,.12); }
 .${CLASS} button:focus-visible, .${CLASS} a:focus-visible {
   outline: 2px solid currentColor; outline-offset: -2px;
+}
+/* The button whose view the panel is showing. As specific as the hover rule
+   and after it, so a pressed button still looks pressed under the pointer. */
+.${CLASS} button[aria-pressed="true"] {
+  background: rgba(31,111,235,.18); color: #14459c;
+  box-shadow: inset 0 0 0 1px rgba(31,111,235,.45);
 }
 
 /* Every button's glyph is the same 20px square, whatever it is drawn from. */
@@ -71,8 +67,11 @@ const CSS = `
 
 /* The Super Shop Wizard is Premium-only, so its button is too. */
 .${CLASS}[data-premium="0"] .${CLASS}-ssw { display: none; }
-/* Matched to the app icon above, so the two buttons read as a pair. */
-.${CLASS}-inv svg, .${CLASS}-magma svg, .${CLASS}-quests svg { width: 20px; height: 20px; display: block; fill: currentColor; }
+/* Icon-set glyphs are drawn at the same 20px square as the artwork ones. */
+.${CLASS}-fav svg, .${CLASS}-dailies svg, .${CLASS}-foodclub svg, .${CLASS}-quests svg,
+.${CLASS}-magma svg, .${CLASS}-inv svg, .${CLASS}-settings svg, .${CLASS}-toggle svg {
+  width: 20px; height: 20px; display: block; fill: currentColor;
+}
 
 /* Quests ready to claim, as a count on the Quest Log button's corner. */
 .${CLASS}-quests { position: relative; }
@@ -129,10 +128,24 @@ const CSS = `
 .${CLASS}[data-dragging="1"] .${CLASS}-grip { cursor: grabbing; opacity: .75; }
 .${CLASS}-grip svg { width: 16px; height: 16px; display: block; fill: currentColor; }
 
-.${CLASS}-icon {
-  width: 20px; height: 20px; flex: 0 0 auto;
-  background: url("${ICON_URL}") center / contain no-repeat;
-  border-radius: 5px;
+/* Collapsed: only the handle and the arrow stay, so the bar can be tucked away.
+   The notice is left alone because a Magma Pool time must still reach you.
+   Folding is animated, so it cannot be display: none — the buttons narrow to
+   nothing and fade, cancelling the bar's gap as they go, and only then turn
+   hidden, which is what takes them out of the tab order. Expanding runs it
+   backwards, visible first. Buttons the Premium and Magma rules above hide are
+   still display: none, and simply stay that way. */
+.${CLASS} > :not(.${CLASS}-grip):not(.${CLASS}-toggle):not(.${CLASS}-notice) {
+  max-width: 40px;
+  transition: max-width .2s ease, margin-right .2s ease, opacity .15s ease, visibility 0s linear 0s;
+}
+.${CLASS}[data-collapsed="1"] > :not(.${CLASS}-grip):not(.${CLASS}-toggle):not(.${CLASS}-notice) {
+  max-width: 0; margin-right: -2px; opacity: 0; overflow: hidden;
+  visibility: hidden; pointer-events: none;
+  transition: max-width .2s ease, margin-right .2s ease, opacity .15s ease, visibility 0s linear .2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .${CLASS} > * { transition: none !important; }
 }
 
 /* Moved: left/top are set inline, so the default corner must stop applying. */
@@ -157,8 +170,13 @@ let noticeTimer = null;
 // the moment before we know whether that is allowed.
 let draggable = false;
 // Set by a drag that actually moved, and cleared on the next tick, so the
-// click the browser fires at the end of a drag does not also open the panel.
+// click the browser fires at the end of a drag does not also press whatever
+// button it ended over.
 let suppressClick = false;
+// Each view button against its view, so the open one can be marked.
+const viewButtons = new Map();
+// Collapsed is in-memory only: every page load starts with the whole bar showing.
+let collapsed = false;
 
 /**
  * An SVG glyph built as nodes. innerHTML would do it in a line, but store
@@ -188,6 +206,18 @@ function unplace() {
   delete button.dataset.moved;
 }
 
+/**
+ * Where the bar sits, leaving out the hover lift. The pointer is over the bar
+ * whenever its arrow is clicked or its grip picked up, and a measured rect
+ * includes that transform, so clamping from one crept the bar up a pixel each
+ * time. offsetLeft/Top ignore transforms and, for a fixed element, are
+ * measured from the viewport.
+ */
+function position() {
+  if (button.dataset.moved) return { x: parseFloat(button.style.left), y: parseFloat(button.style.top) };
+  return { x: button.offsetLeft, y: button.offsetTop };
+}
+
 function size() {
   const rect = button.getBoundingClientRect();
   return { width: rect.width, height: rect.height };
@@ -204,9 +234,8 @@ function onPointerDown(event) {
   // Left button only, and only when the feature is on.
   if (!draggable || event.button !== 0) return;
 
-  const rect = button.getBoundingClientRect();
   startDrag(event, {
-    origin: { x: rect.left, y: rect.top },
+    origin: position(),
     onMove: (pos) => {
       button.dataset.dragging = '1';
       place(clamp(pos, size()));
@@ -259,42 +288,41 @@ export function addLauncher(onActivate) {
   grip.setAttribute('aria-hidden', 'true');
   grip.append(glyph(mdiDragVertical, false).svg);
 
-  // Icon only. The name is carried by the title and the aria-label, which is
-  // what a screen reader reads out, so dropping the text costs nothing there.
-  const main = document.createElement('button');
-  main.type = 'button';
-  main.className = `${CLASS}-main`;
-  const icon = document.createElement('span');
-  icon.className = `${CLASS}-icon`;
-  main.append(icon);
-  main.title = 'neo-snipe — favourites and dailies';
-  main.setAttribute('aria-label', main.title);
-
-  // Each opens the panel on its own search view. Same click path as the main
-  // button, so a drag that ends over one does not trigger it either.
-  const viewButton = (view, className, title) => {
+  // Each opens the panel on its own view, and closes it when that view is
+  // already up. A drag that ends over one does not trigger it. Icon only: the
+  // name is carried by the title and the aria-label, which is what a screen
+  // reader reads out. `d` draws from the icon set; without it the button shows
+  // Neopets' artwork.
+  const viewButton = (view, className, title, d = null) => {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = className;
     el.title = title;
     el.setAttribute('aria-label', title);
-    const art = document.createElement('span');
-    art.className = `${CLASS}-glyph`;
-    el.append(art);
+    el.setAttribute('aria-pressed', 'false');
+    if (d) {
+      el.append(glyph(d).svg);
+    } else {
+      const art = document.createElement('span');
+      art.className = `${CLASS}-glyph`;
+      el.append(art);
+    }
     el.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       if (suppressClick) return;
       onActivate(view);
     });
+    viewButtons.set(view, el);
     return el;
   };
 
+  const fav = viewButton('favourites', `${CLASS}-fav`, 'Favourites', mdiHeart);
+  const dailies = viewButton('dailies', `${CLASS}-dailies`, 'Dailies', mdiClockOutline);
+  const foodclub = viewButton('foodclub', `${CLASS}-foodclub`, 'Food Club', mdiFood);
   const sw = viewButton('wiz', `${CLASS}-sw`, 'Shop Wizard search');
   const ssw = viewButton('ssw', `${CLASS}-ssw`, 'Super Shop Wizard search');
-  // Same click path, drawn from the icon set rather than Neopets' artwork.
-  const quests = viewButton('quests', `${CLASS}-quests`, 'Quest Log');
-  quests.replaceChildren(glyph(mdiScriptText).svg);
+  const quests = viewButton('quests', `${CLASS}-quests`, 'Quest Log', mdiScriptText);
 
   // The Magma Pool: a real link to the pool, so once the time is found it is
   // an ordinary link. Before that, the checker takes the click instead.
@@ -321,14 +349,42 @@ export function addLauncher(onActivate) {
   inv.setAttribute('aria-label', inv.title);
   inv.append(glyph(mdiBagPersonal).svg);
 
-  button.append(grip, main, sw, ssw, quests, magma, inv);
+  const settings = viewButton('settings', `${CLASS}-settings`, 'Settings', mdiCog);
 
-  main.addEventListener('click', (event) => {
+  // Far right, and not a view: it hides every other button, never the panel.
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = `${CLASS}-toggle`;
+  const toggleGlyph = glyph(mdiChevronLeft);
+  toggle.append(toggleGlyph.svg);
+  // Left while the buttons show, right once they are folded away.
+  const showCollapsed = () => {
+    if (collapsed) button.dataset.collapsed = '1';
+    else delete button.dataset.collapsed;
+    toggleGlyph.path.setAttribute('d', collapsed ? mdiChevronRight : mdiChevronLeft);
+    toggle.title = collapsed ? 'Show the neo-snipe buttons' : 'Hide the neo-snipe buttons';
+    toggle.setAttribute('aria-label', toggle.title);
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  };
+  toggle.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
     if (suppressClick) return;
-    onActivate('panel');
+    collapsed = !collapsed;
+    showCollapsed();
+    // A moved bar grows rightwards from its left edge, so expanding near the
+    // edge could push it off-screen. Clamp it, but do not save: nothing moved.
+    // Only once the buttons have finished unfolding — measured any sooner, the
+    // bar is still narrow and the clamp would let it end up past the edge.
+    if (!collapsed && button.dataset.moved) {
+      setTimeout(() => {
+        if (!collapsed && button.dataset.moved) place(clamp(position(), size()));
+      }, FOLD_MS + 20);
+    }
   });
+
+  button.append(grip, fav, dailies, foodclub, sw, ssw, quests, magma, inv, settings, toggle);
+  showCollapsed();
 
   // Only the grip drags. Keeping the capture off the buttons is what leaves
   // their clicks — and the inventory link's ctrl-click and middle-click —
@@ -339,15 +395,21 @@ export function addLauncher(onActivate) {
   // A window that has since been made narrower must not strand the button
   // off-screen, since it is the only way back to the panel.
   window.addEventListener('resize', () => {
-    if (button?.dataset.moved) place(clamp(button.getBoundingClientRect(), size()));
+    if (button?.dataset.moved) place(clamp(position(), size()));
   });
 
   document.body.appendChild(button);
   return button;
 }
 
-export function setLauncherOpen(open) {
-  if (button) button.dataset.open = open ? '1' : '0';
+/**
+ * Marks the button whose view the panel is showing; closed clears them all.
+ * `data-open` on the bar is kept as the plain open/closed flag.
+ */
+export function setLauncherOpen(open, view = null) {
+  if (!button) return;
+  button.dataset.open = open ? '1' : '0';
+  for (const [v, el] of viewButtons) el.setAttribute('aria-pressed', open && v === view ? 'true' : 'false');
 }
 
 /** The SSW button only exists for accounts that have the Super Shop Wizard. */

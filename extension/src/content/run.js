@@ -33,7 +33,7 @@ export function run(loadUi) {
       uiPromise = (async () => {
         const { mount, store } = await loadUi();
         await mount.mountPopover();
-        // Keep the launcher in step when the panel closes itself.
+        // Keep the launcher in step when the panel closes or changes view.
         store.watchPanel(setLauncherOpen);
         // The launcher is plain DOM, so the settings view reaches it through
         // these rather than by rendering it.
@@ -55,7 +55,7 @@ export function run(loadUi) {
     return uiPromise;
   }
 
-  async function openPanel({ anchor = 'bottom', view = 'panel' } = {}) {
+  async function openPanel({ anchor = 'bottom', view = 'favourites' } = {}) {
     const store = await ui();
     store.openPanelView(view, { anchor });
   }
@@ -158,8 +158,8 @@ export function run(loadUi) {
 
   api.runtime.onMessage.addListener((msg) => {
     if (msg?.type !== OPEN_PANEL) return false;
-    // From the toolbar, so drop the panel under the button.
-    openPanel({ anchor: 'top' }).catch((err) => console.error('[neo-snipe] panel failed', err));
+    // From the toolbar: Favourites, dropped under the button.
+    openPanel({ anchor: 'top', view: 'favourites' }).catch((err) => console.error('[neo-snipe] panel failed', err));
     return false;
   });
 

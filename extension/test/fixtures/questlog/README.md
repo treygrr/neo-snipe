@@ -78,7 +78,12 @@ Captured 2026-09-13 reading Battle Ready! (a Faerie Book, bought for this) to Te
 go-ahead. That finished Read to a Pet and moved the bonus from 2/5 to 3/5.
 
 - **Inventory** — each item is `.item-img[data-itemname]` carrying `data-objid`, `data-itemtype` (`Food`,
-  `Grooming`, `Plushies`, …), `data-itemname` and `data-image`.
+  `Grooming`, `Plushies`, …), `data-itemname` and `data-image`. The inventory page's own HTML holds **none**
+  of them: `inventory.js` fills the page in with `POST /np-templates/ajax/inventory.php?itemType=np&alpha=&itemStack=1&action=<tab>`
+  (tabs: 1 Food, 2 Toys, 3 Books, 4 Grooming, 5 Healing, 6 Wearables, 7 Equipment, 8 Furniture, 9 Misc;
+  blank for everything). Without the `X-Requested-With: XMLHttpRequest` header it answers
+  `{"error":true,"message":"Request denied"}`. `inventory-items.html` is that reply trimmed to one cell
+  (captured 2026-09-13 while fixing Feed, which had been reading the empty page).
 - **The item's actions** — `POST /np-templates/views/iteminfo.phtml?obj_id=<objid>` returns an HTML fragment
   with `<form action="useobject.phtml">`: a hidden `obj_id` and `<select name="action">` (inside
   `#iteminfo_select_action`). Pet actions use the words as the value, one per pet: `Feed to <Pet>`,

@@ -1,16 +1,15 @@
 <script setup>
 import { computed, ref } from 'vue';
 import {
-  mdiClose, mdiCog, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove,
+  mdiClose, mdiChevronRight, mdiHeart, mdiHeartOutline, mdiHeartRemove,
   mdiCheckCircle, mdiCheckCircleOutline,
 } from '@mdi/js';
 import {
-  state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily, loadFoodClub,
-  moveFavourite, moveDailyFavourite, showSettings, isPremium, dismissToast,
+  state, closePanel, openFavourite, removeFavouriteAt, isDailyFavourite, toggleDaily,
+  moveFavourite, moveDailyFavourite, isPremium, dismissToast,
   isDailyVisited, toggleDailyVisited, clearVisitedDailies, visitDaily,
   isDailyTracked, readyIn, nextReadyIn, dailySchedule,
   setPanelPos, savePanelPos,
-  panelTabs, movePanelTab,
 } from './store.js';
 import SettingsView from './SettingsView.vue';
 import WizardSearch from './WizardSearch.vue';
@@ -18,7 +17,6 @@ import FoodClub from './FoodClub.vue';
 import QuestLog from './QuestLog.vue';
 import { dailiesFor, isPremiumDaily } from '../lib/dailies.js';
 import { startDrag } from '../lib/positions.js';
-import { useTabDrag } from './useTabDrag.js';
 
 const FAVOURITES_GROUP = 'Favourites';
 
@@ -116,33 +114,16 @@ function tickTitle(url) {
   return left ? `Done — ready again in ${left}. Click to untick.` : 'Done — click to untick.';
 }
 
-// --- reordering the tabs ----------------------------------------------------
-// Labels live here rather than in the stored order, which holds ids only: an
-// id survives a rename, and nothing about how a tab looks belongs in settings.
-
-const PANEL_TAB_LABELS = {
+// The panel wears the name of whatever it is currently showing.
+const PANEL_TITLES = {
   favourites: 'Favourites',
   dailies: 'Dailies',
   foodclub: 'Food Club',
-};
-
-// The panel wears the name of whatever it is currently showing.
-const PANEL_TITLES = {
-  tabs: 'neo-snipe',
-  settings: 'neo-snipe',
+  settings: 'Settings',
   wiz: 'Shop Wizard',
   ssw: 'Super Shop Wizard',
   quests: 'Quest Log',
 };
-
-const tabDrag = useTabDrag(movePanelTab, () => state.settings.movableTabs);
-
-// Food Club is the one tab that fetches on selection; a drag must not trigger
-// that, so the handler checks it was a real click.
-function onTabClick(id) {
-  if (tabDrag.wasDragged()) return;
-  if (id === 'foodclub') loadFoodClub();
-}
 
 // --- moving the panel -------------------------------------------------------
 
@@ -160,7 +141,7 @@ const panelStyle = computed(() => (
 ));
 
 function onHeadPointerDown(event) {
-  // Not from the cog or the close button, and left button only.
+  // Not from the close button, and left button only.
   if (!state.settings.movablePanel || event.button !== 0) return;
   if (event.target.closest('button, .v-btn')) return;
 
@@ -199,45 +180,9 @@ function onHeadPointerDown(event) {
       >
         <span class="ns-panel-title">{{ PANEL_TITLES[state.panelView] || 'neo-snipe' }}</span>
         <v-spacer />
-        <v-btn
-          :icon="mdiCog"
-          size="x-small"
-          variant="text"
-          class="ns-cog"
-          :class="{ 'ns-cog--on': state.panelView === 'settings' }"
-          :aria-label="state.panelView === 'settings' ? 'Back' : 'Settings'"
-          :title="state.panelView === 'settings' ? 'Back' : 'Settings'"
-          @click="showSettings(state.panelView !== 'settings')"
-        />
         <v-btn :icon="mdiClose" size="x-small" variant="text" class="ns-close"
                aria-label="Close" @click="closePanel" />
       </div>
-
-      <v-tabs v-if="state.panelView === 'tabs'" v-model="state.panelTab"
-              density="compact" height="32" class="ns-panel-tabs">
-        <v-tab
-          v-for="(id, i) in panelTabs()"
-          :key="id"
-          :value="id"
-          class="ns-panel-tab"
-          :class="{
-            'ns-tab--dragging': tabDrag.isDragging(i),
-            'ns-tab--over': tabDrag.isOver(i),
-            'ns-tab--movable': state.settings.movableTabs,
-          }"
-          :draggable="state.settings.movableTabs"
-          @click="onTabClick(id)"
-          @dragstart="tabDrag.onDragStart($event, i)"
-          @dragover="tabDrag.onDragOver($event, i)"
-          @drop.prevent="tabDrag.onDrop(i)"
-          @dragend="tabDrag.onDragEnd"
-        >
-          {{ PANEL_TAB_LABELS[id] }}
-          <span v-if="id === 'favourites' && state.favourites.length" class="ns-count">
-            {{ state.favourites.length }}
-          </span>
-        </v-tab>
-      </v-tabs>
 
       <div class="ns-panel-body">
         <SettingsView v-if="state.panelView === 'settings'" />
@@ -251,7 +196,7 @@ function onHeadPointerDown(event) {
         <QuestLog v-else-if="state.panelView === 'quests'" />
 
         <!-- Favourites -->
-        <template v-else-if="state.panelTab === 'favourites'">
+        <template v-else-if="state.panelView === 'favourites'">
           <p v-if="!state.favourites.length" class="ns-panel-empty">
             No favourites yet. Click the ♥ on any item's price popover to save it here.
           </p>
@@ -293,10 +238,10 @@ function onHeadPointerDown(event) {
         </template>
 
         <!-- Food Club -->
-        <FoodClub v-else-if="state.panelTab === 'foodclub'" />
+        <FoodClub v-else-if="state.panelView === 'foodclub'" />
 
         <!-- Dailies -->
-        <template v-else-if="state.panelTab === 'dailies'">
+        <template v-else-if="state.panelView === 'dailies'">
           <div v-if="state.settings.trackDailyVisits" class="ns-visited-bar">
             <span class="ns-visited-count">{{ visitedShown }} of {{ shownDailyUrls.size }} done</span>
             <span v-if="nextReadyIn()" class="ns-visited-reset" :title="`Neopets day ${state.nstDay}`">
@@ -462,7 +407,6 @@ function onHeadPointerDown(event) {
   padding: 6px 6px 6px 12px; border-bottom: 1px solid rgba(0, 0, 0, .12);
 }
 .ns-panel-title { font-weight: 600; font-size: 13px; }
-.ns-cog--on { color: #1f6feb; }
 
 /* The title bar doubles as the drag handle. The buttons in it keep their own
    cursor, so only the bar itself advertises the grab. */
@@ -470,20 +414,7 @@ function onHeadPointerDown(event) {
 .ns-panel-head--grab .v-btn { cursor: pointer; }
 .ns-panel-head--dragging { cursor: grabbing; }
 
-.ns-panel-tabs { min-height: 32px; border-bottom: 1px solid rgba(0, 0, 0, .12); }
-
-/* Shared with the popover's strip: a tab being dragged fades, and the one it
-   would land on shows an edge. Vertical, since tabs sit side by side. */
-.ns-tab--dragging { opacity: .4; }
-.ns-tab--over { box-shadow: inset 2px 0 0 #1f6feb; }
-.ns-tab--movable { cursor: grab; }
-.ns-panel-tab { font-size: 11px; text-transform: none; letter-spacing: 0; min-width: 0; padding: 0 12px; }
-.ns-count {
-  margin-left: 5px; font-size: 10px; opacity: .7;
-  background: rgba(0, 0, 0, .08); border-radius: 8px; padding: 0 5px;
-}
-
-/* Fixed height so the panel never jumps between tabs. */
+/* Fixed height so the panel never jumps between views. */
 .ns-panel-body { height: 340px; overflow-y: auto; overscroll-behavior: contain; }
 .ns-panel-empty, .ns-panel-hint { font-size: 11px; opacity: .6; padding: 12px; margin: 0; }
 .ns-panel-hint { padding: 8px 12px 4px; }

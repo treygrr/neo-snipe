@@ -1,11 +1,10 @@
-// The order of the tabs in the panel and in the price popover.
+// The order of the tabs in the price popover.
 //
 // The stored order covers every tab the build knows about, not just the ones
 // currently on screen. That matters because the SSW tab is hidden without
 // Premium: reordering the three visible tabs must not lose where the fourth
 // sat, or turning Premium back on would drop it somewhere arbitrary.
 
-export const PANEL_TABS = ['favourites', 'dailies', 'foodclub'];
 export const POPOVER_TABS = ['price', 'tp', 'wiz', 'shops'];
 
 /**

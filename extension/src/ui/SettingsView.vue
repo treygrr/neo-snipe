@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { mdiContentCopy, mdiDownload, mdiUpload, mdiFileUpload, mdiRestore } from '@mdi/js';
 import {
   state, setSetting, exportSettings, importSettings, isPremium,
-  resetPanelPosition, resetLauncherPosition, resetTabOrder,
+  resetPanelPosition, resetLauncherPosition, resetPopoverTabOrder,
 } from './store.js';
 import { api } from '../lib/ext-api.js';
 import { nextPoolOpening, cleanPoolTimes } from '../lib/magma.js';
@@ -258,7 +258,8 @@ async function pickFile(event) {
       <h4 class="ns-set-title">Layout</h4>
       <p class="ns-set-hint">
         Positions are remembered on this device only, since a spot that suits one screen is off
-        the edge of another. Tab order rides with your other settings instead, so it follows you.
+        the edge of another. The popover's tab order rides with your other settings instead, so it
+        follows you.
       </p>
 
       <label class="ns-set-row">
@@ -269,7 +270,7 @@ async function pickFile(event) {
         >
         <span>
           <strong>Move this panel by dragging its title bar</strong>
-          <em>Off puts it back above the neo-snipe button, without forgetting where it was.</em>
+          <em>Off puts it back above the neo-snipe bar, without forgetting where it was.</em>
         </span>
       </label>
 
@@ -280,8 +281,8 @@ async function pickFile(event) {
           @change="setSetting('movableLauncher', $event.target.checked)"
         >
         <span>
-          <strong>Move the neo-snipe button by dragging it</strong>
-          <em>Off returns it to the bottom-right corner. Clicking still opens the panel.</em>
+          <strong>Move the neo-snipe bar by dragging its handle</strong>
+          <em>Off returns it to the bottom-right corner. Its buttons work either way.</em>
         </span>
       </label>
 
@@ -307,10 +308,10 @@ async function pickFile(event) {
           @change="setSetting('movableTabs', $event.target.checked)"
         >
         <span>
-          <strong>Drag the tabs to reorder them</strong>
+          <strong>Drag the tabs in an item's price popover to reorder them</strong>
           <em>
-            Works in this panel and in an item's price popover. The order is kept for tabs that
-            are hidden too, so the SSW tab returns to where you put it.
+            The order is kept for tabs that are hidden too, so the SSW tab returns to where you
+            put it.
           </em>
         </span>
       </label>
@@ -319,18 +320,34 @@ async function pickFile(event) {
         <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
                :disabled="!state.panelPos" @click="resetPanelPosition">Reset panel</v-btn>
         <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
-               @click="resetLauncherPosition">Reset button</v-btn>
+               @click="resetLauncherPosition">Reset bar</v-btn>
         <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
-               @click="resetTabOrder">Reset tabs</v-btn>
+               title="Reset the price popover's tab order"
+               @click="resetPopoverTabOrder">Reset tabs</v-btn>
       </div>
     </section>
 
     <section class="ns-set-block">
       <h4 class="ns-set-title">Backup</h4>
       <p class="ns-set-hint">
-        Your settings, favourites, favourited dailies and Magma Pool times. Cached prices are left
-        out — they come back on their own.
+        Your settings, favourites, favourited dailies and Magma Pool times.
       </p>
+
+      <label class="ns-set-row">
+        <input
+          type="checkbox"
+          :checked="state.settings.exportIncludeCache"
+          @change="setSetting('exportIncludeCache', $event.target.checked)"
+        >
+        <span>
+          <strong>Include cached prices in the export</strong>
+          <em>
+            Adds the Jelly Neo prices and trading post histories looked up in the last day, so
+            another browser starts with them. The file gets much bigger. Press Export again after
+            changing this.
+          </em>
+        </span>
+      </label>
 
       <div class="ns-set-actions">
         <v-btn size="x-small" variant="tonal" :prepend-icon="mdiUpload" @click="exportSettings">Export</v-btn>

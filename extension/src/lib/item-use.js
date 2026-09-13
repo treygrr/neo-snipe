@@ -9,6 +9,31 @@ export { INVENTORY_URL };
 const NEOPETS = 'https://www.neopets.com';
 export const USE_OBJECT_URL = `${NEOPETS}/np-templates/views/useobject.phtml`;
 
+/**
+ * Where the inventory's items come from. The inventory page itself arrives
+ * empty and fills in with this call, which Neopets answers "Request denied"
+ * unless it is marked as the page's own XHR. The whole inventory, stacked the
+ * way the page asks by default, so each item appears once with its quantity.
+ */
+export const INVENTORY_ITEMS_URL = `${NEOPETS}/np-templates/ajax/inventory.php?itemType=np&alpha=&itemStack=1&action=`;
+export const INVENTORY_AJAX_HEADERS = { 'X-Requested-With': 'XMLHttpRequest' };
+
+/**
+ * The item call's reply: its item cells, or an error when Neopets refused —
+ * a refusal is a small JSON body rather than HTML with nothing in it.
+ */
+export function parseInventoryReply(text, parse) {
+  const reply = String(text ?? '');
+  if (/^\s*\{/.test(reply)) {
+    let json = null;
+    try { json = JSON.parse(reply); } catch { /* not JSON after all */ }
+    if (json?.error) {
+      throw new ItemUseError(`Neopets would not show your inventory (${json.message || 'refused'}).`);
+    }
+  }
+  return readInventory(parse(`<body>${reply}</body>`));
+}
+
 /** The popup the inventory opens for one item, which lists what it can do. */
 export const itemInfoUrl = (objId) =>
   `${NEOPETS}/np-templates/views/iteminfo.phtml?obj_id=${encodeURIComponent(objId)}`;
