@@ -19,6 +19,7 @@ and writes one reactive `state` in `store.js`, which talks to the service worker
 | `FoodClub.vue` | Round readout: stake input, risk-level buttons over `RISK_LEVELS`, `currentBets()` rows with odds/payout, Place (`placeBet`), done-tick (`toggleBetDone`), already-placed marks (`isBetPlaced`), links to your bets and collect. |
 | `SettingsView.vue` | The cog panel: checkboxes wired to `setSetting` (premium auto/manual, hover-only badges, daily tracking, movable panel/launcher/tabs), worth-buying margin, position/tab-order resets, and export/import (clipboard, file download, file pick → `importSettings`). |
 | `OptionsApp.vue` | Standalone options page: hover-only switch, Firefox "Grant access to Jelly Neo" (`requestJellyNeoAccess`), "Test a lookup" (a real `neosnipe:lookup`), clear-cache. |
+| `WizardSearch.vue` | Both search panels (`kind` = `wiz`/`ssw`): search box, the page's own items as one-click starting points with inline art, sortable result rows, and whatever the other wizard has cached for the same item. |
 | `store.js` | The single reactive `state` + all actions. See below. |
 | `useTabDrag.js` | `useTabDrag(move, enabled)` — HTML5 drag-reorder for a tab strip; returns handlers plus `wasDragged`/`isDragging`/`isOver`. Shared by `Panel` and `HistoryTabs`. |
 | `vuetify.js` | `makeVuetify(attach)` and `THEME`: explicit component imports (no auto-import), `mdi-svg` icon set, and a global `attach` default. |
@@ -29,8 +30,10 @@ Owns: popover (`open`, `anchor`, `item`, `data`, `error`, `loading`, `tab`, `ref
 lazy per-tab slices `tp` / `ssw` / `wiz`; Food Club `fc` (round, arenas, sets, level, amount, done,
 placed, placing); `toast`; panel (`panelOpen`, `panelAnchor`, `panelView`, `panelTab`, `panelPos`);
 `settings`, `premiumDetected`, `io`; `favourites`, `dailyFavourites`, `visits`, `nstDay`, `now`;
-`popoverPos`, the dragged popover's target point, cleared on every open.
-Main actions: `openFor`/`openFavourite`/`close`/`retry`; `selectTab`, `loadTradingPost`,
+`popoverPos` (the dragged popover's target point, cleared on every open); `pageItems`, and one
+`search` slot per wizard (query, name, listings, sort, `fromCache`).
+Search: `openPanelView`, `setPageItems`, `setSearchQuery`/`setSearchSort`, `runSearch`,
+`searchPageItem`, `sortedListings`, `crossCached`. Main actions: `openFor`/`openFavourite`/`close`/`retry`; `selectTab`, `loadTradingPost`,
 `loadWizard`/`retryWizard`, `loadShops`/`retryShops`; `shopMargin`; `loadSettings`, `setSetting`,
 `detectPremiumFromPage`, `isPremium`, `exportSettings`/`importSettings`; favourites
 (`toggleCurrentFavourite`, `removeFavouriteAt`, `moveFavourite`, `toggleDaily`, `moveDailyFavourite`);
@@ -50,10 +53,12 @@ panel (`togglePanel`, `closePanel`, `showSettings`, `watchPanel`, `watchLauncher
   short-circuit first, so the window only bites across opens.
 - Given a bare `[x, y]` point, Vuetify puts the card's **left** edge on it and its top `OFFSET`
   below, whichever way `location` reads — `pointFor` depends on that, and the e2e drag check pins
-  the exact movement. Clamp to Vuetify's own `viewportMargin` (12) or our idea of where the card
-  landed drifts from where it is.
+  the movement. Clamp to Vuetify's own `viewportMargin` (12) or our idea of where it landed drifts.
 - `wasDragged()` guards exist so a tab reorder never counts as opening a tab — same for the Food
   Club tab, which fetches on click.
+- One panel exists, wearing whichever `panelView` is up (`tabs`/`settings`/`wiz`/`ssw`), so the
+  wizard searches share its position, drag and toggle. `askWizard`/`askSsw` and the two caches are
+  shared with the popover tabs, which is what lets either panel show the other's find.
 - Never add Vuetify components via auto-import: each pulls a CSS side-effect that Vite would inject
   into the Neopets page. Register them in `vuetify.js` and keep icons as `@mdi/js` SVG paths.
 - Overlays must stay in the shadow root — hence the `attach` prop threaded `App → PricePopover` and

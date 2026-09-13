@@ -13,10 +13,10 @@ Sequence: `run()` calls `scan()` → `findItemElements` + `describeItem` (detect
 |---|---|
 | `index.js` | Chrome entry. Calls `run()` with a loader that dynamically `import()`s `mount.js` + `ui/store.js` the first time the UI is needed. |
 | `index.safari.js` | Safari entry. Same `run()`, but statically imports mount/store — Safari cannot dynamically import an extension resource. |
-| `run.js` | `run(loadUi)`: the shared body. Lazy `ui()` bootstrap, `activate()`, `openPanel()`, `scan()`, the 150 ms-debounced MutationObserver, the `hoverOnly`/`movableLauncher`/`trackDailyVisits` settings read, the `HELLO` ping and the `OPEN_PANEL` listener. |
+| `run.js` | `run(loadUi)`: the shared body. Collects every named item on the page for the search panels (`setPageItems`). Lazy `ui()` bootstrap, `activate()`, `openPanel()`, `scan()`, the 150 ms-debounced MutationObserver, the `hoverOnly`/`movableLauncher`/`trackDailyVisits` settings read, the `HELLO` ping and the `OPEN_PANEL` listener. |
 | `detect.js` | Item recognition: `findItemElements`, `isItemElement`, `itemImageUrl`, `itemNameFor`, `itemPriceFor`, `imageHashOf`, `describeItem`, and the `MARK` dataset flag. Six surfaces; the name strategies run most-authoritative first, ending in `nameFromCaption` for unlabelled grids. |
 | `badge.js` | `addBadge(el, item, onActivate)` anchors/wraps the element and appends the magnifier button; `setBadgeState(btn, state)` drives the loading/error styling. Injects its own scoped `<style>`. |
-| `launcher.js` | The bottom-right bar: `addLauncher(onActivate)`, `setLauncherOpen`, `setLauncherDraggable`, `resetLauncherPosition`. Two children — `-main` (opens the panel, carries the drag) and `-inv` (a plain link to `INVENTORY_URL`). Clamping and saved position via `lib/positions.js`. |
+| `launcher.js` | The bottom-right bar: `addLauncher(onActivate)`, `setLauncherOpen`, `setLauncherDraggable`, `resetLauncherPosition`. Four children — `-main` (panel, carries the drag), `-sw`/`-ssw` (each opens its search panel; SSW hidden without Premium via `setLauncherPremium`) and `-inv` (a plain link to `INVENTORY_URL`). Clamping and saved position via `lib/positions.js`. |
 | `mount.js` | `mountPopover()`: creates the one full-viewport shadow host, adopts the scoped stylesheet, mounts `ui/App.vue` with Vuetify into it. |
 | `npanchor.js` | `linkNpAnchorToInventory()` — points the header's `#npanchor` NP counter at the inventory. Rewrites `href` on a link, falls back to a click handler otherwise; marked so repeat scans are free. |
 | `popover.css` | Styles for `.ns-root` inside the shadow root: resets inherited Neopets typography and leaves everything but `.v-overlay__content` click-through. |
@@ -31,6 +31,9 @@ Sequence: `run()` calls `scan()` → `findItemElements` + `describeItem` (detect
   Vuetify's theme `<style>` out of `document.head` — skip either and hovers render as a black wash.
 - Badges, the launcher and the NP counter rewrite must stay plain DOM: they run on every page, so
   nothing here may import Vue.
+- The launcher's artwork is inlined from `icons/` at build time, never hot-linked: Neopets moving an
+  asset path would leave the buttons blank, and the SSW vector is rendered down to a 40 px PNG first
+  so every page is not carrying 49 kB of detail drawn at 20.
 - Drag hangs off `.neosnipe-launcher-main`, not the bar. A pointer capture retargets the ending
   click to whatever took the capture, so capturing on the bar swallows its buttons' clicks — and
   leaving the inventory link uncaptured is what keeps ctrl-click and middle-click working.

@@ -1369,31 +1369,43 @@ const panelState = () => inShadow((root) => ({
 // Both buttons carry Neopets' own artwork, at the same size as the rest.
 const barButtons = await page.evaluate(() => {
   const bar = document.querySelector('.neosnipe-launcher');
+const box = (el) => {
+    const r = el.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  };
   const glyph = (sel) => {
     const el = bar.querySelector(sel + ' .neosnipe-launcher-glyph');
     if (!el) return null;
-    const cs = getComputedStyle(el);
-    return { image: cs.backgroundImage, w: cs.width, h: cs.height };
+    return { image: getComputedStyle(el).backgroundImage, ...box(el) };
   };
-  const appIcon = getComputedStyle(bar.querySelector('.neosnipe-launcher-icon'));
+  const appIcon = box(bar.querySelector('.neosnipe-launcher-icon'));
   return {
     order: [...bar.children].map((c) => c.className.replace('neosnipe-launcher-', '')),
     sw: glyph('.neosnipe-launcher-sw'),
     ssw: glyph('.neosnipe-launcher-ssw'),
-    appSize: { w: appIcon.width, h: appIcon.height },
+    appSize: appIcon,
     sswShown: getComputedStyle(bar.querySelector('.neosnipe-launcher-ssw')).display !== 'none',
   };
 });
 check('the bar carries the wizard buttons, in order',
   barButtons.order.join(',') === 'main,sw,ssw,inv', JSON.stringify(barButtons.order));
-check('the Shop Wizard button uses the Neopets icon',
-  barButtons.sw?.image.includes('shopwizard-icon.png'), barButtons.sw?.image);
-check('the SSW button uses the Neopets icon',
-  barButtons.ssw?.image.includes('ssw-icon.svg'), barButtons.ssw?.image);
-check('both wizard icons match the app icon size',
-  barButtons.sw.w === barButtons.appSize.w && barButtons.ssw.w === barButtons.appSize.w
-  && barButtons.sw.h === barButtons.appSize.h,
-  JSON.stringify({ sw: barButtons.sw.w, ssw: barButtons.ssw.w, app: barButtons.appSize.w }));
+// Carried in the bundle, not fetched: hot-linked artwork would leave the
+// buttons blank the day Neopets moves those paths.
+check('the Shop Wizard button carries its icon inline',
+  barButtons.sw?.image.startsWith('url("data:image/png;base64,'),
+  (barButtons.sw?.image || '').slice(0, 40));
+check('the SSW button carries its icon inline',
+  barButtons.ssw?.image.startsWith('url("data:image/png;base64,'),
+  (barButtons.ssw?.image || '').slice(0, 40));
+check('neither is fetched from images.neopets.com',
+  !/images.neopets.com/.test(barButtons.sw.image + barButtons.ssw.image));
+// Measured, not declared: a glyph left inline reports its declared 20px while
+// painting into a zero-height box, which is exactly how these first shipped.
+check('both wizard icons are actually drawn, at the app icon size',
+  barButtons.sw.w === barButtons.appSize.w && barButtons.sw.h === barButtons.appSize.h
+  && barButtons.ssw.w === barButtons.appSize.w && barButtons.ssw.h === barButtons.appSize.h
+  && barButtons.appSize.h > 0,
+  JSON.stringify({ sw: barButtons.sw, ssw: barButtons.ssw, app: barButtons.appSize }));
 check('the SSW button is shown while Premium is on', barButtons.sswShown === true);
 
 // Opening one shows a search panel rather than the favourites tabs.

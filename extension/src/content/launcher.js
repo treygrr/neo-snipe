@@ -8,10 +8,11 @@ import { INVENTORY_URL } from '../lib/neopets-search.js';
 
 const CLASS = 'neosnipe-launcher';
 
-// Neopets' own artwork, served from the same host the page already loads its
-// images from, so nothing needs bundling or a web-accessible resource.
-const SW_ICON = 'https://images.neopets.com/themes/h5/basic/images/shopwizard-icon.png';
-const SSW_ICON = 'https://images.neopets.com/premium/shopwizard/ssw-icon.svg';
+// Neopets' own artwork, inlined at build time. Hot-linking images.neopets.com
+// would leave the buttons blank the moment those paths move, and a data URI
+// needs no web-accessible resource — which the Safari build cannot rely on.
+import SW_ICON from '../../icons/shopwizard-icon.png?inline';
+import SSW_ICON from '../../icons/ssw-icon.png?inline';
 
 // The app icon, as a data URI. A data-URI SVG is its own document, so its
 // gradient ids cannot collide with anything Neopets has defined — inlining the
@@ -42,13 +43,11 @@ const CSS = `
   box-shadow: 0 2px 10px rgba(31,111,235,.35);
 }
 
-.${CLASS}-main, .${CLASS}-inv {
-  display: flex; align-items: center; height: 26px; padding: 0;
+.${CLASS}-main, .${CLASS}-sw, .${CLASS}-ssw, .${CLASS}-inv {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
   border: 0; background: transparent; color: inherit; font: inherit;
   border-radius: 13px; cursor: pointer;
-}
-.${CLASS}-main, .${CLASS}-inv, .${CLASS}-sw, .${CLASS}-ssw {
-  justify-content: center; width: 26px;
 }
 .${CLASS} button:hover, .${CLASS} a:hover { background: rgba(31,111,235,.12); }
 .${CLASS} button:focus-visible, .${CLASS} a:focus-visible {
@@ -57,6 +56,7 @@ const CSS = `
 
 /* Every button's glyph is the same 20px square, whatever it is drawn from. */
 .${CLASS}-glyph {
+  display: block;
   width: 20px; height: 20px; flex: 0 0 auto;
   background: center / contain no-repeat;
 }
