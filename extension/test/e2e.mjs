@@ -2856,6 +2856,23 @@ const moved = { dx: afterDrag.x - beforeDrag.x, dy: afterDrag.y - beforeDrag.y }
 check('dragging the handle moves the popover by exactly that much',
   Math.abs(moved.dx - 120) <= 3 && Math.abs(moved.dy + 60) <= 3, JSON.stringify(moved));
 
+// Over on the right, where nothing overflows: the card must still sit under the
+// pointer. With `bottom end` it lined its right edge up with the point there,
+// jumping a card's width left and trailing the cursor by that much.
+const gripRight = await page.locator('.ns-grip').first().boundingBox();
+await page.mouse.move(gripRight.x + gripRight.width / 2, gripRight.y + gripRight.height / 2);
+await page.mouse.down();
+await page.mouse.move(gripRight.x + gripRight.width / 2 + 600, gripRight.y + gripRight.height / 2, { steps: 12 });
+const midDrag = await popoverState();
+const gripMid = await page.locator('.ns-grip').first().boundingBox();
+await page.mouse.up();
+await page.waitForTimeout(300);
+const afterRight = await popoverState();
+check('dragged towards the right, the popover moves by exactly that much and stays under the pointer',
+  Math.abs(afterRight.x - afterDrag.x - 600) <= 3
+  && Math.abs((gripMid.x + gripMid.width / 2) - (gripRight.x + gripRight.width / 2 + 600)) <= 3,
+  JSON.stringify({ from: afterDrag.x, mid: midDrag.x, to: afterRight.x, width: afterRight.w }));
+
 // Dragging is per-item: the next badge re-anchors rather than inheriting it.
 const reopened = await openBadge(1);
 check('the next item re-anchors to its own badge',

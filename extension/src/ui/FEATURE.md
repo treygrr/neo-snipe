@@ -57,9 +57,11 @@ ready-to-claim count (`questReady`) the bar shows. The `visit` runner loads the 
 - Wizard/SSW results are reused per item for `wizCacheMinutes`/`sswCacheMinutes` (`cacheMs()`, 15
   min, 0 = never); TP is fetched once per open. Within one open `state.wiz.data`/`state.ssw.data`
   short-circuit first, so the window only bites across opens.
-- Given a bare `[x, y]` point, Vuetify puts the card's **left** edge on it and its top `OFFSET`
-  below, whichever way `location` reads — `pointFor` depends on that, and the e2e drag check pins
-  the movement. Clamp to Vuetify's own `viewportMargin` (12) or our idea of where it landed drifts.
+- A dragged popover targets a bare `[x, y]` point with `location` switched to `bottom start`, so
+  Vuetify puts the card's **left** edge on it and its top `OFFSET` below — `pointFor` depends on that.
+  With the badge's `bottom end`, a point lines up the card's **right** edge and only flips when that
+  overflows the left, so a card dragged anywhere with room on its left jumped its own width left. The e2e
+  drag checks pin the movement on both sides of the window. Clamp to Vuetify's own `viewportMargin` (12) or our idea of where it landed drifts.
 - `wasDragged()` guards exist so a popover tab reorder never counts as opening a tab. Food Club
   fetches when its view opens, not on a click.
 - One panel exists, wearing whichever `panelView` is up

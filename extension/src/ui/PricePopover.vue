@@ -33,11 +33,14 @@ const target = computed(() => (
 /**
  * The target point that puts the card's top-left corner at `topLeft`.
  *
- * Given a bare point rather than an element, Vuetify drops the card's left
- * edge on it and its top an offset below — whatever the location prop says,
- * since a point has no sides to align `end` against. The e2e drag check
- * asserts the resulting movement exactly, so a Vuetify upgrade that changed
- * this would fail rather than quietly send the card somewhere else.
+ * Given a bare point, Vuetify drops the card's left edge on it and its top an
+ * offset below — but only because the menu is switched to `bottom start` while
+ * it is dragged. The badge's `bottom end` lines the card's right edge up with a
+ * point instead, and flips to the left edge only when that would overflow the
+ * window's left side: a card dragged anywhere with room on its left jumped a
+ * card's width left and trailed the pointer. The e2e drag checks assert the
+ * movement on both sides, so a Vuetify change here fails rather than quietly
+ * sending the card somewhere else.
  *
  * Placing it this way also settles the one case the maths cannot see: a card
  * Vuetify had flipped above its badge is described here by where it actually
@@ -157,7 +160,7 @@ onBeforeUnmount(() => {
       :target="target"
       :attach="attach"
       :close-on-content-click="false"
-      location="bottom end"
+      :location="state.popoverPos ? 'bottom start' : 'bottom end'"
       :offset="OFFSET"
       max-width="340"
       :min-width="0"
