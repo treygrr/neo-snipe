@@ -15,6 +15,7 @@ import SettingsView from './SettingsView.vue';
 import WizardSearch from './WizardSearch.vue';
 import FoodClub from './FoodClub.vue';
 import QuestLog from './QuestLog.vue';
+import MagmaLog from './MagmaLog.vue';
 import { dailiesFor, isPremiumDaily } from '../lib/dailies.js';
 import { startDrag } from '../lib/positions.js';
 
@@ -123,6 +124,7 @@ const PANEL_TITLES = {
   wiz: 'Shop Wizard',
   ssw: 'Super Shop Wizard',
   quests: 'Quest Log',
+  magma: 'Magma Pool',
 };
 
 // --- moving the panel -------------------------------------------------------
@@ -142,7 +144,7 @@ const panelStyle = computed(() => (
 
 function onHeadPointerDown(event) {
   // Not from the close button, and left button only.
-  if (!state.settings.movablePanel || event.button !== 0) return;
+  if (event.button !== 0) return;
   if (event.target.closest('button, .v-btn')) return;
 
   const el = cardEl();
@@ -173,7 +175,7 @@ function onHeadPointerDown(event) {
       <div
         class="ns-panel-head"
         :class="{
-          'ns-panel-head--grab': state.settings.movablePanel,
+          'ns-panel-head--grab': true,
           'ns-panel-head--dragging': state.panelDragging,
         }"
         @pointerdown="onHeadPointerDown"
@@ -194,6 +196,8 @@ function onHeadPointerDown(event) {
         />
 
         <QuestLog v-else-if="state.panelView === 'quests'" />
+
+        <MagmaLog v-else-if="state.panelView === 'magma'" />
 
         <!-- Favourites -->
         <template v-else-if="state.panelView === 'favourites'">
@@ -410,7 +414,9 @@ function onHeadPointerDown(event) {
 
 /* The title bar doubles as the drag handle. The buttons in it keep their own
    cursor, so only the bar itself advertises the grab. */
-.ns-panel-head--grab { cursor: grab; user-select: none; }
+/* touch-action: without it a touch drag becomes a page pan and the browser
+   cancels the pointer stream, so the panel only moved with a mouse. */
+.ns-panel-head--grab { cursor: grab; user-select: none; touch-action: none; }
 .ns-panel-head--grab .v-btn { cursor: pointer; }
 .ns-panel-head--dragging { cursor: grabbing; }
 

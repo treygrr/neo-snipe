@@ -7,6 +7,13 @@
 
 export const POPOVER_TABS = ['price', 'tp', 'wiz', 'shops'];
 
+// The bar's buttons, in the order they ship in. Its grip and collapse arrow are
+// not in the list: they stay at either end. The same rules apply as for the
+// tabs — SSW and the Magma Pool are hidden at times, and keep their place.
+export const LAUNCHER_BUTTONS = [
+  'favourites', 'dailies', 'foodclub', 'wiz', 'ssw', 'quests', 'magma', 'inventory', 'settings',
+];
+
 /**
  * A stored order, repaired against what this build actually has.
  *

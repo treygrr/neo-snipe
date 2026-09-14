@@ -4,28 +4,40 @@ const BADGE_CLASS = 'neosnipe-badge';
 const ANCHOR_CLASS = 'neosnipe-anchor';
 
 // The badge is the one thing we deliberately put in the host document, so its
-// styles are a single scoped rule rather than anything Vuetify.
+// styles are a single scoped rule rather than anything Vuetify. Some Neopets
+// pages (e.g. the redesigned market) style every <button> in a card, so each
+// declaration is !important to keep the page from restyling the badge.
+const B = `button.${BADGE_CLASS}`;
 const BADGE_CSS = `
-.${BADGE_CLASS} {
-  position: absolute; right: 0; bottom: 0; z-index: 20;
-  width: 16px; height: 16px; padding: 0; margin: 0;
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid rgba(0,0,0,.25); border-radius: 50%;
-  background: #fff; color: #1f6feb; cursor: pointer; line-height: 1;
-  font-size: 10px; opacity: .45; transition: opacity .12s ease, transform .12s ease;
-  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+${B} {
+  all: initial !important;
+  box-sizing: border-box !important;
+  position: absolute !important; inset: auto 0 0 auto !important; z-index: 20 !important;
+  width: 16px !important; height: 16px !important;
+  min-width: 0 !important; min-height: 0 !important; max-width: none !important; max-height: none !important;
+  padding: 0 !important; margin: 0 !important; float: none !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  border: 1px solid rgba(0,0,0,.25) !important; border-radius: 50% !important;
+  background: #fff !important; color: #1f6feb !important; cursor: pointer !important;
+  line-height: 1 !important; font-size: 10px !important;
+  opacity: .45 !important; transform: none !important;
+  transition: opacity .12s ease, transform .12s ease !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2) !important;
 }
-.${BADGE_CLASS}:hover, .${BADGE_CLASS}:focus-visible { opacity: 1; transform: scale(1.15); }
-.${ANCHOR_CLASS}:hover > .${BADGE_CLASS} { opacity: 1; }
+${B}:hover, ${B}:focus-visible { opacity: 1 !important; transform: scale(1.15) !important; }
+.${ANCHOR_CLASS}:hover > ${B} { opacity: 1 !important; }
 
 /* "Only show badges on hover" keeps them out of the way until you go looking. */
-body[data-neosnipe-hover-only] .${BADGE_CLASS} { opacity: 0; }
-body[data-neosnipe-hover-only] .${ANCHOR_CLASS}:hover > .${BADGE_CLASS},
-body[data-neosnipe-hover-only] .${BADGE_CLASS}:focus-visible,
-body[data-neosnipe-hover-only] .${BADGE_CLASS}[data-state] { opacity: 1; }
-.${BADGE_CLASS}[data-state="loading"] { opacity: 1; color: #999; }
-.${BADGE_CLASS}[data-state="error"]   { opacity: 1; color: #d33; }
-.${BADGE_CLASS} svg { width: 10px; height: 10px; fill: currentColor; }
+body[data-neosnipe-hover-only] ${B} { opacity: 0 !important; }
+body[data-neosnipe-hover-only] .${ANCHOR_CLASS}:hover > ${B},
+body[data-neosnipe-hover-only] ${B}:focus-visible,
+body[data-neosnipe-hover-only] ${B}[data-state] { opacity: 1 !important; }
+${B}[data-state="loading"] { opacity: 1 !important; color: #999 !important; }
+${B}[data-state="error"]   { opacity: 1 !important; color: #d33 !important; }
+${B} svg {
+  display: block !important; width: 10px !important; height: 10px !important;
+  margin: 0 !important; fill: currentColor !important; stroke: none !important;
+}
 `;
 
 // A magnifier, inline so it needs no web-accessible resource.

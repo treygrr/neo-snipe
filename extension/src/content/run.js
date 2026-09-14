@@ -2,7 +2,7 @@ import { findItemElements, describeItem, MARK } from './detect.js';
 import { addBadge, setBadgeState } from './badge.js';
 import {
   addLauncher, setLauncherOpen, setLauncherDraggable, resetLauncherPosition,
-  setLauncherPremium,
+  setLauncherPremium, setLauncherVertical, setLauncherOrder, onLauncherReorder, setLauncherIconSteps,
 } from './launcher.js';
 import { detectPremium } from '../lib/premium.js';
 import { linkNpAnchorToInventory } from './npanchor.js';
@@ -10,7 +10,7 @@ import { startMagmaPool } from './magma.js';
 import { startQuestBadge } from './quests.js';
 import { startShopping } from './shopping.js';
 import { getSettings, HELLO, OPEN_PANEL } from '../lib/messages.js';
-import { api, sendMessage } from '../lib/ext-api.js';
+import { api, sendMessage, writeSettings } from '../lib/ext-api.js';
 // Constants and a storage read only — no Vue, so this stays on the cheap path
 // that runs on every Neopets page.
 import { markVisited } from '../lib/daily-visits.js';
@@ -40,6 +40,9 @@ export function run(loadUi) {
         store.watchLauncher({
           reset: () => { resetLauncherPosition(); },
           drag: (on) => { setLauncherDraggable(on); },
+          vertical: (on) => { setLauncherVertical(on); },
+          order: (saved) => { setLauncherOrder(saved); },
+          iconSize: (steps) => { setLauncherIconSteps(steps); },
         });
         // So the heart reflects saved state the first time a popover opens.
         await store.loadFavourites();
@@ -103,10 +106,19 @@ export function run(loadUi) {
   document.documentElement.dataset.neosnipe = 'active';
 
   // One body-level attribute drives the hover-only rule for every badge.
-  getSettings().then(({ hoverOnly, movableLauncher, trackDailyVisits }) => {
+  getSettings().then(({
+    hoverOnly, movableLauncher, verticalLauncher, launcherOrder, trackDailyVisits,
+    launcherIconStep, verticalIconStep,
+  }) => {
     if (hoverOnly) document.body.dataset.neosnipeHoverOnly = '';
     else delete document.body.dataset.neosnipeHoverOnly;
 
+    // Before the bar is shown, so its buttons never visibly jump into place or size.
+    setLauncherOrder(launcherOrder);
+    setLauncherIconSteps({ horizontal: launcherIconStep, vertical: verticalIconStep });
+
+    // Which way up first, then one position read for whichever it is.
+    setLauncherVertical(verticalLauncher, { restore: false });
     setLauncherDraggable(movableLauncher);
 
     // Being on the page is what counts as doing a daily — clicking the link in
@@ -119,11 +131,18 @@ export function run(loadUi) {
     openPanel({ view }).catch((err) => console.error('[neo-snipe] panel failed', err));
   });
 
+  // A dragged button's new place is saved with the other settings, so the bar
+  // keeps that order on every page, and in every browser the settings sync to.
+  onLauncherReorder((order) => {
+    if (storeRef) storeRef.state.settings.launcherOrder = order;
+    writeSettings({ launcherOrder: order }).catch(() => {});
+  });
+
   // Needs the bar in place: the checker drives the bar's Magma Pool button.
   // Isolated, because it is optional: if it fails to start, the badges below
   // must still go on — an uncaught throw here once left a page with none.
   try {
-    startMagmaPool();
+    startMagmaPool({ openLog: () => openPanel({ view: 'magma' }) });
   } catch (err) {
     console.error('[neo-snipe] Magma Pool checker failed to start', err);
   }

@@ -20,16 +20,25 @@ const OPEN = [
 const CLOSED = /well-versed in the ways of moltara/i;
 
 /**
- * What a pool page says: 'open', 'closed', or 'unknown' — a logged-out page, an
- * error, a redesign. Only 'open' ever records a time, so anything unexpected
- * costs a check rather than saving a wrong answer.
+ * What a pool page says, and the words on it that decided that:
+ * `{ state, matched }`. `state` is 'open', 'closed', or 'unknown' — a logged-out
+ * page, an error, a redesign — and `matched` is null for unknown. Only 'open'
+ * ever records a time, so anything unexpected costs a check rather than saving
+ * a wrong answer.
  */
-export function readPoolState(text) {
+export function readPoolDetail(text) {
   const s = String(text ?? '');
-  if (OPEN.some((re) => re.test(s))) return 'open';
-  if (CLOSED.test(s)) return 'closed';
-  return 'unknown';
+  for (const re of OPEN) {
+    const m = re.exec(s);
+    if (m) return { state: 'open', matched: m[0] };
+  }
+  const m = CLOSED.exec(s);
+  if (m) return { state: 'closed', matched: m[0] };
+  return { state: 'unknown', matched: null };
 }
+
+/** Just the verdict of `readPoolDetail`. */
+export const readPoolState = (text) => readPoolDetail(text).state;
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const isPoolTime = (v) => typeof v === 'string' && HHMM.test(v);
@@ -104,4 +113,30 @@ export function cleanPoolTimes(value) {
     if (key && isPoolTime(time)) out[key] = time;
   }
   return out;
+}
+
+// --- the check log ------------------------------------------------------------
+// Every pool load the checker makes, newest first, in storage.local: when, what
+// asked for it, and what the page said. Device-local, and never exported.
+export const MAGMA_LOG = 'magmaLog';
+export const MAGMA_LOG_MAX = 100;
+
+/** A new log with `entry` on top, the oldest dropped past `max`. */
+export function withLogEntry(log, entry, max = MAGMA_LOG_MAX) {
+  return [entry, ...(Array.isArray(log) ? log : [])].slice(0, max);
+}
+
+/**
+ * A page's text for the log: whitespace collapsed and cut to about `max`
+ * characters, centred on `matched` when the text holds it, so the words that
+ * decided the check are in view.
+ */
+export function excerptOf(text, matched = null, max = 200) {
+  const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (flat.length <= max) return flat;
+  const at = matched ? flat.indexOf(matched) : -1;
+  const start = at < 0
+    ? 0
+    : Math.max(0, Math.min(at - Math.floor((max - matched.length) / 2), flat.length - max));
+  return `${start > 0 ? '…' : ''}${flat.slice(start, start + max)}${start + max < flat.length ? '…' : ''}`;
 }

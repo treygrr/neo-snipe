@@ -28,7 +28,7 @@ import {
   PANEL, LAUNCHER, readPosition, writePosition, clearPosition, clamp,
 } from '../lib/positions.js';
 import {
-  POPOVER_TABS, fullOrder, visibleOrder, moveInOrder,
+  POPOVER_TABS, LAUNCHER_BUTTONS, fullOrder, visibleOrder, moveInOrder,
 } from '../lib/tab-order.js';
 import {
   RETRIEVE_URL, CLAIM_URL, FISHING_URL, WHEEL_RESULT_URL, QUESTLOG_URL,
@@ -97,7 +97,7 @@ export const state = reactive({
   panelOpen: false,
   panelAnchor: 'bottom',
   // Which view the panel shows. Each has its own bar button:
-  // favourites, dailies, foodclub, settings, wiz, ssw, quests.
+  // favourites, dailies, foodclub, settings, wiz, ssw, quests, magma.
   panelView: 'favourites',
   // Everything the content script found on this page, offered as starting
   // points in the search panels. Replaced on every scan.
@@ -110,8 +110,8 @@ export const state = reactive({
   },
   settings: {
     hoverOnly: true, premium: false, premiumAuto: true, minMargin: 1000,
-    trackDailyVisits: true, movablePanel: true, movableLauncher: true, movableTabs: true,
-    popoverTabOrder: POPOVER_TABS,
+    trackDailyVisits: true, movableLauncher: true, verticalLauncher: false,
+    popoverTabOrder: POPOVER_TABS, launcherOrder: LAUNCHER_BUTTONS,
   },
   // What the nav said, or null if no page has told us yet.
   premiumDetected: null,
@@ -469,8 +469,15 @@ export async function setSetting(key, value) {
   // Each of these three has a visible effect the moment it is toggled, rather
   // than at the next page load.
   if (key === 'trackDailyVisits') await loadVisitedDailies();
-  if (key === 'movablePanel') await loadPanelPosition();
   if (key === 'movableLauncher') onLauncherDrag?.(value);
+  if (key === 'verticalLauncher') onLauncherVertical?.(value);
+  if (key === 'launcherOrder') onLauncherOrder?.(value);
+  if (key === 'launcherIconStep' || key === 'verticalIconStep') {
+    onLauncherIconSize?.({
+      horizontal: state.settings.launcherIconStep,
+      vertical: state.settings.verticalIconStep,
+    });
+  }
 }
 
 /** Fills the box with everything worth keeping, ready to copy or save. */
@@ -594,7 +601,7 @@ const panelSize = (el) => {
 };
 
 export async function loadPanelPosition() {
-  state.panelPos = state.settings.movablePanel ? await readPosition(PANEL) : null;
+  state.panelPos = await readPosition(PANEL);
 }
 
 export function setPanelPos(pos, el) {
@@ -642,13 +649,24 @@ export async function resetPopoverTabOrder() {
   await setSetting('popoverTabOrder', [...POPOVER_TABS]);
 }
 
+/** Back to the order the bar's buttons ship in, on the bar straight away. */
+export async function resetLauncherOrder() {
+  await setSetting('launcherOrder', [...LAUNCHER_BUTTONS]);
+}
+
 // The launcher is plain DOM outside Vue, so the settings view cannot move it
 // directly — run.js hands us the way to.
 let onLauncherReset = null;
 let onLauncherDrag = null;
-export function watchLauncher({ reset, drag } = {}) {
+let onLauncherVertical = null;
+let onLauncherOrder = null;
+let onLauncherIconSize = null;
+export function watchLauncher({ reset, drag, vertical, order, iconSize } = {}) {
   onLauncherReset = reset ?? onLauncherReset;
   onLauncherDrag = drag ?? onLauncherDrag;
+  onLauncherVertical = vertical ?? onLauncherVertical;
+  onLauncherOrder = order ?? onLauncherOrder;
+  onLauncherIconSize = iconSize ?? onLauncherIconSize;
 }
 
 export async function toggleDaily(daily) {

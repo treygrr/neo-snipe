@@ -36,11 +36,34 @@ test('an older file still loads what it can', () => {
 
 test('unknown keys are ignored, not copied into storage', () => {
   // `panelTabOrder` is what older builds wrote before the panel's tabs moved
-  // onto the bar: their exports must still import.
-  const settings = { ...good.settings, somethingElse: 'x', panelTabOrder: ['foodclub', 'dailies', 'favourites'] };
+  // onto the bar, and `movablePanel`/`movableTabs` the switches for what is now
+  // always on: their exports must still import.
+  const settings = {
+    ...good.settings, somethingElse: 'x', panelTabOrder: ['foodclub', 'dailies', 'favourites'],
+    movablePanel: false, movableTabs: false,
+  };
   const r = parseExport(toJson({ ...good, settings, extra: 1 }));
   assert.deepEqual(Object.keys(r.settings).sort(), ['hoverOnly', 'premium']);
   assert.ok(!('panelTabOrder' in r.settings));
+  assert.ok(!('movablePanel' in r.settings) && !('movableTabs' in r.settings));
+});
+
+test("the bar's button order imports, and only as a list of ids", () => {
+  const order = ['settings', 'favourites', 'dailies', 'foodclub', 'wiz', 'ssw', 'quests', 'magma', 'inventory'];
+  const r = parseExport(toJson({ ...good, settings: { ...good.settings, launcherOrder: order } }));
+  assert.deepEqual(r.settings.launcherOrder, order);
+  const bad = parseExport(toJson({ ...good, settings: { ...good.settings, launcherOrder: 'settings' } }));
+  assert.ok(!('launcherOrder' in bad.settings));
+});
+
+test("the bar's icon sizes import, and only as whole steps from 1 to 5", () => {
+  const r = parseExport(toJson({ ...good, settings: { ...good.settings, launcherIconStep: 5, verticalIconStep: 1 } }));
+  assert.equal(r.settings.launcherIconStep, 5);
+  assert.equal(r.settings.verticalIconStep, 1);
+  for (const bad of [0, 6, 2.5, '3']) {
+    const s = parseExport(toJson({ ...good, settings: { ...good.settings, launcherIconStep: bad, verticalIconStep: bad } })).settings;
+    assert.ok(!('launcherIconStep' in s) && !('verticalIconStep' in s), `refused ${JSON.stringify(bad)}`);
+  }
 });
 
 test("the popover's tab order still imports", () => {

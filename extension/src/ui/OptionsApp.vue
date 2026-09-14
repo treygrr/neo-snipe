@@ -73,7 +73,7 @@ async function clearCache() {
 
         <v-switch
           v-model="form.hoverOnly"
-          label="Only show badges on hover"
+          label="Hover badges — hide each item's badge until your pointer is over it"
           color="primary"
           density="compact"
           hide-details

@@ -1,5 +1,6 @@
 import { readSettings } from './ext-api.js';
-import { POPOVER_TABS } from './tab-order.js';
+import { POPOVER_TABS, LAUNCHER_BUTTONS } from './tab-order.js';
+import { DEFAULT_ICON_STEP } from './launcher-size.js';
 
 export const LOOKUP = 'neosnipe:lookup';
 export const TP_LOOKUP = 'neosnipe:trading-post';
@@ -28,14 +29,18 @@ export const DEFAULTS = {
   // Wizard a complete one in a single call.
   wizCacheMinutes: 15,
   sswCacheMinutes: 15,
-  // Drag the panel by its title bar, and the launcher button by itself. Each
-  // remembers where it was left; turning one off puts that one back in its
-  // default corner without forgetting the position.
-  movablePanel: true,
+  // Drag the bar by its handle. It remembers where it was left; turning this off
+  // puts it back in its corner without forgetting the position. The panel's
+  // title bar and the popover's tabs always drag, so they have no switch.
   movableLauncher: true,
-  // Drag the price popover's tabs to reorder them. The stored order covers
-  // every tab this build knows about, including any hidden right now.
-  movableTabs: true,
+  // Stand the bar on its side, docked against the nearer edge of the window with
+  // bigger buttons, and tucked away behind a caret until that is pressed.
+  verticalLauncher: false,
+  // How big the bar's icons are, as a step: 1 is 20px and each step to 5 adds
+  // 4px. The horizontal and vertical bars keep their own, starting at the sizes
+  // they had before this could be changed.
+  launcherIconStep: DEFAULT_ICON_STEP.horizontal,
+  verticalIconStep: DEFAULT_ICON_STEP.vertical,
   // Reopen an item's popover on the tab you were last on, rather than on
   // whichever tab sits first in the order.
   rememberPopoverTab: false,
@@ -49,7 +54,11 @@ export const DEFAULTS = {
   // Put the day's cached Jelly Neo prices and trading post histories in an
   // export, so another browser starts with them. Off: they bloat the file.
   exportIncludeCache: false,
+  // The price popover's tabs, and the bar's buttons, in the order you dragged
+  // them into. Each covers everything this build knows about, including
+  // whatever is hidden right now.
   popoverTabOrder: POPOVER_TABS,
+  launcherOrder: LAUNCHER_BUTTONS,
 };
 
 export async function getSettings() {

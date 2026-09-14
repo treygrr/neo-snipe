@@ -1,13 +1,30 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-import { mdiContentCopy, mdiDownload, mdiUpload, mdiFileUpload, mdiRestore } from '@mdi/js';
+import {
+  mdiContentCopy, mdiDownload, mdiUpload, mdiFileUpload, mdiRestore, mdiMinus, mdiPlus,
+} from '@mdi/js';
 import {
   state, setSetting, exportSettings, importSettings, isPremium,
-  resetPanelPosition, resetLauncherPosition, resetPopoverTabOrder,
+  resetPanelPosition, resetLauncherPosition, resetPopoverTabOrder, resetLauncherOrder,
 } from './store.js';
 import { api } from '../lib/ext-api.js';
 import { nextPoolOpening, cleanPoolTimes } from '../lib/magma.js';
 import { formatCountdown } from '../lib/daily-visits.js';
+import { ICON_STEPS, DEFAULT_ICON_STEP, cleanIconStep, iconPx } from '../lib/launcher-size.js';
+
+// --- icon size ---------------------------------------------------------------
+// One control, for whichever way up the bar is: each orientation keeps its own
+// size, so the one you are looking at is the one that changes.
+const iconOrientation = computed(() => (state.settings.verticalLauncher ? 'vertical' : 'horizontal'));
+const iconKey = computed(() => (iconOrientation.value === 'vertical' ? 'verticalIconStep' : 'launcherIconStep'));
+const iconStep = computed(() => cleanIconStep(
+  state.settings[iconKey.value],
+  DEFAULT_ICON_STEP[iconOrientation.value],
+));
+function stepIcons(by) {
+  const next = Math.min(ICON_STEPS, Math.max(1, iconStep.value + by));
+  if (next !== iconStep.value) setSetting(iconKey.value, next);
+}
 
 const detectedText = computed(() => {
   if (state.premiumDetected === null) return 'Not checked yet — open a Neopets page.';
@@ -106,6 +123,9 @@ async function pickFile(event) {
 <template>
   <div class="ns-settings">
     <section class="ns-set-block">
+      <h4 class="ns-set-title">App settings</h4>
+      <p class="ns-set-hint">What neo-snipe shows you, and on which pages.</p>
+
       <label class="ns-set-row">
         <input
           type="checkbox"
@@ -113,9 +133,10 @@ async function pickFile(event) {
           @change="setSetting('premiumAuto', $event.target.checked)"
         >
         <span>
-          <strong>Detect Neopets Premium automatically</strong>
+          <strong>Detect Premium</strong>
           <em>
-            Reads it from the site navigation.
+            Reads whether this account has Neopets Premium from the site's navigation on each page,
+            so the Super Shop Wizard and the premium-only dailies appear only when you can use them.
             <template v-if="state.settings.premiumAuto">{{ detectedText }}</template>
           </em>
         </span>
@@ -129,9 +150,12 @@ async function pickFile(event) {
           @change="setSetting('premium', $event.target.checked)"
         >
         <span>
-          <strong>I have Neopets Premium</strong>
-          <em v-if="state.settings.premiumAuto">Turn detection off to set this yourself.</em>
-          <em v-else>Shows the Super Shop Wizard and premium dailies.</em>
+          <strong>I have Premium</strong>
+          <em v-if="state.settings.premiumAuto">Turn off Detect Premium to set this yourself.</em>
+          <em v-else>
+            Shows the Super Shop Wizard button and popover tab, and the premium-only dailies. Off
+            hides them all.
+          </em>
         </span>
       </label>
 
@@ -142,8 +166,11 @@ async function pickFile(event) {
           @change="setSetting('hoverOnly', $event.target.checked)"
         >
         <span>
-          <strong>Only show badges on hover</strong>
-          <em>Keeps the 🔍 out of the way until you go looking for it.</em>
+          <strong>Hover badges</strong>
+          <em>
+            Keeps the 🔍 badge on each item hidden until your pointer is over the item. Off shows
+            every badge all the time, which is easier on a touch screen.
+          </em>
         </span>
       </label>
 
@@ -154,59 +181,174 @@ async function pickFile(event) {
           @change="setSetting('trackDailyVisits', $event.target.checked)"
         >
         <span>
-          <strong>Tick off dailies as you visit them</strong>
+          <strong>Track dailies</strong>
           <em>
-            Each one clears on its own schedule: most at midnight Neopets time, but Coltzan's
-            thirteen hours after you go, the Snowager when its next window opens, the freebies
-            on the first of the month. Places with no cooldown at all, like the stock market,
-            are not ticked.
+            Ticks a daily off in the Dailies panel when you visit its page, however you got there.
+            Each clears on its own schedule: most at midnight Neopets time, Coltzan's thirteen hours
+            after you go, the Snowager when its next window opens, the freebies on the first of the
+            month. Places with no cooldown, like the stock market, are never ticked.
           </em>
         </span>
       </label>
 
       <label class="ns-set-row ns-set-row--field">
+        <span>
+          <strong>Buy margin (NP)</strong>
+          <input
+            class="ns-set-num"
+            inputmode="numeric"
+            :value="state.settings.minMargin"
+            @input="setSetting('minMargin', Math.max(0, Number($event.target.value.replace(/[^\d]/g, '')) || 0))"
+          >
+          <em>
+            In a shop, the price popover turns its margin line green when Jelly Neo's estimate is
+            above the asking price by at least this much. It compares against an estimate, so green
+            means the spread clears your bar, not that the item will sell for it.
+          </em>
+        </span>
+      </label>
+    </section>
+
+    <section class="ns-set-block">
+      <h4 class="ns-set-title">Layout</h4>
+      <p class="ns-set-hint">
+        Always on: drag any bar button to reorder the bar, drag this panel by its title bar, and
+        drag an item popover's tabs to reorder them. Positions are remembered on this device only,
+        since a spot that suits one screen is off the edge of another. The bar's button order and
+        the popover's tab order ride with your other settings, so they follow you.
+      </p>
+
+      <label class="ns-set-row">
         <input
-          class="ns-set-num"
-          inputmode="numeric"
-          :value="state.settings.minMargin"
-          @input="setSetting('minMargin', Math.max(0, Number($event.target.value.replace(/[^\d]/g, '')) || 0))"
+          type="checkbox"
+          :checked="state.settings.verticalLauncher"
+          @change="setSetting('verticalLauncher', $event.target.checked)"
         >
         <span>
-          <strong>Worth-buying margin</strong>
+          <strong>Vertical mode</strong>
           <em>
-            In a shop, the popover marks an item green when Jelly Neo's estimate beats the asking
-            price by this much.
+            Stands the bar up as a column of bigger buttons, docked flush against the left or right
+            edge of the window — whichever you drag it nearer. It starts tucked away behind its
+            arrow and stays that way until you press it. Panels still open in the same place.
           </em>
         </span>
       </label>
 
-      <label class="ns-set-row ns-set-row--field">
+      <div class="ns-set-size">
+        <span class="ns-set-size-title">
+          {{ state.settings.verticalLauncher ? 'Vertical bar icon size' : 'Bar icon size' }}
+        </span>
+        <div class="ns-set-size-controls">
+          <v-btn
+            :icon="mdiMinus"
+            size="x-small"
+            variant="tonal"
+            class="ns-set-size-down"
+            :disabled="iconStep <= 1"
+            aria-label="Smaller bar icons"
+            title="Smaller bar icons"
+            @click="stepIcons(-1)"
+          />
+          <span class="ns-set-size-value" aria-live="polite">{{ iconPx(iconStep) }}px</span>
+          <v-btn
+            :icon="mdiPlus"
+            size="x-small"
+            variant="tonal"
+            class="ns-set-size-up"
+            :disabled="iconStep >= ICON_STEPS"
+            aria-label="Bigger bar icons"
+            title="Bigger bar icons"
+            @click="stepIcons(1)"
+          />
+        </div>
+        <em>
+          The bar's icons, from 20px to 36px in 4px steps. The horizontal and vertical bars each
+          keep their own size, so this changes the one you are using now.
+        </em>
+      </div>
+
+      <label class="ns-set-row">
         <input
-          class="ns-set-num"
-          inputmode="numeric"
-          :value="state.settings.wizCacheMinutes"
-          @input="setSetting('wizCacheMinutes', minutes($event))"
+          type="checkbox"
+          :checked="state.settings.movableLauncher"
+          @change="setSetting('movableLauncher', $event.target.checked)"
         >
+        <span>
+          <strong>Move bar</strong>
+          <em>
+            Adds a handle to the bar so you can drag it anywhere on the page. Off puts it back in
+            the bottom-right corner (or halfway down the right edge in vertical mode) without
+            forgetting where you had it. Its buttons work either way.
+          </em>
+        </span>
+      </label>
+
+      <label class="ns-set-row">
+        <input
+          type="checkbox"
+          :checked="state.settings.rememberPopoverTab"
+          @change="setSetting('rememberPopoverTab', $event.target.checked)"
+        >
+        <span>
+          <strong>Remember tab</strong>
+          <em>
+            Opens every item's popover on the tab you were last on. Off always opens the first tab
+            in the order. A remembered tab that has since been hidden falls back to the first.
+          </em>
+        </span>
+      </label>
+
+      <div class="ns-set-actions">
+        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
+               :disabled="!state.panelPos" @click="resetPanelPosition">Reset panel</v-btn>
+        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
+               @click="resetLauncherPosition">Reset bar</v-btn>
+        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
+               title="Put the bar's buttons back in their original order"
+               @click="resetLauncherOrder">Reset bar order</v-btn>
+        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
+               title="Reset the price popover's tab order"
+               @click="resetPopoverTabOrder">Reset tabs</v-btn>
+      </div>
+    </section>
+
+    <section class="ns-set-block">
+      <h4 class="ns-set-title">Cache settings</h4>
+      <p class="ns-set-hint">
+        How long a wizard search is reused before another is spent on the same item. Both wizards
+        are rate-limited by Neopets.
+      </p>
+
+      <label class="ns-set-row ns-set-row--field">
         <span>
           <strong>Shop Wizard cache (minutes)</strong>
+          <input
+            class="ns-set-num"
+            inputmode="numeric"
+            :value="state.settings.wizCacheMinutes"
+            @input="setSetting('wizCacheMinutes', minutes($event))"
+          >
           <em>
-            How long the Shop Wizard tab reuses a result before spending another search on the
-            same item. Searches are rate-limited, so keep this high unless prices matter more.
-            Zero searches every time you open the tab.
+            Minutes the Shop Wizard tab shows a saved result before searching the same item again.
+            Keep this high unless fresh prices matter more than your search limit. 0 searches every
+            time you open the tab.
           </em>
         </span>
       </label>
 
       <label class="ns-set-row ns-set-row--field">
-        <input
-          class="ns-set-num"
-          inputmode="numeric"
-          :value="state.settings.sswCacheMinutes"
-          @input="setSetting('sswCacheMinutes', minutes($event))"
-        >
         <span>
           <strong>Super Shop Wizard cache (minutes)</strong>
-          <em>The same, for the SSW tab. It returns a whole shop list at once, so it goes stale faster.</em>
+          <input
+            class="ns-set-num"
+            inputmode="numeric"
+            :value="state.settings.sswCacheMinutes"
+            @input="setSetting('sswCacheMinutes', minutes($event))"
+          >
+          <em>
+            The same for the SSW tab. It returns every shop at once, so its results go stale
+            faster — a lower number suits it. 0 searches every time.
+          </em>
         </span>
       </label>
     </section>
@@ -225,10 +367,11 @@ async function pickFile(event) {
           @change="setSetting('magmaPoolCheck', $event.target.checked)"
         >
         <span>
-          <strong>Find my Magma Pool time</strong>
+          <strong>Find pool time</strong>
           <em>
-            Checks the pool every 10 minutes while a Neopets page is open, and adds a volcano
-            button to the bar that turns into a checkmark once your time is found.
+            Loads the Magma Pool every 10 minutes while a Neopets page is open until it catches the
+            guard away, and records that time. Adds a volcano button to the bar that turns into a
+            checkmark once your time is found.
           </em>
         </span>
       </label>
@@ -255,82 +398,10 @@ async function pickFile(event) {
     </section>
 
     <section class="ns-set-block">
-      <h4 class="ns-set-title">Layout</h4>
-      <p class="ns-set-hint">
-        Positions are remembered on this device only, since a spot that suits one screen is off
-        the edge of another. The popover's tab order rides with your other settings instead, so it
-        follows you.
-      </p>
-
-      <label class="ns-set-row">
-        <input
-          type="checkbox"
-          :checked="state.settings.movablePanel"
-          @change="setSetting('movablePanel', $event.target.checked)"
-        >
-        <span>
-          <strong>Move this panel by dragging its title bar</strong>
-          <em>Off puts it back above the neo-snipe bar, without forgetting where it was.</em>
-        </span>
-      </label>
-
-      <label class="ns-set-row">
-        <input
-          type="checkbox"
-          :checked="state.settings.movableLauncher"
-          @change="setSetting('movableLauncher', $event.target.checked)"
-        >
-        <span>
-          <strong>Move the neo-snipe bar by dragging its handle</strong>
-          <em>Off returns it to the bottom-right corner. Its buttons work either way.</em>
-        </span>
-      </label>
-
-      <label class="ns-set-row">
-        <input
-          type="checkbox"
-          :checked="state.settings.rememberPopoverTab"
-          @change="setSetting('rememberPopoverTab', $event.target.checked)"
-        >
-        <span>
-          <strong>Reopen an item on the tab you were last on</strong>
-          <em>
-            Off opens every item on whichever tab comes first in the order. A remembered tab that
-            has since been hidden falls back to the first one.
-          </em>
-        </span>
-      </label>
-
-      <label class="ns-set-row">
-        <input
-          type="checkbox"
-          :checked="state.settings.movableTabs"
-          @change="setSetting('movableTabs', $event.target.checked)"
-        >
-        <span>
-          <strong>Drag the tabs in an item's price popover to reorder them</strong>
-          <em>
-            The order is kept for tabs that are hidden too, so the SSW tab returns to where you
-            put it.
-          </em>
-        </span>
-      </label>
-
-      <div class="ns-set-actions">
-        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
-               :disabled="!state.panelPos" @click="resetPanelPosition">Reset panel</v-btn>
-        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
-               @click="resetLauncherPosition">Reset bar</v-btn>
-        <v-btn size="x-small" variant="tonal" :prepend-icon="mdiRestore"
-               title="Reset the price popover's tab order"
-               @click="resetPopoverTabOrder">Reset tabs</v-btn>
-      </div>
-    </section>
-
-    <section class="ns-set-block">
       <h4 class="ns-set-title">Backup</h4>
       <p class="ns-set-hint">
-        Your settings, favourites, favourited dailies and Magma Pool times.
+        Your settings, favourites, favourited dailies and Magma Pool times, to copy to another
+        browser or keep safe.
       </p>
 
       <label class="ns-set-row">
@@ -340,11 +411,11 @@ async function pickFile(event) {
           @change="setSetting('exportIncludeCache', $event.target.checked)"
         >
         <span>
-          <strong>Include cached prices in the export</strong>
+          <strong>Export cache</strong>
           <em>
             Adds the Jelly Neo prices and trading post histories looked up in the last day, so
-            another browser starts with them. The file gets much bigger. Press Export again after
-            changing this.
+            another browser starts with them instead of looking them up again. The file gets much
+            bigger. Press Export again after changing this.
           </em>
         </span>
       </label>
@@ -382,25 +453,61 @@ async function pickFile(event) {
 <style scoped>
 .ns-settings { padding: 10px 12px 12px; }
 .ns-set-block { margin-bottom: 14px; }
+.ns-set-block + .ns-set-block { padding-top: 10px; border-top: 1px solid rgba(0, 0, 0, .08); }
 .ns-set-title { font-size: 11.5px; margin: 0 0 3px; }
 .ns-set-hint { font-size: 10.5px; opacity: .6; margin: 0 0 7px; }
 
-.ns-set-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 9px; cursor: pointer; }
-.ns-set-row input { margin: 1px 0 0; width: 13px; height: 13px; flex: 0 0 auto; cursor: pointer; }
-/* Shown but not editable while detection is doing the deciding. */
-/* A number field, not a 13px checkbox, so it overrides the rule above. */
-.ns-set-row--field input.ns-set-num {
-  width: 64px; height: auto; flex: 0 0 auto; cursor: text;
-  font: inherit; font-size: 11px; text-align: right;
-  padding: 2px 5px; border: 1px solid rgba(0, 0, 0, .25); border-radius: 4px;
+/* Every setting reads top to bottom: its title, the control under it, then what
+   it does. The span holding title and description steps out of the way
+   (display: contents), so `order` can put the control between them whichever
+   side of the span it sits in the markup. */
+.ns-set-row {
+  display: flex; flex-direction: column; align-items: flex-start;
+  margin-bottom: 11px; cursor: pointer;
 }
-.ns-set-row--off { opacity: .55; cursor: default; }
-.ns-set-row--off input { cursor: not-allowed; }
-.ns-set-row strong { display: block; font-size: 11.5px; font-weight: 600; }
-.ns-set-row em { display: block; font-size: 10px; opacity: .6; font-style: normal; margin-top: 1px; }
+.ns-set-row > span { display: contents; }
+.ns-set-row strong { order: 0; display: block; font-size: 11.5px; font-weight: 600; }
+.ns-set-row input { order: 1; margin: 4px 0 3px; flex: 0 0 auto; cursor: pointer; }
+.ns-set-row em { order: 2; display: block; font-size: 10px; opacity: .6; font-style: normal; }
 
-.ns-pool-status { font-size: 10.5px; margin: -2px 0 6px 21px; opacity: .7; }
-.ns-pool-list { margin-left: 21px; border: 1px solid rgba(0, 0, 0, .1); border-radius: 6px; overflow: hidden; }
+/* Checkboxes drawn as small switches, which sit better on a line of their own. */
+.ns-set-row input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; position: relative;
+  width: 30px; height: 16px; border-radius: 8px;
+  background: rgba(0, 0, 0, .25); transition: background .15s ease;
+}
+.ns-set-row input[type="checkbox"]::before {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .15s ease;
+}
+.ns-set-row input[type="checkbox"]:checked { background: #1f6feb; }
+.ns-set-row input[type="checkbox"]:checked::before { transform: translateX(14px); }
+.ns-set-row input[type="checkbox"]:focus-visible { outline: 2px solid #1f6feb; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .ns-set-row input[type="checkbox"], .ns-set-row input[type="checkbox"]::before { transition: none; }
+}
+
+/* A number field: text, not a switch. */
+.ns-set-row--field { cursor: default; }
+.ns-set-row--field input.ns-set-num {
+  width: 96px; height: auto; cursor: text;
+  font: inherit; font-size: 11px; text-align: left;
+  padding: 3px 6px; border: 1px solid rgba(0, 0, 0, .25); border-radius: 4px;
+}
+/* Shown but not editable while detection is doing the deciding. */
+.ns-set-row--off { opacity: .55; cursor: default; }
+
+/* The icon size stepper: laid out like a setting row, with −, the size and +. */
+.ns-set-size { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 11px; }
+.ns-set-size-title { display: block; font-size: 11.5px; font-weight: 600; }
+.ns-set-size-controls { display: flex; align-items: center; gap: 6px; margin: 4px 0 3px; }
+.ns-set-size-value { min-width: 34px; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+.ns-set-size em { display: block; font-size: 10px; opacity: .6; font-style: normal; }
+.ns-set-row--off input { cursor: not-allowed; }
+
+.ns-pool-status { font-size: 10.5px; margin: -2px 0 6px; opacity: .7; }
+.ns-pool-list { border: 1px solid rgba(0, 0, 0, .1); border-radius: 6px; overflow: hidden; }
 .ns-pool-row {
   display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px;
   padding: 3px 4px 3px 9px; font-size: 11px;

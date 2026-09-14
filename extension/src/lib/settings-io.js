@@ -2,6 +2,7 @@ import { api } from './ext-api.js';
 import { DEFAULTS } from './messages.js';
 import { cleanPoolTimes } from './magma.js';
 import { freshCacheEntries } from './price-cache.js';
+import { cleanIconStep } from './launcher-size.js';
 
 // Bumped only when the shape changes in a way an importer must know about.
 // Import accepts anything from this version or older, and ignores keys it does
@@ -79,8 +80,9 @@ export function parseExport(text, { now = Date.now() } = {}) {
 
   // Keep only what we recognise and can trust the shape of. `typeof` alone
   // cannot tell an array from any other object, and the popover's tab order is
-  // an array of ids, so it is checked element by element. A retired key, such
-  // as the old `panelTabOrder`, is not in SETTING_KEYS and so is never read.
+  // an array of ids, so it is checked element by element (the bar's button order
+  // too). A retired key, such as the old `panelTabOrder` or the `movablePanel`
+  // and `movableTabs` switches, is not in SETTING_KEYS and so is never read.
   const settings = {};
   for (const key of SETTING_KEYS) {
     const value = data.settings?.[key];
@@ -91,6 +93,12 @@ export function parseExport(text, { now = Date.now() } = {}) {
     // wipe times found since.
     if (key === 'magmaPoolTimes') {
       if (value !== undefined) settings[key] = cleanPoolTimes(value);
+      continue;
+    }
+
+    // Any number passes typeof, and the bar only lays out at its five sizes.
+    if (key === 'launcherIconStep' || key === 'verticalIconStep') {
+      if (cleanIconStep(value, null) !== null) settings[key] = value;
       continue;
     }
 

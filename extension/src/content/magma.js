@@ -4,12 +4,14 @@
 // Each account's guard naps for ten minutes at the same NST time every day.
 // While checking is on and this account has no time yet, the pool page is
 // loaded every ten minutes — one clock shared by every open Neopets tab — until
-// a load finds it open, and that minute is saved for the account.
+// a load finds it open, and that minute is saved for the account. Every load is
+// written to the check log, which the bar's button opens.
 import { api, readSettings, writeSettings } from '../lib/ext-api.js';
 import { DEFAULTS } from '../lib/messages.js';
 import {
-  MAGMA_POOL_URL, MAGMA_CHECK_MS, ACCOUNT_URL,
-  readPoolState, readAccountName, isAccountPage, poolTimeAt, cleanPoolTimes,
+  MAGMA_POOL_URL, MAGMA_CHECK_MS, ACCOUNT_URL, MAGMA_LOG,
+  readPoolDetail, readAccountName, isAccountPage, poolTimeAt, cleanPoolTimes,
+  excerptOf, withLogEntry,
 } from '../lib/magma.js';
 import { setMagmaState, onMagmaClick, showLauncherNotice } from './launcher.js';
 
@@ -41,6 +43,15 @@ async function fetchDoc(url) {
 
 const here = () => location.origin + location.pathname;
 
+// What to quote from a page nothing on which was recognised: its content area
+// where it has one, so the excerpt is not the site's menu.
+const quotable = (doc) => doc.querySelector?.('.content, #content') ?? doc.body;
+
+async function appendLog(entry) {
+  const { [MAGMA_LOG]: log } = await api.storage.local.get(MAGMA_LOG).catch(() => ({}));
+  await api.storage.local.set({ [MAGMA_LOG]: withLogEntry(log, entry) }).catch(() => {});
+}
+
 /**
  * Who is logged in, or null. `fresh` goes to the settings page rather than the
  * cache, which is what happens when checking starts on a page, when a click
@@ -64,7 +75,8 @@ async function lastCheck() {
   return Number(at) || 0;
 }
 
-export function startMagmaPool() {
+/** `openLog()` shows the check log in the panel; run.js supplies it. */
+export function startMagmaPool({ openLog = null } = {}) {
   let busy = false;
   // Whether this page has put the button on the bar yet — see check().
   let placed = false;
@@ -78,7 +90,7 @@ export function startMagmaPool() {
     const account = await currentAccount().catch(() => null);
     if (!account) return setMagmaState('idle', 'Magma Pool — log in to Neopets to start checking');
     if (times[account]) {
-      return setMagmaState('found', `Magma Pool — ${account}'s guard naps at ${times[account]} NST daily. Go to the pool.`);
+      return setMagmaState('found', `Magma Pool — ${account}'s guard naps at ${times[account]} NST daily. Click for the check log.`);
     }
 
     const wait = await lastCheck() + MAGMA_CHECK_MS - Date.now();
@@ -89,10 +101,13 @@ export function startMagmaPool() {
 
   /**
    * One check, if one is due: 'off', 'no-account', 'found' (already known),
-   * 'not-due', 'open' or 'closed'. `freshAccount` re-reads who is logged in
-   * from the settings page first.
+   * 'not-due', 'busy', or what the load found — 'open', 'closed', 'unknown'
+   * (unreadable, or open for an account that could not be confirmed) or
+   * 'error'. `freshAccount` re-reads who is logged in from the settings page
+   * first. `trigger` is what asked, for the log: 'start', 'timer', 'click' or
+   * 'settings'.
    */
-  async function check({ freshAccount = false } = {}) {
+  async function check({ freshAccount = false, trigger = 'timer' } = {}) {
     if (busy) return 'busy';
     const { enabled, times } = await readPoolSettings();
     if (!enabled) { await render(); return 'off'; }
@@ -106,7 +121,7 @@ export function startMagmaPool() {
     if (!placed && !busy) {
       const { [ACCOUNT]: known } = await api.storage.local.get(ACCOUNT).catch(() => ({}));
       if (known?.name && times[known.name]) {
-        setMagmaState('found', `Magma Pool — ${known.name}'s guard naps at ${times[known.name]} NST daily. Go to the pool.`);
+        setMagmaState('found', `Magma Pool — ${known.name}'s guard naps at ${times[known.name]} NST daily. Click for the check log.`);
       } else {
         setMagmaState('idle', 'Magma Pool — checking your account…');
       }
@@ -122,14 +137,30 @@ export function startMagmaPool() {
     if (!onPool && Date.now() - await lastCheck() < MAGMA_CHECK_MS) { await render(); return 'not-due'; }
 
     busy = true;
+    const at = Date.now();
     // Claimed before the load, so a tab ticking a moment later sees it taken.
-    await api.storage.local.set({ [LAST_CHECK]: Date.now() }).catch(() => {});
+    await api.storage.local.set({ [LAST_CHECK]: at }).catch(() => {});
     setMagmaState('loading', 'Checking the Magma Pool…');
 
-    let result = 'closed';
+    const entry = {
+      at,
+      nst: poolTimeAt(at),
+      trigger: onPool ? 'pool-page' : trigger,
+      account,
+      result: 'unknown',
+      matched: null,
+      excerpt: null,
+      saved: null,
+      note: null,
+    };
     try {
       const doc = onPool ? document : await fetchDoc(MAGMA_POOL_URL);
-      if (readPoolState(doc.body?.textContent) === 'open') {
+      const text = doc.body?.textContent ?? '';
+      const { state: seen, matched } = readPoolDetail(text);
+      entry.result = seen;
+      entry.matched = matched;
+      entry.excerpt = excerptOf(matched ? text : quotable(doc)?.textContent, matched) || null;
+      if (seen === 'open') {
         const confirmed = await currentAccount({ fresh: true });
         if (confirmed) {
           const time = poolTimeAt();
@@ -137,30 +168,42 @@ export function startMagmaPool() {
           // another account's time since this check began.
           const latest = (await readPoolSettings()).times;
           await writeSettings({ magmaPoolTimes: { ...latest, [confirmed]: time } });
+          entry.account = confirmed;
+          entry.saved = time;
           showLauncherNotice(
             `The Magma Pool is open for ${confirmed}! The guard naps at ${time} NST every day.`,
             { href: MAGMA_POOL_URL, label: 'Go to the pool', ms: 30_000 },
           );
-          result = 'open';
+        } else {
+          entry.note = 'Not saved: could not confirm which account is logged in.';
         }
       }
-    } catch {
+    } catch (err) {
       // Offline, or logged out mid-check: the next tick simply tries again.
+      entry.result = 'error';
+      entry.note = err?.message || String(err);
     } finally {
       busy = false;
     }
+    await appendLog(entry);
     await render();
-    return result;
+    if (entry.result === 'open' && !entry.saved) return 'unknown';
+    return entry.result;
   }
 
-  // Found: the button is a plain link to the pool, so let it be one. Otherwise a
-  // click asks for a check now, which still has to wait for the ten minutes, and
-  // reads who is logged in again in case the last read failed.
+  // A click opens the log of every check. Unless the time is already found, it
+  // also asks for a check now — which still has to wait for the ten minutes —
+  // and reads who is logged in again in case the last read failed. A click
+  // that closes the log only closes it. Ctrl-, Cmd- and Shift-clicks are left
+  // to the link, so the pool can still be opened in a new tab from here.
   onMagmaClick(async (event, state) => {
-    if (state === 'found') return;
+    if (event.ctrlKey || event.metaKey || event.shiftKey) return;
     event.preventDefault();
-    if (state === 'loading') return;
-    const result = await check({ freshAccount: true });
+    const closing = event.currentTarget?.getAttribute('aria-pressed') === 'true';
+    Promise.resolve(openLog?.()).catch((err) => console.error('[neo-snipe] Magma Pool log failed', err));
+    if (closing || state === 'found' || state === 'loading') return;
+
+    const result = await check({ freshAccount: true, trigger: 'click' });
     if (result === 'not-due') {
       const wait = await lastCheck() + MAGMA_CHECK_MS - Date.now();
       showLauncherNotice(`The Magma Pool can be checked every 10 minutes. Next check in ${minutesUntil(wait)}m.`);
@@ -168,6 +211,8 @@ export function startMagmaPool() {
       showLauncherNotice('Log in to Neopets so the Magma Pool can be checked for your account.');
     } else if (result === 'closed') {
       showLauncherNotice('The guard is awake. Checking again in 10 minutes.');
+    } else if (result === 'unknown' || result === 'error') {
+      showLauncherNotice('Could not tell whether the pool is open. The log shows what the page said.');
     }
   });
 
@@ -180,12 +225,12 @@ export function startMagmaPool() {
   api.storage.onChanged?.addListener((changes) => {
     const switchedOn = changes.magmaPoolCheck?.newValue === true;
     if (switchedOn || 'magmaPoolCheck' in changes || 'magmaPoolTimes' in changes) {
-      tick({ freshAccount: switchedOn });
+      tick({ freshAccount: switchedOn, trigger: 'settings' });
     }
   });
 
   // Starting on a page: read who is logged in from the settings page, not the
   // cache, then carry on ticking from what that read left behind.
-  tick({ freshAccount: true });
+  tick({ freshAccount: true, trigger: 'start' });
   setInterval(tick, TICK_MS);
 }

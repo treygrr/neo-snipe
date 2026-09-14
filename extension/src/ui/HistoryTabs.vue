@@ -17,7 +17,8 @@ const TAB_LABELS = {
   shops: { label: 'SSW', title: 'Super Shop Wizard (Premium)' },
 };
 
-const tabDrag = useTabDrag(movePopoverTab, () => state.settings.movableTabs);
+// Always on: there is no switch for it any more.
+const tabDrag = useTabDrag(movePopoverTab, () => true);
 
 // Selecting the Shop Wizard tab spends one of a limited number of searches, so
 // a drag that happens to end on it must not count as opening it.
@@ -66,10 +67,10 @@ const searchedAgo = computed(() => {
         :class="{
           'ns-tab--dragging': tabDrag.isDragging(i),
           'ns-tab--over': tabDrag.isOver(i),
-          'ns-tab--movable': state.settings.movableTabs,
+          'ns-tab--movable': true,
         }"
         :title="TAB_LABELS[id].title"
-        :draggable="state.settings.movableTabs"
+        draggable="true"
         @click="onSelect(id)"
         @dragstart="tabDrag.onDragStart($event, i)"
         @dragover="tabDrag.onDragOver($event, i)"

@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  readPoolState, poolTimeAt, nextPoolOpening, cleanPoolTimes, isPoolTime, accountKey,
-  MAGMA_POOL_URL, MAGMA_CHECK_MS,
+  readPoolState, readPoolDetail, poolTimeAt, nextPoolOpening, cleanPoolTimes, isPoolTime, accountKey,
+  MAGMA_POOL_URL, MAGMA_CHECK_MS, MAGMA_LOG, MAGMA_LOG_MAX, withLogEntry, excerptOf,
 } from '../src/lib/magma.js';
 
 // The page's own words, as they appear on neopets.com.
@@ -26,6 +26,35 @@ test('anything else is unknown, never open', () => {
   assert.equal(readPoolState('<form action="/login.phtml">Log in</form>'), 'unknown');
   assert.equal(readPoolState(''), 'unknown');
   assert.equal(readPoolState(null), 'unknown');
+});
+
+test('the detail names the words that decided it', () => {
+  assert.deepEqual(readPoolDetail(CLOSED), { state: 'closed', matched: 'well-versed in the ways of Moltara' });
+  assert.deepEqual(readPoolDetail(OPEN), { state: 'open', matched: 'select your Neopet to take a swim in the Magma Pool' });
+  assert.deepEqual(readPoolDetail('Shhh... the guard is sleeping.'), { state: 'open', matched: 'the guard is sleeping' });
+  assert.deepEqual(readPoolDetail('<form>Log in</form>'), { state: 'unknown', matched: null });
+});
+
+test('the log keeps the newest check first and drops the oldest past its cap', () => {
+  assert.equal(MAGMA_LOG, 'magmaLog');
+  let log = null;
+  for (let at = 1; at <= MAGMA_LOG_MAX + 5; at++) log = withLogEntry(log, { at });
+  assert.equal(log.length, MAGMA_LOG_MAX);
+  assert.equal(log[0].at, MAGMA_LOG_MAX + 5);
+  assert.equal(log.at(-1).at, 6);
+  // Anything that is not a list starts a new one.
+  assert.deepEqual(withLogEntry({ bad: true }, { at: 1 }), [{ at: 1 }]);
+});
+
+test('an excerpt is the page text, cut around the words that decided it', () => {
+  assert.equal(excerptOf('  a\n\n b  '), 'a b');
+  const long = `${'menu '.repeat(200)}${CLOSED}${' footer'.repeat(200)}`;
+  const cut = excerptOf(long, 'well-versed in the ways of Moltara', 120);
+  assert.ok(cut.includes('well-versed in the ways of Moltara'), cut);
+  assert.ok(cut.startsWith('…') && cut.endsWith('…'), cut);
+  assert.ok(cut.length <= 122, `${cut.length}`);
+  // Nothing matched: from the start.
+  assert.ok(excerptOf(long, null, 50).startsWith('menu menu'));
 });
 
 test('a check interval no longer than the ten-minute window', () => {

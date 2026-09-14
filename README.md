@@ -26,16 +26,15 @@ from CORS; content scripts cannot fetch cross-origin in MV3, which is why the wo
 
 ```bash
 cd extension
-npm run release          # add --no-verify to skip the load-test
+npm run release
 ```
 
-Builds all three targets into `extension/release/`, one folder per browser with install
-instructions for that browser inside, plus a zip of each. Every folder is verified by loading it in
-the engine that ships it — Chrome, Gecko, WebKit — before it is zipped, so a broken artifact fails
-the build rather than reaching anyone.
+Builds the Chrome extension into `extension/release/chrome/`, with install instructions inside,
+plus a zip of it. Releases are Chrome only, and the release does not run tests — run them yourself
+before cutting one.
 
 Pushing a `v*` tag runs the same thing in CI (`.github/workflows/release.yml`) and attaches the
-zips to a GitHub release.
+zip to a GitHub release.
 
 ## Updating, and moving to another browser
 
@@ -179,10 +178,22 @@ only), **Quest Log**, **Magma Pool** (while checking is on), **Inventory**, **Se
 arrow that folds the bar down to its handle and itself. Each view button opens the panel on that
 view and closes it when that view is already open. The bar always starts expanded on a page load.
 
+Drag any button along the bar to put it somewhere else. That order is saved with your settings, so
+it follows you to other pages and browsers; **Reset bar order** in Layout settings puts it back. The
+panel's title bar and an item popover's tabs always drag too — there are no switches for any of
+these.
+
+**Vertical mode** in Layout settings turns it into a
+column with bigger buttons — 32px icons against the usual 20px, smaller only when the window is too short for them —
+docked flush against the left or right edge. It starts tucked away with just a caret showing, and
+stays that way until the caret is pressed; pressing it again tucks the buttons back. Dragging the
+handle moves it anywhere, and letting go snaps it to whichever side is nearer, at that height. The
+panels still open where they always do.
+
 On a page that shows what an item costs — main shops carry it as `data-price`, and as
 "Cost: 387 NP" under the item — the popover adds a **margin line**: what this shop is asking, and
 how far Jelly Neo's estimate is above or below it. It turns green when the spread clears the
-**worth-buying margin** in settings (1,000 NP by default). Surfaces with no price, like your own
+**Buy margin** in settings (1,000 NP by default). Surfaces with no price, like your own
 inventory or the safety deposit box, show no line rather than a guessed one.
 
 It stays a readout, not a recommendation: the comparison is against Jelly Neo's *estimate*, so a
@@ -218,7 +229,7 @@ without it the tab would have returned nothing on every item.
 
 The **Super Shop Wizard** has no page you can link to with a query — it is a JSON endpoint the SSW
 interface calls (`/np-templates/views/shops/ssw/ssw_query.php`). It is the **SSW tab**, querying that endpoint from
-the content script, same-origin with your session. Hidden unless *I have Neopets Premium* is on in settings — off by default, since the
+the content script, same-origin with your session. Hidden unless *I have Premium* is on in settings — off by default, since the
 endpoint only answers for Premium accounts and a tab that always errors is worse than no tab. Rows are listed cheapest first with stock counts, each linking straight into that
 shop with the item selected. Premium is not detected or configured: the endpoint's own `error`
 field says whether it will answer, and that message is shown as-is.

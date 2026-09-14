@@ -1363,33 +1363,45 @@ const settingsView = await inShadow((root) => ({
   noCog: !root.querySelector('.ns-cog'),
   noTabs: !root.querySelector('.ns-panel-tabs'),
   toggles: [...root.querySelectorAll('.ns-set-row strong')].map((e) => e.textContent.trim()),
+  sections: [...root.querySelectorAll('.ns-set-title')].map((e) => e.textContent.trim()),
+  // Every control under its title and above its description, lined up on the left.
+  stacked: [...root.querySelectorAll('.ns-set-row')].filter((r) => {
+    const t = r.querySelector('strong').getBoundingClientRect();
+    const i = r.querySelector('input').getBoundingClientRect();
+    const d = r.querySelector('em')?.getBoundingClientRect();
+    return i.top >= t.bottom - 1 && Math.abs(i.left - t.left) <= 1 && (!d || d.top >= i.bottom - 1);
+  }).length === root.querySelectorAll('.ns-set-row').length,
   premiumOn: root.querySelector('.ns-set-row input')?.checked,
 }));
 check('the settings button opens the settings view',
   settingsView.shown && settingsView.title === 'Settings' && settingsView.noCog && settingsView.noTabs,
   JSON.stringify({ ...settingsView, toggles: undefined }));
-check('it offers detection, premium, hover, dailies, the margin, the caches, the Magma Pool, the layout and backup switches',
-  settingsView.toggles.length === 13 && /Detect/.test(settingsView.toggles[0])
-  && /dailies/i.test(settingsView.toggles[3]) && /margin/i.test(settingsView.toggles[4])
-  && /^Shop Wizard cache/.test(settingsView.toggles[5])
-  && /^Super Shop Wizard cache/.test(settingsView.toggles[6])
-  && /^Find my Magma Pool time/.test(settingsView.toggles[7])
-  && settingsView.toggles.slice(8, 12).every((t) => /^(Move|Drag|Reopen) /.test(t))
-  && /^Include cached prices in the export/.test(settingsView.toggles[12]),
+check('settings are grouped into App settings, Layout, Cache settings, Magma Pool and Backup',
+  settingsView.sections.join(',') === 'App settings,Layout,Cache settings,Magma Pool,Backup',
+  JSON.stringify(settingsView.sections));
+check('every setting\'s control sits under its title, not beside it', settingsView.stacked === true);
+check('each setting has a short title, in its group\'s order',
+  settingsView.toggles.join('|') === [
+    'Detect Premium', 'I have Premium', 'Hover badges', 'Track dailies', 'Buy margin (NP)',
+    'Vertical mode', 'Move bar', 'Remember tab',
+    'Shop Wizard cache (minutes)', 'Super Shop Wizard cache (minutes)',
+    'Find pool time',
+    'Export cache',
+  ].join('|'),
   JSON.stringify(settingsView.toggles));
 
 // Detection is on by default, so the manual toggle is shown but not editable.
-const autoState = await toggleState('Detect Neopets Premium');
-const manualState = await toggleState('I have Neopets Premium');
+const autoState = await toggleState('Detect Premium');
+const manualState = await toggleState('I have Premium');
 check('detection is on by default', autoState.checked === true);
 check('the manual toggle is locked while detection is on', manualState.disabled === true,
   JSON.stringify(manualState));
 
 // Turning detection off hands control back.
-await clickToggle('Detect Neopets Premium');
+await clickToggle('Detect Premium');
 await page.waitForTimeout(400);
 check('turning detection off unlocks the manual toggle',
-  (await toggleState('I have Neopets Premium')).disabled === false);
+  (await toggleState('I have Premium')).disabled === false);
 
 await inShadow((root) => [...root.querySelectorAll('.ns-set-actions .v-btn')]
   .find((b) => b.textContent.trim() === 'Export').click());
@@ -1409,7 +1421,7 @@ check('cached prices are left out of the export',
 
 // Switched on, the day's Jelly Neo lookups go in too — only the worker's own
 // current entries — and switched back off they are left out again.
-await clickToggle('Include cached prices in the export');
+await clickToggle('Export cache');
 await page.waitForTimeout(400);
 await inShadow((root) => [...root.querySelectorAll('.ns-set-actions .v-btn')]
   .find((b) => b.textContent.trim() === 'Export').click());
@@ -1423,7 +1435,7 @@ check('with the switch on, the export carries the cached prices',
   && cacheKeys.every((k) => /^(p2|tp2):/.test(k))
   && Object.values(withCache.cache).every((e) => e && typeof e.value === 'object' && Number.isFinite(e.at)),
   JSON.stringify({ switch: withCache?.settings?.exportIncludeCache, keys: cacheKeys.slice(0, 3), count: cacheKeys.length }));
-await clickToggle('Include cached prices in the export');
+await clickToggle('Export cache');
 await page.waitForTimeout(400);
 
 const edited = JSON.stringify({
@@ -1467,7 +1479,7 @@ const refusal = await inShadow((root) => ({
   message: root.querySelector('.ns-set-msg')?.textContent.trim(),
   bad: !!root.querySelector('.ns-set-msg--bad'),
   stillPremium: [...root.querySelectorAll('.ns-set-row')]
-    .find((r) => r.querySelector('strong')?.textContent.includes('I have Neopets Premium'))
+    .find((r) => r.querySelector('strong')?.textContent.includes('I have Premium'))
     ?.querySelector('input')?.checked,
 }));
 check('a newer export is refused, leaving settings untouched',
@@ -1475,7 +1487,7 @@ check('a newer export is refused, leaving settings untouched',
   JSON.stringify(refusal.message));
 
 // Turning Premium off hides the Super Shop Wizard.
-await clickToggle('I have Neopets Premium');
+await clickToggle('I have Premium');
 await page.waitForTimeout(600);
 check('turning Premium off hides the SSW tab',
   await inShadow((root) => {
@@ -1496,7 +1508,7 @@ check('premium-only dailies are hidden without Premium',
 
 // Turn it back on: the premium daily returns.
 await openView('settings');
-await clickToggle('I have Neopets Premium');
+await clickToggle('I have Premium');
 await page.waitForTimeout(400);
 await openView('dailies');
 const withPremium = await inShadow((root) => {
@@ -1523,7 +1535,7 @@ check('the premium daily can be favourited while Premium is on',
     .some((a) => a.href === 'https://www.neopets.com/premium/wheel.phtml')));
 
 await openView('settings');
-await clickToggle('I have Neopets Premium');   // Premium off
+await clickToggle('I have Premium');   // Premium off
 await page.waitForTimeout(300);
 await openView('dailies');
 check('and disappears from the pinned group when Premium goes off',
@@ -1532,7 +1544,7 @@ check('and disappears from the pinned group when Premium goes off',
 
 // Restore: Premium on, and unfavourite it again.
 await openView('settings');
-await clickToggle('I have Neopets Premium');
+await clickToggle('I have Premium');
 await page.waitForTimeout(300);
 await openView('dailies');
 await inShadow((root) => {
@@ -2244,6 +2256,23 @@ const reloadPage = async () => {
 // Ten minutes having passed, without waiting ten minutes.
 const expireMagmaClock = () => opts.evaluate(() =>
   chrome.storage.local.set({ magmaLastCheck: Date.now() - 11 * 60_000 }));
+// The panel's check log, once the Magma Pool button has opened it.
+const magmaLogRows = async () => {
+  await page.waitForFunction(() => document.querySelector('[data-neosnipe="popover-host"]')
+    ?.shadowRoot?.querySelector('.ns-panel-title')?.textContent.trim() === 'Magma Pool', null, { timeout: 10000 });
+  await page.waitForTimeout(300);
+  return inShadow((root) => [...root.querySelectorAll('.ns-magma-row')].map((r) => {
+    const text = (sel) => r.querySelector(sel)?.textContent.replace(/\s+/g, ' ').trim() ?? '';
+    return {
+      result: text('.ns-magma-result'),
+      when: text('.ns-magma-when'),
+      meta: text('.ns-magma-meta'),
+      matched: text('.ns-magma-matched'),
+      saved: text('.ns-magma-saved'),
+      excerpt: text('.ns-magma-excerpt'),
+    };
+  }));
+};
 
 const magmaOff = await magmaState();
 check('the Magma Pool button is absent while checking is off', magmaOff.shown === false,
@@ -2252,7 +2281,7 @@ check('nothing loads the pool page while checking is off', magmaLoads === 0, `${
 check('nor the account page', accountLoads === 0, `${accountLoads} loads`);
 
 magmaOpen = false;
-await opts.evaluate(() => chrome.storage.local.remove(['magmaLastCheck', 'magmaAccount']));
+await opts.evaluate(() => chrome.storage.local.remove(['magmaLastCheck', 'magmaAccount', 'magmaLog']));
 await opts.evaluate(() => chrome.storage.sync.set({ magmaPoolCheck: true, magmaPoolTimes: {} }));
 await page.waitForTimeout(500);
 const magmaChecking = await magmaState();
@@ -2275,6 +2304,15 @@ check('clicking before ten minutes are up does not check again, and says so',
   JSON.stringify({ loads: magmaLoads, notice: magmaEarly.notice }));
 check('and the early click does not follow the link to the pool', !page.url().includes('/magma/'),
   page.url());
+
+const closedLog = await magmaLogRows();
+check('the click opens the check log: one row per pool load, with its time and the refusal it read',
+  closedLog.length === magmaLoads && closedLog[0]?.result === 'Closed'
+  && /NST \d{2}:\d{2}/.test(closedLog[0].when) && /^(settings changed|10-minute timer) · testacct$/.test(closedLog[0].meta)
+  && /well-versed in the ways of Moltara/.test(closedLog[0].matched) && /Learn more/.test(closedLog[0].excerpt),
+  JSON.stringify(closedLog));
+check('the Magma Pool button is marked pressed while its log is open',
+  await page.locator('.neosnipe-launcher-magma').getAttribute('aria-pressed') === 'true');
 
 const accountLoadsBeforeReload = accountLoads;
 await reloadPage();
@@ -2299,6 +2337,14 @@ check('you are told the pool is open, for which account',
   /Magma Pool is open for testacct/.test(magmaFound.notice || ''), magmaFound.notice);
 check('the NST minute is saved against the logged-in account',
   /^\d{2}:\d{2}$/.test(magmaStored.magmaPoolTimes?.testacct || ''), JSON.stringify(magmaStored));
+
+const openLog = await magmaLogRows();
+check('the log puts the open check on top, with what it read and the time it saved',
+  openLog.length === magmaLoads && openLog[0]?.result === 'Open' && /you clicked/.test(openLog[0].meta)
+  && /select your Neopet/i.test(openLog[0].matched)
+  && openLog[0].saved === `Saved ${magmaStored.magmaPoolTimes?.testacct} NST for testacct`
+  && openLog.at(-1)?.result === 'Closed',
+  JSON.stringify(openLog));
 
 const magmaLoadsAtFound = magmaLoads;
 await expireMagmaClock();
@@ -2353,7 +2399,7 @@ check('the export carries the pool time',
 
 // Switched off: the button goes, the time stays.
 await inShadow((root) => [...root.querySelectorAll('.ns-set-row')]
-  .find((r) => /Find my Magma Pool time/.test(r.textContent))?.querySelector('input')?.click());
+  .find((r) => /Find pool time/.test(r.textContent))?.querySelector('input')?.click());
 await page.waitForTimeout(800);
 check('switching checking off removes the button from the bar', (await magmaState()).shown === false);
 const exportedOff = await exportedPool();
@@ -2603,6 +2649,246 @@ await opts.evaluate(() => chrome.storage.sync.set({ movableLauncher: true }));
 await page.reload();
 await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
 check('and comes back with it on', (await gripState()).shown === true);
+
+// --- icon size ---------------------------------------------------------------
+// Settings' − and + step the bar's icons from 20px to 36px, 4px at a time, live,
+// saved per orientation and exported.
+const barSizes = () => page.evaluate(() => {
+  const bar = document.querySelector('.neosnipe-launcher');
+  const fav = bar.querySelector('.neosnipe-launcher-fav');
+  const t = bar.querySelector('.neosnipe-launcher-toggle');
+  const px = (el) => Math.round(el.getBoundingClientRect().width);
+  return {
+    bar: Math.round(bar.getBoundingClientRect().height),
+    button: px(fav), glyph: px(fav.querySelector('svg')),
+    caret: px(t), caretGlyph: px(t.querySelector('svg')),
+  };
+});
+const openSettingsView = async () => {
+  await page.locator('.neosnipe-launcher-settings').click();
+  await page.waitForFunction(() => document.querySelector('[data-neosnipe="popover-host"]')
+    ?.shadowRoot?.querySelector('.ns-panel-title')?.textContent.trim() === 'Settings', null, { timeout: 10000 });
+  await page.waitForTimeout(300);
+};
+const sizeControl = () => inShadow((root) => {
+  const el = root.querySelector('.ns-set-size');
+  return el && {
+    title: el.querySelector('.ns-set-size-title')?.textContent.trim(),
+    value: el.querySelector('.ns-set-size-value')?.textContent.trim(),
+    down: el.querySelector('.ns-set-size-down')?.disabled,
+    up: el.querySelector('.ns-set-size-up')?.disabled,
+  };
+});
+const stepIconsUp = async (times) => {
+  for (let i = 0; i < times; i++) {
+    await inShadow((root) => root.querySelector('.ns-set-size-up')?.click());
+    await page.waitForTimeout(200);
+  }
+};
+const stepIconsDown = async (times) => {
+  for (let i = 0; i < times; i++) {
+    await inShadow((root) => root.querySelector('.ns-set-size-down')?.click());
+    await page.waitForTimeout(200);
+  }
+};
+const iconSteps = () => opts.evaluate(() => chrome.storage.sync.get(['launcherIconStep', 'verticalIconStep']));
+
+await reloadPage();
+const smallBar = await barSizes();
+check('the horizontal bar starts at step 1: 26px buttons around 20px glyphs',
+  smallBar.button === 26 && smallBar.glyph === 20, JSON.stringify(smallBar));
+await openSettingsView();
+const hControl = await sizeControl();
+check("Settings offers the bar's icon size at 20px, with − disabled at the smallest step",
+  hControl?.title === 'Bar icon size' && hControl.value === '20px' && hControl.down === true && hControl.up === false,
+  JSON.stringify(hControl));
+
+// The import checks above leave a stored vertical step, so compare with it.
+const hBefore = await iconSteps();
+await stepIconsUp(4);
+const bigControl = await sizeControl();
+const bigBar = await barSizes();
+const hStored = await iconSteps();
+check('+ steps the icons up 4px at a time to 36px on the bar straight away, then stops',
+  bigControl?.value === '36px' && bigControl.up === true && bigControl.down === false
+  && bigBar.glyph === 36 && bigBar.button === 42 && bigBar.caretGlyph === 36 && bigBar.bar === smallBar.bar + 16,
+  JSON.stringify({ bigControl, smallBar, bigBar }));
+check('the step is saved for the horizontal bar only',
+  hStored.launcherIconStep === 5 && hStored.verticalIconStep === hBefore.verticalIconStep,
+  JSON.stringify({ hBefore, hStored }));
+const exportedSizes = await exportedPool();
+check('both icon sizes are exported',
+  exportedSizes?.launcherIconStep === 5 && exportedSizes?.verticalIconStep === 4,
+  JSON.stringify(exportedSizes && { h: exportedSizes.launcherIconStep, v: exportedSizes.verticalIconStep }));
+await reloadPage();
+check('a reload keeps the bigger icons', (await barSizes()).glyph === 36);
+await opts.evaluate(() => chrome.storage.sync.remove('launcherIconStep'));
+
+// --- the vertical bar ------------------------------------------------------
+// Docked against a side, tucked away behind its caret on load, bigger buttons,
+// and a drag that snaps to whichever side it ends nearer.
+const horizontalSaved = await savedLauncher();
+const verticalState = () => page.evaluate(() => {
+  const bar = document.querySelector('.neosnipe-launcher');
+  const r = bar.getBoundingClientRect();
+  const t = bar.querySelector('.neosnipe-launcher-toggle');
+  const f = bar.querySelector('.neosnipe-launcher-fav');
+  return {
+    vertical: bar.dataset.vertical ?? null, side: bar.dataset.side ?? null,
+    collapsed: bar.dataset.collapsed ?? null, settling: bar.dataset.settling ?? null,
+    expanded: t.getAttribute('aria-expanded'), d: t.querySelector('path').getAttribute('d'),
+    left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom),
+    // The page area, which a fixed right: 0 docks against — not the scrollbar.
+    width: document.documentElement.clientWidth, height: window.innerHeight,
+    caret: Math.round(t.getBoundingClientRect().width), fav: Math.round(f.getBoundingClientRect().width),
+    caretTop: Math.round(t.getBoundingClientRect().top),
+    visible: [...bar.children].filter((el) => el.getBoundingClientRect().width > 0
+      && el.getBoundingClientRect().height > 0 && getComputedStyle(el).visibility !== 'hidden')
+      .map((el) => el.className.replace('neosnipe-launcher-', '')),
+  };
+});
+await opts.evaluate(() => chrome.storage.sync.set({ verticalLauncher: true }));
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+await page.waitForTimeout(500);
+const docked = await verticalState();
+check('a vertical bar loads docked against the side it was nearer, tucked away',
+  docked.vertical === '1' && docked.side === 'right' && docked.right === docked.width
+  && docked.collapsed === '1' && docked.expanded === 'false' && docked.settling === null,
+  JSON.stringify({ ...docked, d: undefined }));
+check('tucked away, only the caret shows', docked.visible.join(',') === 'toggle', JSON.stringify(docked.visible));
+const caretGlyph = await page.evaluate(() =>
+  Math.round(document.querySelector('.neosnipe-launcher-toggle svg').getBoundingClientRect().width));
+check('the docked caret is a 42px button around a 32px glyph',
+  docked.caret === 42 && caretGlyph === 32, JSON.stringify({ caret: docked.caret, glyph: caretGlyph }));
+
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(400);
+const opened = await verticalState();
+check('the caret brings the buttons out, as big as itself and still docked',
+  opened.collapsed === null && opened.expanded === 'true' && opened.d !== docked.d
+  && opened.visible.includes('fav') && opened.fav === opened.caret && opened.side === 'right'
+  && opened.right === opened.width && opened.bottom <= opened.height && opened.top >= 0,
+  JSON.stringify({ ...opened, d: undefined }));
+check('with the caret left where it was, unless the column needed room',
+  opened.caretTop === docked.caretTop || opened.bottom >= opened.height - 8,
+  JSON.stringify({ before: docked.caretTop, after: opened.caretTop }));
+
+// Folding it back puts the caret where it was docked, not where the fit pulled it.
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(400);
+const refolded = await verticalState();
+check('folding it away returns the caret to where it was docked',
+  refolded.collapsed === '1' && refolded.caretTop === docked.caretTop && refolded.right === refolded.width,
+  JSON.stringify({ before: docked.caretTop, after: refolded.caretTop }));
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(400);
+
+// Dragged to the left of centre, it snaps flush against the left edge and stays open.
+await dragGripTo(200);
+await page.waitForTimeout(200);
+const snapped = await verticalState();
+const snappedSaved = await savedLauncher();
+check('a drag that ends nearer the left snaps the bar against the left edge',
+  snapped.side === 'left' && snapped.left === 0 && snapped.collapsed === null,
+  JSON.stringify({ ...snapped, d: undefined }));
+check('and saves that edge', snappedSaved?.x === 0, JSON.stringify(snappedSaved));
+check('the caret on the left points the other way', snapped.d !== opened.d);
+
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+await page.waitForTimeout(500);
+const reloadedLeft = await verticalState();
+check('a reload keeps it on the left, tucked away again',
+  reloadedLeft.side === 'left' && reloadedLeft.left === 0 && reloadedLeft.collapsed === '1'
+  && reloadedLeft.visible.join(',') === 'toggle' && reloadedLeft.d === opened.d,
+  JSON.stringify({ ...reloadedLeft, d: undefined }));
+
+// The vertical bar keeps its own icon size, changed from the same control.
+await page.locator('.neosnipe-launcher-toggle').click();
+await page.waitForTimeout(400);
+await openSettingsView();
+const vControl = await sizeControl();
+check("in vertical mode the control sets the vertical bar's icons, starting at 32px",
+  vControl?.title === 'Vertical bar icon size' && vControl.value === '32px' && vControl.up === false && vControl.down === false,
+  JSON.stringify(vControl));
+await stepIconsDown(3);
+const vSmall = await barSizes();
+const vSmallControl = await sizeControl();
+const vStored = await iconSteps();
+check('− steps the vertical bar down to 30px buttons around 20px glyphs, leaving the horizontal size alone',
+  vSmallControl?.value === '20px' && vSmallControl.down === true
+  && vSmall.caret === 30 && vSmall.caretGlyph === 20 && vSmall.button === 30
+  && vStored.verticalIconStep === 1 && vStored.launcherIconStep === undefined,
+  JSON.stringify({ vSmallControl, vSmall, vStored }));
+await inShadow((root) => root.querySelector('.ns-panel-head .ns-close')?.click());
+await page.waitForTimeout(300);
+
+// Back to horizontal, and back where it was, for the sections below.
+await opts.evaluate(async (pos) => {
+  await chrome.storage.sync.set({ verticalLauncher: false });
+  await chrome.storage.sync.remove(['verticalIconStep', 'launcherIconStep']);
+  const { positions = {} } = await chrome.storage.local.get('positions');
+  if (pos) positions.launcher = pos; else delete positions.launcher;
+  await chrome.storage.local.set({ positions });
+}, horizontalSaved);
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+await page.waitForTimeout(500);
+const flat = await verticalState();
+check('turning it off lays the bar back down, expanded',
+  flat.vertical === null && flat.side === null && flat.collapsed === null && flat.visible.includes('fav'),
+  JSON.stringify({ ...flat, d: undefined }));
+
+// --- reordering the bar ----------------------------------------------------
+// Any button drags along the bar into a new place — always on — and the order
+// is saved with the settings.
+const SHIPPED_BAR = 'grip,fav,dailies,foodclub,sw,ssw,quests,magma,inv,settings,toggle';
+const SHIPPED_ORDER = 'favourites,dailies,foodclub,wiz,ssw,quests,magma,inventory,settings';
+const barOrder = () => page.evaluate(() => [...document.querySelector('.neosnipe-launcher').children]
+  .map((el) => el.className.replace('neosnipe-launcher-', '')).join(','));
+const savedBarOrder = () => opts.evaluate(async () =>
+  ((await chrome.storage.sync.get('launcherOrder')).launcherOrder ?? []).join(','));
+const dragButtonPast = async (from, past) => {
+  const a = await page.locator(`.neosnipe-launcher-${from}`).boundingBox();
+  const b = await page.locator(`.neosnipe-launcher-${past}`).boundingBox();
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width - 2, b.y + b.height / 2, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+};
+check('the bar starts in its shipped order', await barOrder() === SHIPPED_BAR, await barOrder());
+await dragButtonPast('fav', 'foodclub');
+const draggedBar = await barOrder();
+check('dragging a bar button past two others moves it there',
+  draggedBar === 'grip,dailies,foodclub,fav,sw,ssw,quests,magma,inv,settings,toggle', draggedBar);
+check('and the drag does not also press the button',
+  await page.locator('.neosnipe-launcher[data-open="1"]').count() === 0);
+const draggedSaved = await savedBarOrder();
+check('the new order is saved with the settings',
+  draggedSaved === 'dailies,foodclub,favourites,wiz,ssw,quests,magma,inventory,settings', draggedSaved);
+await page.reload();
+await page.waitForSelector('.neosnipe-badge', { timeout: 10000 });
+await page.waitForTimeout(500);
+check('a reload keeps the dragged order', await barOrder() === draggedBar, await barOrder());
+
+// Settings' Reset bar order puts it back, on the bar straight away.
+await page.locator('.neosnipe-launcher-settings').click();
+await page.waitForSelector('[data-neosnipe="popover-host"]', { timeout: 10000 });
+await page.waitForTimeout(600);
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  [...root.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Reset bar order')?.click();
+});
+await page.waitForTimeout(400);
+check('Reset bar order puts the buttons back in their shipped order', await barOrder() === SHIPPED_BAR, await barOrder());
+check('and saves that order', await savedBarOrder() === SHIPPED_ORDER, await savedBarOrder());
+await page.evaluate(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]').shadowRoot;
+  root.querySelector('.ns-panel-head .ns-close')?.click();
+});
+await page.waitForTimeout(300);
 
 // The reloads above left the page with no UI mounted, and the host only comes
 // into being on first use; the sections below expect it there.

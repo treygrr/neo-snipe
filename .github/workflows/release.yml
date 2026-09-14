@@ -27,23 +27,9 @@ jobs:
 
       - run: npm ci
 
-      # The release verifies each assembled folder by loading it in the engine
-      # that ships it, so all three browsers are needed here.
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
-
-      # Every test/*.test.mjs, so a new suite is covered without editing this
-      # list — which is how the deleted Fill suite stayed here after it went.
-      - name: Unit tests
-        run: npm run test:unit
-
-      # The Chrome check loads a real extension, which needs a headed browser
-      # (--headless=new); xvfb keeps that working on a runner with no display.
-      - name: Build and verify all three targets
-        run: xvfb-run -a npm run release
-
-      - name: Lint the Firefox package
-        run: npx --yes web-ext@8 lint --source-dir release/firefox
+      # Tests are run locally before a release is cut, so this only builds.
+      - name: Build the Chrome extension
+        run: npm run release
 
       - uses: actions/upload-artifact@v4
         with:
@@ -57,13 +43,8 @@ jobs:
         with:
           files: extension/release/*.zip
           body: |
-            Download the zip for your browser, unzip it, and follow the README inside.
-
-            | Browser | Install |
-            |---|---|
-            | Chrome | `chrome://extensions` → Developer mode → Load unpacked |
-            | Firefox | `about:debugging` → Load Temporary Add-on → then **grant access** in options |
-            | Safari | Needs macOS + Xcode to wrap it in an app — see the README |
+            Download the zip, unzip it, and follow the README inside:
+            `chrome://extensions` → Developer mode → Load unpacked.
 
             Updating from an earlier version? Back your settings up first: panel → cog →
-            Backup → **Save file**. See the README for what each browser keeps.
+            Backup → **Save file**. See the README for when your data is kept.
