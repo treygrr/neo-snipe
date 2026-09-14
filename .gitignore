@@ -15,6 +15,11 @@ xcuserdata/
 # Scratch icon art, not used by the build
 extension/icons/image.png
 
+# Console logs and page dumps left by browser-automation tooling
+.playwright-mcp/
+# macOS folder state
+.DS_Store
+
 # Ad-hoc probe scripts
 inspect-neo.mjs
 hover-probe.mjs

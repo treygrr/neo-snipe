@@ -110,6 +110,42 @@ app. Then:
 Set `SAFARI_BUNDLE_ID` to use your own bundle identifier; changing it makes macOS treat it as a
 different extension, with empty storage.
 
+#### On an iPhone or iPad
+
+The same extension runs in Safari on iOS. What changes is that iOS has no equivalent of "Allow
+Unsigned Extensions", so the app has to be signed by a real team before a device will run it, and
+the device has to be registered to that team.
+
+```bash
+NS_PLATFORM=ios NS_TEAM_ID=<your team id> npm run build:safari-app
+```
+
+`NS_PLATFORM` picks what the generator emits: `macos` (the default), `ios`, or `all` for one
+project holding both. Note that `all` uses the converter's multiplatform layout — `Shared (App)/`,
+`iOS (App)/`, `macOS (App)/` — rather than the flat one `macos` produces.
+
+Building for iOS also needs Xcode's iOS platform installed (`xcodebuild -downloadPlatform iOS`,
+around 11GB); without it Xcode reports no iOS destinations at all, not even simulators.
+
+Registering a new device is the one step the CLI cannot do: `-allowProvisioningUpdates` will mint
+certificates and profiles but refuses to register devices without an App Store Connect API key.
+Open the project in Xcode, pick the device and press Run once, and it registers. After that:
+
+```bash
+xcodebuild -project "neo-snipe/neo-snipe.xcodeproj" -scheme "neo-snipe (iOS)" \
+  -configuration Debug -derivedDataPath build -destination "id=<device udid>" \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=<team id> CODE_SIGN_STYLE=Automatic build
+xcrun devicectl device install app --device <device id> \
+  "build/Build/Products/Debug-iphoneos/neo-snipe.app"
+```
+
+On the phone: Settings → Apps → Safari → Extensions → enable **neo-snipe** and allow it on
+neopets.com and items.jellyneo.net. The toolbar button lives in Safari's **ᴀA** page menu rather
+than beside the address bar.
+
+A development build's signature expires — about a week on a free Apple ID, a year on a paid
+Developer Program membership, which is also what TestFlight distribution needs.
+
 The generated Xcode project is checked in. `build:safari-app` deletes and recreates it each run, so
 `project.pbxproj` shows up rewritten every time. Xcode's derived data under `safari/build/` stays
 out of git. The project's file references point at `../../../extension/dist-safari/`, so rebuilding
