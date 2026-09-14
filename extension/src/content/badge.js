@@ -1,4 +1,5 @@
 import { MARK } from './detect.js';
+import { DEFAULT_ICON_STEP, cleanIconStep, badgePx, badgeGlyphPx } from '../lib/launcher-size.js';
 
 const BADGE_CLASS = 'neosnipe-badge';
 const ANCHOR_CLASS = 'neosnipe-anchor';
@@ -6,14 +7,16 @@ const ANCHOR_CLASS = 'neosnipe-anchor';
 // The badge is the one thing we deliberately put in the host document, so its
 // styles are a single scoped rule rather than anything Vuetify. Some Neopets
 // pages (e.g. the redesigned market) style every <button> in a card, so each
-// declaration is !important to keep the page from restyling the badge.
+// declaration is !important to keep the page from restyling the badge. Its size
+// comes from custom properties on the root, which setBadgeSize sets — `all:
+// initial` leaves custom properties alone, so they still reach it.
 const B = `button.${BADGE_CLASS}`;
 const BADGE_CSS = `
 ${B} {
   all: initial !important;
   box-sizing: border-box !important;
   position: absolute !important; inset: auto 0 0 auto !important; z-index: 20 !important;
-  width: 16px !important; height: 16px !important;
+  width: var(--neosnipe-badge, 16px) !important; height: var(--neosnipe-badge, 16px) !important;
   min-width: 0 !important; min-height: 0 !important; max-width: none !important; max-height: none !important;
   padding: 0 !important; margin: 0 !important; float: none !important;
   display: flex !important; align-items: center !important; justify-content: center !important;
@@ -35,7 +38,8 @@ body[data-neosnipe-hover-only] ${B}[data-state] { opacity: 1 !important; }
 ${B}[data-state="loading"] { opacity: 1 !important; color: #999 !important; }
 ${B}[data-state="error"]   { opacity: 1 !important; color: #d33 !important; }
 ${B} svg {
-  display: block !important; width: 10px !important; height: 10px !important;
+  display: block !important;
+  width: var(--neosnipe-badge-glyph, 10px) !important; height: var(--neosnipe-badge-glyph, 10px) !important;
   margin: 0 !important; fill: currentColor !important; stroke: none !important;
 }
 `;
@@ -114,6 +118,14 @@ export function addBadge(el, item, onActivate) {
 
   anchor.appendChild(btn);
   return btn;
+}
+
+/** Sizes every badge on the page, now and later, from the `badgeIconStep` setting. */
+export function setBadgeSize(step) {
+  const clean = cleanIconStep(step, DEFAULT_ICON_STEP.badge);
+  const root = document.documentElement.style;
+  root.setProperty('--neosnipe-badge', `${badgePx(clean)}px`);
+  root.setProperty('--neosnipe-badge-glyph', `${badgeGlyphPx(clean)}px`);
 }
 
 export function setBadgeState(btn, state) {

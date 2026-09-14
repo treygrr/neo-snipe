@@ -38,6 +38,10 @@ import {
 } from '../lib/questlog.js';
 import { readAccountName } from '../lib/magma.js';
 import {
+  RELIST_KEY, ADD_AUCTION_URL, cleanRelist, cleanRelists, withRelist, withoutRelist, relistKey,
+  auctionBody, parseAuctionReply,
+} from '../lib/fast-relist.js';
+import {
   USES, INVENTORY_URL, INVENTORY_ITEMS_URL, INVENTORY_AJAX_HEADERS, USE_OBJECT_URL, itemInfoUrl,
   parseInventoryReply, candidatesFor, readActivePet, readItemActions, actionFor, useBody, parseUse, ItemUseError,
 } from '../lib/item-use.js';
@@ -136,6 +140,10 @@ export const state = reactive({
   // Today's Quest Log, read when its view opens. `busy` is the id of the quest
   // being claimed or run, so only its button spins and the rest wait.
   quests: { loading: false, error: null, list: null, bonus: null, expiresAt: null, loadedAt: null, busy: null },
+  // The Fast Relist view: the inventory item whose refresh badge opened it
+  // (`{ name, objId, imageUrl, listed }`), its saved values, the edited copy of
+  // them the form shows (`draft`), and the last reply.
+  relist: { item: null, entry: null, draft: null, busy: false, result: null },
 });
 
 function blankSearch() {
@@ -478,6 +486,7 @@ export async function setSetting(key, value) {
       vertical: state.settings.verticalIconStep,
     });
   }
+  if (key === 'badgeIconStep') onBadgeSize?.(value);
 }
 
 /** Fills the box with everything worth keeping, ready to copy or save. */
@@ -661,7 +670,10 @@ let onLauncherDrag = null;
 let onLauncherVertical = null;
 let onLauncherOrder = null;
 let onLauncherIconSize = null;
-export function watchLauncher({ reset, drag, vertical, order, iconSize } = {}) {
+// The badges are plain DOM too, sized by the same kind of hook.
+let onBadgeSize = null;
+export function watchLauncher({ reset, drag, vertical, order, iconSize, badgeSize } = {}) {
+  onBadgeSize = badgeSize ?? onBadgeSize;
   onLauncherReset = reset ?? onLauncherReset;
   onLauncherDrag = drag ?? onLauncherDrag;
   onLauncherVertical = vertical ?? onLauncherVertical;
@@ -1286,6 +1298,102 @@ export function showToast(text, { tone = 'ok', action = null, ms = 6000 } = {}) 
 export function dismissToast() {
   clearTimeout(toastTimer);
   state.toast = null;
+}
+
+// --- Fast Relist -------------------------------------------------------------
+
+/**
+ * Shows the Fast Relist view for an inventory item. A second badge while the
+ * view is up swaps the item rather than closing the panel.
+ */
+export async function openRelist(item) {
+  const got = await api.storage.local.get(RELIST_KEY).catch(() => ({}));
+  const entry = cleanRelists(got[RELIST_KEY])[relistKey(item.name)] ?? null;
+  state.relist = {
+    item,
+    entry,
+    // Prefilled with what was saved; edits stay here until saved or auctioned.
+    draft: entry ? { ...entry } : null,
+    busy: false,
+    result: null,
+  };
+  if (state.panelOpen && state.panelView === 'relist') return;
+  openPanelView('relist');
+}
+
+/** The form's values, checked the same way a saved relist is. */
+function relistDraft() {
+  const { entry, draft } = state.relist;
+  return entry && draft ? cleanRelist({ ...entry, ...draft, name: entry.name }) : null;
+}
+
+/** Whether the form differs from what is saved. */
+export function relistEdited() {
+  const draft = relistDraft();
+  const { entry } = state.relist;
+  if (!draft || !entry) return false;
+  return ['startPrice', 'minIncrement', 'duration', 'neofriendsOnly', 'guildMembersOnly']
+    .some((key) => draft[key] !== entry[key]);
+}
+
+/** Saves the form's values as the item's Fast Relist. */
+export async function saveRelistEdits() {
+  const draft = relistDraft();
+  if (!draft || state.relist.busy) return;
+  const next = { ...draft, savedAt: Date.now() };
+  const got = await api.storage.local.get(RELIST_KEY).catch(() => ({}));
+  await api.storage.local.set({ [RELIST_KEY]: withRelist(got[RELIST_KEY], next) });
+  state.relist.entry = next;
+  state.relist.draft = { ...next };
+  showToast(`Saved the Fast Relist for ${next.name}.`);
+}
+
+/**
+ * Puts the item up for auction with its saved values, the way the inventory's
+ * own Auction Item button does. Only ever from your click on Make auction.
+ */
+export async function makeRelistAuction() {
+  const { item, busy } = state.relist;
+  // What the form says now, edited or not.
+  const entry = relistDraft();
+  if (busy || !item?.objId || !entry || !entry.startPrice || item.listed) return;
+
+  state.relist.busy = true;
+  state.relist.result = null;
+  try {
+    const res = await fetch(ADD_AUCTION_URL, {
+      method: 'POST',
+      credentials: 'include',
+      headers: INVENTORY_AJAX_HEADERS,
+      body: auctionBody(item.objId, entry),
+    });
+    if (!res.ok) throw new Error(`Neopets answered ${res.status}.`);
+    const reply = parseAuctionReply(new DOMParser().parseFromString(await res.text(), 'text/html'));
+    state.relist.result = reply;
+    if (reply.ok) {
+      state.relist.item = { ...item, listed: true };
+      showToast(`${entry.name} is up for auction.`);
+    } else {
+      showToast(reply.message || 'Neopets did not accept the auction.', { tone: 'bad' });
+    }
+  } catch (err) {
+    state.relist.result = { ok: false, message: err?.message || 'Could not reach Neopets.' };
+    showToast(state.relist.result.message, { tone: 'bad' });
+  } finally {
+    state.relist.busy = false;
+  }
+}
+
+/** Forgets the item's saved relist; its badge goes from the inventory with it. */
+export async function deleteRelist() {
+  const name = state.relist.entry?.name ?? state.relist.item?.name;
+  if (!name || state.relist.busy) return;
+  const got = await api.storage.local.get(RELIST_KEY).catch(() => ({}));
+  await api.storage.local.set({ [RELIST_KEY]: withoutRelist(got[RELIST_KEY], name) });
+  state.relist.entry = null;
+  state.relist.draft = null;
+  state.relist.result = null;
+  showToast(`Removed ${name} from Fast Relist.`);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { findItemElements, describeItem, MARK } from './detect.js';
-import { addBadge, setBadgeState } from './badge.js';
+import { addBadge, setBadgeState, setBadgeSize } from './badge.js';
 import {
   addLauncher, setLauncherOpen, setLauncherDraggable, resetLauncherPosition,
   setLauncherPremium, setLauncherVertical, setLauncherOrder, onLauncherReorder, setLauncherIconSteps,
@@ -9,6 +9,7 @@ import { linkNpAnchorToInventory } from './npanchor.js';
 import { startMagmaPool } from './magma.js';
 import { startQuestBadge } from './quests.js';
 import { startShopping } from './shopping.js';
+import { startFastRelist } from './relist.js';
 import { getSettings, HELLO, OPEN_PANEL } from '../lib/messages.js';
 import { api, sendMessage, writeSettings } from '../lib/ext-api.js';
 // Constants and a storage read only — no Vue, so this stays on the cheap path
@@ -43,6 +44,7 @@ export function run(loadUi) {
           vertical: (on) => { setLauncherVertical(on); },
           order: (saved) => { setLauncherOrder(saved); },
           iconSize: (steps) => { setLauncherIconSteps(steps); },
+          badgeSize: (step) => { setBadgeSize(step); },
         });
         // So the heart reflects saved state the first time a popover opens.
         await store.loadFavourites();
@@ -108,10 +110,11 @@ export function run(loadUi) {
   // One body-level attribute drives the hover-only rule for every badge.
   getSettings().then(({
     hoverOnly, movableLauncher, verticalLauncher, launcherOrder, trackDailyVisits,
-    launcherIconStep, verticalIconStep,
+    launcherIconStep, verticalIconStep, badgeIconStep,
   }) => {
     if (hoverOnly) document.body.dataset.neosnipeHoverOnly = '';
     else delete document.body.dataset.neosnipeHoverOnly;
+    setBadgeSize(badgeIconStep);
 
     // Before the bar is shown, so its buttons never visibly jump into place or size.
     setLauncherOrder(launcherOrder);
@@ -159,6 +162,18 @@ export function run(loadUi) {
     startShopping();
   } catch (err) {
     console.error('[neo-snipe] shopping helper failed to start', err);
+  }
+
+  // Fast Relist on the inventory page: a save button on the auction form, and a
+  // refresh badge on saved items that opens the panel's Fast Relist view.
+  try {
+    startFastRelist({
+      open: (item) => ui()
+        .then((store) => store.openRelist(item))
+        .catch((err) => console.error('[neo-snipe] Fast Relist failed', err)),
+    });
+  } catch (err) {
+    console.error('[neo-snipe] Fast Relist failed to start', err);
   }
 
   // The Super Shop Wizard button is Premium-only. The stored answer is what a

@@ -57,12 +57,13 @@ test("the bar's button order imports, and only as a list of ids", () => {
 });
 
 test("the bar's icon sizes import, and only as whole steps from 1 to 5", () => {
-  const r = parseExport(toJson({ ...good, settings: { ...good.settings, launcherIconStep: 5, verticalIconStep: 1 } }));
+  const r = parseExport(toJson({ ...good, settings: { ...good.settings, launcherIconStep: 5, verticalIconStep: 1, badgeIconStep: 3 } }));
   assert.equal(r.settings.launcherIconStep, 5);
   assert.equal(r.settings.verticalIconStep, 1);
+  assert.equal(r.settings.badgeIconStep, 3);
   for (const bad of [0, 6, 2.5, '3']) {
-    const s = parseExport(toJson({ ...good, settings: { ...good.settings, launcherIconStep: bad, verticalIconStep: bad } })).settings;
-    assert.ok(!('launcherIconStep' in s) && !('verticalIconStep' in s), `refused ${JSON.stringify(bad)}`);
+    const s = parseExport(toJson({ ...good, settings: { ...good.settings, launcherIconStep: bad, verticalIconStep: bad, badgeIconStep: bad } })).settings;
+    assert.ok(!('launcherIconStep' in s) && !('verticalIconStep' in s) && !('badgeIconStep' in s), `refused ${JSON.stringify(bad)}`);
   }
 });
 

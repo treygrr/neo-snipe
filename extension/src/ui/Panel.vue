@@ -16,6 +16,7 @@ import WizardSearch from './WizardSearch.vue';
 import FoodClub from './FoodClub.vue';
 import QuestLog from './QuestLog.vue';
 import MagmaLog from './MagmaLog.vue';
+import RelistView from './RelistView.vue';
 import { dailiesFor, isPremiumDaily } from '../lib/dailies.js';
 import { startDrag } from '../lib/positions.js';
 
@@ -125,6 +126,7 @@ const PANEL_TITLES = {
   ssw: 'Super Shop Wizard',
   quests: 'Quest Log',
   magma: 'Magma Pool',
+  relist: 'Fast Relist',
 };
 
 // --- moving the panel -------------------------------------------------------
@@ -198,6 +200,8 @@ function onHeadPointerDown(event) {
         <QuestLog v-else-if="state.panelView === 'quests'" />
 
         <MagmaLog v-else-if="state.panelView === 'magma'" />
+
+        <RelistView v-else-if="state.panelView === 'relist'" />
 
         <!-- Favourites -->
         <template v-else-if="state.panelView === 'favourites'">

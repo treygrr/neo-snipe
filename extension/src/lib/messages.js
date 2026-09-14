@@ -41,6 +41,8 @@ export const DEFAULTS = {
   // they had before this could be changed.
   launcherIconStep: DEFAULT_ICON_STEP.horizontal,
   verticalIconStep: DEFAULT_ICON_STEP.vertical,
+  // The 🔍 badge on each item, in the same five steps: 1 is 16px, 5 is 32px.
+  badgeIconStep: DEFAULT_ICON_STEP.badge,
   // Reopen an item's popover on the tab you were last on, rather than on
   // whichever tab sits first in the order.
   rememberPopoverTab: false,

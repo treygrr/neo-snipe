@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ICON_STEPS, ICON_BASE_PX, ICON_STEP_PX, DEFAULT_ICON_STEP, cleanIconStep, iconPx,
+  badgePx, badgeGlyphPx,
 } from '../src/lib/launcher-size.js';
 import { DEFAULTS } from '../src/lib/messages.js';
 
@@ -18,6 +19,13 @@ test('each bar starts at the size it had before sizes could change', () => {
   assert.equal(iconPx(DEFAULT_ICON_STEP.vertical), 32);
   assert.equal(DEFAULTS.launcherIconStep, DEFAULT_ICON_STEP.horizontal);
   assert.equal(DEFAULTS.verticalIconStep, DEFAULT_ICON_STEP.vertical);
+});
+
+test('badges go from 16px to 32px, 4px a step, starting at the size they shipped with', () => {
+  assert.deepEqual([1, 2, 3, 4, 5].map(badgePx), [16, 20, 24, 28, 32]);
+  assert.deepEqual([1, 2, 3, 4, 5].map(badgeGlyphPx), [10, 13, 15, 18, 20]);
+  assert.equal(DEFAULT_ICON_STEP.badge, 1);
+  assert.equal(DEFAULTS.badgeIconStep, DEFAULT_ICON_STEP.badge);
 });
 
 test('only whole steps from 1 to 5 are kept', () => {

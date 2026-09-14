@@ -97,7 +97,7 @@ export function parseExport(text, { now = Date.now() } = {}) {
     }
 
     // Any number passes typeof, and the bar only lays out at its five sizes.
-    if (key === 'launcherIconStep' || key === 'verticalIconStep') {
+    if (key === 'launcherIconStep' || key === 'verticalIconStep' || key === 'badgeIconStep') {
       if (cleanIconStep(value, null) !== null) settings[key] = value;
       continue;
     }

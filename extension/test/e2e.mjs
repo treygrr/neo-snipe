@@ -2671,7 +2671,7 @@ const openSettingsView = async () => {
   await page.waitForTimeout(300);
 };
 const sizeControl = () => inShadow((root) => {
-  const el = root.querySelector('.ns-set-size');
+  const el = root.querySelector('.ns-set-size--bar');
   return el && {
     title: el.querySelector('.ns-set-size-title')?.textContent.trim(),
     value: el.querySelector('.ns-set-size-value')?.textContent.trim(),
@@ -2681,13 +2681,13 @@ const sizeControl = () => inShadow((root) => {
 });
 const stepIconsUp = async (times) => {
   for (let i = 0; i < times; i++) {
-    await inShadow((root) => root.querySelector('.ns-set-size-up')?.click());
+    await inShadow((root) => root.querySelector('.ns-set-size--bar .ns-set-size-up')?.click());
     await page.waitForTimeout(200);
   }
 };
 const stepIconsDown = async (times) => {
   for (let i = 0; i < times; i++) {
-    await inShadow((root) => root.querySelector('.ns-set-size-down')?.click());
+    await inShadow((root) => root.querySelector('.ns-set-size--bar .ns-set-size-down')?.click());
     await page.waitForTimeout(200);
   }
 };
@@ -2723,6 +2723,47 @@ check('both icon sizes are exported',
 await reloadPage();
 check('a reload keeps the bigger icons', (await barSizes()).glyph === 36);
 await opts.evaluate(() => chrome.storage.sync.remove('launcherIconStep'));
+
+// --- the badge size --------------------------------------------------------
+// The 🔍 badges step the same way, from Settings' own control under Hover badges.
+const badgeSizes = () => page.evaluate(() => {
+  const b = [...document.querySelectorAll('.neosnipe-badge')].find((el) => el.offsetParent);
+  return b && { badge: b.offsetWidth, glyph: Math.round(b.querySelector('svg').getBoundingClientRect().width) };
+});
+const badgeControl = () => inShadow((root) => {
+  const el = root.querySelector('.ns-set-size--badge');
+  return el && {
+    title: el.querySelector('.ns-set-size-title')?.textContent.trim(),
+    value: el.querySelector('.ns-set-size-value')?.textContent.trim(),
+    down: el.querySelector('.ns-set-size-down')?.disabled,
+    up: el.querySelector('.ns-set-size-up')?.disabled,
+  };
+});
+await reloadPage();
+const smallBadge = await badgeSizes();
+check('badges start at step 1: 16px around a 10px glyph',
+  smallBadge?.badge === 16 && smallBadge.glyph === 10, JSON.stringify(smallBadge));
+await openSettingsView();
+const badgeStart = await badgeControl();
+check('Settings offers the badge size at 16px, with − disabled at the smallest step',
+  badgeStart?.title === 'Badge size' && badgeStart.value === '16px' && badgeStart.down === true && badgeStart.up === false,
+  JSON.stringify(badgeStart));
+for (let i = 0; i < 4; i++) {
+  await inShadow((root) => root.querySelector('.ns-set-size--badge .ns-set-size-up')?.click());
+  await page.waitForTimeout(200);
+}
+const badgeEnd = await badgeControl();
+const bigBadge = await badgeSizes();
+const badgeStored = await opts.evaluate(() => chrome.storage.sync.get('badgeIconStep'));
+check('+ grows every badge 4px a step to 32px straight away, then stops',
+  badgeEnd?.value === '32px' && badgeEnd.up === true && badgeEnd.down === false
+  && bigBadge?.badge === 32 && bigBadge.glyph === 20,
+  JSON.stringify({ badgeEnd, bigBadge }));
+check('the badge size is saved', badgeStored.badgeIconStep === 5, JSON.stringify(badgeStored));
+await reloadPage();
+check('a reload keeps the bigger badges', (await badgeSizes())?.badge === 32, JSON.stringify(await badgeSizes()));
+await opts.evaluate(() => chrome.storage.sync.remove('badgeIconStep'));
+await reloadPage();
 
 // --- the vertical bar ------------------------------------------------------
 // Docked against a side, tucked away behind its caret on load, bigger buttons,

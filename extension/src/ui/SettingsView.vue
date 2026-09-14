@@ -10,7 +10,15 @@ import {
 import { api } from '../lib/ext-api.js';
 import { nextPoolOpening, cleanPoolTimes } from '../lib/magma.js';
 import { formatCountdown } from '../lib/daily-visits.js';
-import { ICON_STEPS, DEFAULT_ICON_STEP, cleanIconStep, iconPx } from '../lib/launcher-size.js';
+import { ICON_STEPS, DEFAULT_ICON_STEP, cleanIconStep, iconPx, badgePx } from '../lib/launcher-size.js';
+
+// --- badge size --------------------------------------------------------------
+// The 🔍 badge on each item, in the same five steps as the bar's icons.
+const badgeStep = computed(() => cleanIconStep(state.settings.badgeIconStep, DEFAULT_ICON_STEP.badge));
+function stepBadge(by) {
+  const next = Math.min(ICON_STEPS, Math.max(1, badgeStep.value + by));
+  if (next !== badgeStep.value) setSetting('badgeIconStep', next);
+}
 
 // --- icon size ---------------------------------------------------------------
 // One control, for whichever way up the bar is: each orientation keeps its own
@@ -174,6 +182,37 @@ async function pickFile(event) {
         </span>
       </label>
 
+      <div class="ns-set-size ns-set-size--badge">
+        <span class="ns-set-size-title">Badge size</span>
+        <div class="ns-set-size-controls">
+          <v-btn
+            :icon="mdiMinus"
+            size="x-small"
+            variant="tonal"
+            class="ns-set-size-down"
+            :disabled="badgeStep <= 1"
+            aria-label="Smaller badges"
+            title="Smaller badges"
+            @click="stepBadge(-1)"
+          />
+          <span class="ns-set-size-value" aria-live="polite">{{ badgePx(badgeStep) }}px</span>
+          <v-btn
+            :icon="mdiPlus"
+            size="x-small"
+            variant="tonal"
+            class="ns-set-size-up"
+            :disabled="badgeStep >= ICON_STEPS"
+            aria-label="Bigger badges"
+            title="Bigger badges"
+            @click="stepBadge(1)"
+          />
+        </div>
+        <em>
+          The 🔍 badge on each item, from 16px to 32px in 4px steps. Bigger is easier to see and to
+          tap, but covers more of the item's picture. Changes every badge on the page straight away.
+        </em>
+      </div>
+
       <label class="ns-set-row">
         <input
           type="checkbox"
@@ -234,7 +273,7 @@ async function pickFile(event) {
         </span>
       </label>
 
-      <div class="ns-set-size">
+      <div class="ns-set-size ns-set-size--bar">
         <span class="ns-set-size-title">
           {{ state.settings.verticalLauncher ? 'Vertical bar icon size' : 'Bar icon size' }}
         </span>
