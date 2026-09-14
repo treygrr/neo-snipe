@@ -1214,9 +1214,11 @@ const fcLinks = await inShadow((root) => {
     aboveLevels: !!levels && (links[0].compareDocumentPosition(levels) & 4) === 4,
   };
 });
-check('the tab links to your bets and to collecting winnings',
-  fcLinks.hrefs.some((h) => /current_bets/.test(h)) && fcLinks.hrefs.some((h) => /type=collect/.test(h)),
-  JSON.stringify(fcLinks.hrefs));
+// Collecting is a button now, naming the winnings waiting, not a link out.
+const fcCollect = await inShadow((root) => root.querySelector('.ns-fc-links .ns-fc-collect')?.textContent.replace(/\s+/g, ' ').trim() ?? null);
+check('the view links to your bets and has a button to collect winnings',
+  fcLinks.hrefs.some((h) => /current_bets/.test(h)) && /^Collect [\d,]+ NP$|^Nothing to collect$/.test(fcCollect || ''),
+  JSON.stringify({ hrefs: fcLinks.hrefs, collect: fcCollect }));
 check('those links sit above the risk levels', fcLinks.aboveLevels === true);
 
 // The two fixtures come from the same round, so some of the day's set bets are
@@ -1287,6 +1289,53 @@ check('a refused bet is not marked done',
 check('the buttons come back after a refusal',
   await inShadow((root) => root.querySelectorAll('.ns-bet')[1]
     .querySelector('.ns-btn-place').disabled === false));
+await page.unroute('**://www.neopets.com/pirates/process_foodclub.phtml*');
+
+// --- Food Club: collecting winnings ------------------------------------------
+// The collect page, read with the round, puts the amount on the button, and the
+// button posts the collect form itself. Once collected, Neopets' collect page
+// has no winnings table any more, which is what the button then goes by.
+let fcCollected = false;
+const collectPosts = [];
+const isCollectPage = (url) => url.hostname === 'www.neopets.com' && url.pathname === '/pirates/foodclub.phtml'
+  && url.searchParams.get('type') === 'collect';
+await page.route(isCollectPage, (route) => route.fulfill({
+  contentType: 'text/html',
+  body: fcCollected
+    ? '<!doctype html><html><body><p align="center"><b>Food Club</b></p></body></html>'
+    : `<!doctype html><html><body>${readFileSync(resolve('test/fixtures/foodclub', 'collect-page.html'), 'utf8')}</body></html>`,
+}));
+await page.route('**://www.neopets.com/pirates/process_foodclub.phtml*', async (route) => {
+  collectPosts.push({ method: route.request().method(), body: route.request().postData() || '' });
+  await new Promise((r) => setTimeout(r, 800));
+  fcCollected = true;
+  return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><p>Food Club</p></body></html>' });
+});
+const collectButton = () => inShadow((root) => {
+  const b = root.querySelector('.ns-fc-collect');
+  return b ? { text: b.textContent.replace(/\s+/g, ' ').trim(), disabled: b.disabled || b.classList.contains('v-btn--disabled'), loading: b.classList.contains('v-btn--loading') } : null;
+});
+
+const beforeCollect = await collectButton();
+check('the collect button shows the winnings waiting',
+  beforeCollect?.text === 'Collect 190,152 NP' && !beforeCollect.disabled, JSON.stringify(beforeCollect));
+await inShadow((root) => root.querySelector('.ns-fc-collect')?.click());
+await page.waitForTimeout(300);
+const whileCollecting = await collectButton();
+await page.waitForFunction(() => {
+  const root = document.querySelector('[data-neosnipe="popover-host"]')?.shadowRoot;
+  return /Nothing to collect/.test(root?.querySelector('.ns-fc-collect')?.textContent || '');
+}, null, { timeout: 10000 }).catch(() => {});
+const afterCollect = await collectButton();
+const collectToast = await inShadow((root) => root.querySelector('.ns-toast-text')?.textContent.trim() || null);
+check('clicking it posts the collect form, once',
+  collectPosts.length === 1 && collectPosts[0].method === 'POST' && collectPosts[0].body === 'type=collect',
+  JSON.stringify(collectPosts));
+check('and it shows it is working while that runs', whileCollecting?.loading === true, JSON.stringify(whileCollecting));
+check('once collected, it says how much', collectToast === 'Collected 190,152 NP.', collectToast);
+check('and the button reads Nothing to collect, disabled',
+  afterCollect?.text === 'Nothing to collect' && afterCollect.disabled, JSON.stringify(afterCollect));
+await page.unroute(isCollectPage);
 await page.unroute('**://www.neopets.com/pirates/process_foodclub.phtml*');
 
 // --- settings: the settings button, the premium toggle, export and import ---

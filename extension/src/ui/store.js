@@ -5,7 +5,7 @@ import {
   BET_URL, SETS_URL, CURRENT_BETS_URL, COLLECT_URL,
   RISK_LEVELS, parseBetPage, parseSets, parseRound, parseCurrentBets, resolveBet, payout,
   placeBetUrl, placementRefusal, wasPlaced, betNameKey,
-  betId, FoodClubError,
+  betId, FoodClubError, COLLECT_POST_URL, collectBody, parseCollectPage,
 } from '../lib/foodclub.js';
 import { sswQueryUrl, parseSswResponse, SswError } from '../lib/ssw.js';
 import {
@@ -83,6 +83,10 @@ export const state = reactive({
     placing: null,
     // Name keys of the bets Neopets already has on for this round.
     placed: [],
+    // NP waiting on the collect page: null until it has been read (or when it
+    // could not be), 0 when there is nothing to collect.
+    winnings: null,
+    collecting: false,
   },
 
   // A short-lived message over the panel. `action` is an optional link.
@@ -1129,12 +1133,14 @@ export async function loadFoodClub({ force = false } = {}) {
   state.fc.loading = true;
   state.fc.error = null;
   try {
-    const [betDoc, setsDoc, placedDoc] = await Promise.all([
+    const [betDoc, setsDoc, placedDoc, collectDoc] = await Promise.all([
       fetchDoc(BET_URL),
       fetchDoc(SETS_URL),
       // A bet placed in an earlier session, or on the site itself, is still
       // placed — so the marks start from what Neopets says you have on.
       fetchDoc(CURRENT_BETS_URL).catch(() => null),
+      // What is waiting to be collected, for the Collect button to show.
+      fetchDoc(COLLECT_URL).catch(() => null),
     ]);
     const { maxBet, arenas } = parseBetPage(betDoc);
     const sets = parseSets(setsDoc);
@@ -1145,6 +1151,8 @@ export async function loadFoodClub({ force = false } = {}) {
     state.fc.placed = placedDoc
       ? parseCurrentBets(placedDoc).filter((b) => b.round === round).map(betNameKey)
       : [];
+    // Unread stays null, so the button falls back to a plain link.
+    state.fc.winnings = collectDoc ? parseCollectPage(collectDoc).total : null;
     state.fc.maxBet = maxBet;
     state.fc.arenas = arenas;
     state.fc.sets = sets;
@@ -1157,6 +1165,53 @@ export async function loadFoodClub({ force = false } = {}) {
       : 'Could not read Food Club. Are you logged in to Neopets?';
   } finally {
     state.fc.loading = false;
+  }
+}
+
+/**
+ * Collects what the collect page says is waiting, then reads that page and your
+ * bets again. Neopets' reply to the collect form has not been captured, so
+ * success is judged by the collect page afterwards: winnings gone means
+ * collected, and anything still there is reported rather than assumed away.
+ */
+export async function collectWinnings() {
+  const waiting = state.fc.winnings;
+  if (!waiting || state.fc.collecting) return;
+
+  state.fc.collecting = true;
+  try {
+    const res = await fetch(COLLECT_POST_URL, {
+      method: 'POST',
+      credentials: 'include',
+      referrer: COLLECT_URL,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: collectBody().toString(),
+    });
+    if (!res.ok) throw new Error(`Neopets returned ${res.status}`);
+
+    const [collectDoc, placedDoc] = await Promise.all([
+      fetchDoc(COLLECT_URL),
+      fetchDoc(CURRENT_BETS_URL).catch(() => null),
+    ]);
+    const left = parseCollectPage(collectDoc).total;
+    state.fc.winnings = left;
+    if (placedDoc) {
+      state.fc.placed = parseCurrentBets(placedDoc).filter((b) => b.round === state.fc.round).map(betNameKey);
+    }
+
+    if (left >= waiting) {
+      showToast('Neopets did not collect those winnings.', {
+        tone: 'bad', action: { label: 'Collect page', href: COLLECT_URL },
+      });
+      return;
+    }
+    showToast(`Collected ${(waiting - left).toLocaleString('en-US')} NP.`);
+  } catch (err) {
+    showToast(`Could not collect winnings: ${err.message}`, {
+      tone: 'bad', action: { label: 'Collect page', href: COLLECT_URL },
+    });
+  } finally {
+    state.fc.collecting = false;
   }
 }
 

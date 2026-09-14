@@ -229,3 +229,24 @@ test('current bets: the Total Possible Winnings row is not a bet', () => {
   assert.ok(bets.every((b) => b.picks.length), 'every bet has picks');
   assert.ok(!JSON.stringify(bets).includes('Total'), 'no bet came from the totals row');
 });
+
+// --- collecting winnings -----------------------------------------------------
+import { parseCollectPage, collectBody, COLLECT_POST_URL } from '../src/lib/foodclub.js';
+
+test('the collect page gives each winning bet and the total waiting', () => {
+  const page = parseCollectPage(doc('collect-page.html'));
+  assert.equal(page.total, 190152);
+  assert.deepEqual(page.bets, [{ round: '9991', amount: 10564, odds: '18:1', winnings: 190152 }]);
+});
+
+test('a page with no winnings table has nothing to collect, rather than an error', () => {
+  assert.deepEqual(parseCollectPage(doc('bet-page.html')), { total: 0, bets: [] });
+  assert.deepEqual(parseCollectPage(parseHTML('<html><body><p>No winnings.</p></body></html>').document),
+    { total: 0, bets: [] });
+  assert.deepEqual(parseCollectPage(null), { total: 0, bets: [] });
+});
+
+test('collecting posts what the collect page form posts', () => {
+  assert.equal(COLLECT_POST_URL, 'https://www.neopets.com/pirates/process_foodclub.phtml');
+  assert.equal(collectBody().toString(), 'type=collect');
+});

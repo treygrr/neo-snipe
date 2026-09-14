@@ -6,7 +6,7 @@ import {
 } from '@mdi/js';
 import {
   state, loadFoodClub, setFoodClubLevel, setFoodClubAmount, currentBets, placeBet,
-  isBetDone, toggleBetDone, isPlacing, isBetPlaced,
+  isBetDone, toggleBetDone, isPlacing, isBetPlaced, collectWinnings,
   RISK_LEVELS, BET_URL, SETS_URL, CURRENT_BETS_URL, COLLECT_URL,
 } from './store.js';
 
@@ -54,8 +54,27 @@ const np = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
       <div class="ns-fc-links">
         <v-btn size="x-small" variant="tonal" color="info" :prepend-icon="mdiFormatListChecks"
                :href="CURRENT_BETS_URL" target="_blank" rel="noopener">Your bets</v-btn>
-        <v-btn size="x-small" variant="tonal" color="success" :prepend-icon="mdiCashMultiple"
-               :href="COLLECT_URL" target="_blank" rel="noopener">Collect winnings</v-btn>
+        <!-- The amount waiting, read with the round. Unknown (the collect page
+             could not be read) falls back to the plain link it used to be. -->
+        <v-btn
+          v-if="state.fc.winnings === null"
+          size="x-small" variant="tonal" color="success" :prepend-icon="mdiCashMultiple"
+          :href="COLLECT_URL" target="_blank" rel="noopener"
+        >Collect winnings</v-btn>
+        <v-btn
+          v-else
+          size="x-small"
+          variant="tonal"
+          color="success"
+          class="ns-fc-collect"
+          :prepend-icon="mdiCashMultiple"
+          :loading="state.fc.collecting"
+          :disabled="!state.fc.winnings || state.fc.collecting"
+          :title="state.fc.winnings
+            ? `Collect ${np(state.fc.winnings)} NP of Food Club winnings`
+            : 'No Food Club winnings waiting right now'"
+          @click="collectWinnings"
+        >{{ state.fc.winnings ? `Collect ${np(state.fc.winnings)} NP` : 'Nothing to collect' }}</v-btn>
       </div>
 
       <div class="ns-fc-levels">

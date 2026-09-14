@@ -26,7 +26,7 @@ the Chrome end-to-end; `build:safari && test:safari` and `build:firefox && test:
 | `customise.test.mjs` | `lib/customise.js` over the captured editor data and save reply: load and save bodies, what is worn, wearable candidates (other pets, worn zones, unknown items, restricting zones), adding an item without dropping any, the random pick, and `parseSave`. |
 | `detect.test.mjs` | Runs `src/content/detect.js` inside a browser (Chromium; `NS_ENGINE=firefox` or `webkit` for the others) against each surface fixture: `findItemElements`, `describeItem`, `itemImageUrl`, `itemNameFor`, `imageHashOf`; asserts no `obj_info_id` leaks. |
 | `jellyneo.test.mjs` | `URLS`/`SELECTORS`, `extractSearchResults`/`extractItemPage`/`extractTradingPost`, `parseNp`/`parseDate`/`parseRarity`, `itemIdFromUrl`, `pickResult`, `lookupItem`/`lookupTradingPost`, `NotFoundError`. |
-| `foodclub.test.mjs` | `parseBetPage`, `parseSets`, `resolveBet`, `payout`, `placeBetUrl`, `WINNINGS_CAP`, `wasPlaced`, `placementRefusal`, `parseCurrentBets`, `betNameKey`, `FoodClubError`. |
+| `foodclub.test.mjs` | `parseBetPage`, `parseSets`, `resolveBet`, `payout`, `placeBetUrl`, `WINNINGS_CAP`, `wasPlaced`, `placementRefusal`, `parseCurrentBets`, `betNameKey`, `FoodClubError`, and `parseCollectPage`/`collectBody` over the captured collect page (`foodclub/collect-page.html`). |
 | `wizard.test.mjs` | `wizardBody`, `WIZARD_URL`, `parseWizardResponse`, `WizardError`, `mergeListings` (add-not-replace, dedupe by owner, newer price wins). |
 | `ssw.test.mjs` | `sswQueryUrl` parameter shape and `parseSswResponse`/`SswError` over the captured JSON, including the non-Premium `error` message. |
 | `premium.test.mjs` | `detectPremium` over nav fixtures: true / false / `unknown` when no nav renders. |
@@ -35,7 +35,7 @@ the Chrome end-to-end; `build:safari && test:safari` and `build:firefox && test:
 | `tab-order.test.mjs` | `fullOrder`, `visibleOrder`, `moveInOrder` over `POPOVER_TABS` — saved orders, new tabs, hidden tabs. |
 | `neopets-search.test.mjs` | `SEARCHES`/`searchesFor` produce exactly Jelly Neo's trading post and auction "Find This Item" URLs. |
 | `icons.test.mjs` | Reads the PNG IHDR of `icons/icon-{16,48,128}.png`: declared size, RGBA for transparent corners, `icon.svg` present as source. |
-| `fixtures/` | Markup and JSON captured off the live sites: `neopets-*.html` (inventory, mainshop, sdb, auctions row, trading post row, caption grid, gallery row); `jellyneo/` (search hit/miss, item page, TP history, withheld TP); `foodclub/` (bet page, sets page, current bets, refusal); `wizard/`, `ssw/`, `premium/` (one or two captured responses each); `questlog/` (a daily `retrieveQuests` reply, a claimable card, the claim and wheel-spin replies, the fishing result page, and a `README.md` of the endpoints). |
+| `fixtures/` | Markup and JSON captured off the live sites: `neopets-*.html` (inventory, mainshop, sdb, auctions row, trading post row, caption grid, gallery row); `jellyneo/` (search hit/miss, item page, TP history, withheld TP); `foodclub/` (bet page, sets page, current bets, refusal, collect page); `wizard/`, `ssw/`, `premium/` (one or two captured responses each); `questlog/` (a daily `retrieveQuests` reply, a claimable card, the claim and wheel-spin replies, the fishing result page, and a `README.md` of the endpoints). |
 
 ## Rules
 

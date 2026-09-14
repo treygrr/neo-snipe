@@ -261,3 +261,49 @@ export function placementRefusal(html) {
   const message = block && strip(block[1]).replace(/^error:\s*/i, '');
   return message || 'Neopets did not accept that bet.';
 }
+
+// --- collecting winnings -----------------------------------------------------
+
+/**
+ * Where the collect page's "Collect Your Winnings!" form posts. Captured live:
+ * a plain `method="post"` form with one hidden `type` field and no token.
+ */
+export const COLLECT_POST_URL = 'https://www.neopets.com/pirates/process_foodclub.phtml';
+export const collectBody = () => new URLSearchParams({ type: 'collect' });
+
+const npNumber = (s) => Number(String(s ?? '').replace(/[^\d]/g, '')) || 0;
+
+/**
+ * The collect page: each winning bet and the total waiting. Its table is headed
+ * "Collect Winnings" — round, bet info, amount, odds and winnings per row, then
+ * a "Total Winnings" row. With nothing to collect there is no such table, which
+ * reads as a total of 0 rather than an error. Fixture:
+ * test/fixtures/foodclub/collect-page.html.
+ *
+ * The last matching table is taken, as in parseCurrentBets: a page laid out in
+ * tables also has outer ones whose text contains the whole thing.
+ */
+export function parseCollectPage(doc) {
+  const table = [...(doc?.querySelectorAll?.('table') ?? [])]
+    .filter((t) => /Collect Winnings/i.test(t.textContent) && /Total Winnings/i.test(t.textContent))
+    .pop();
+  if (!table) return { total: 0, bets: [] };
+
+  let total = 0;
+  const bets = [];
+  for (const row of table.querySelectorAll('tr')) {
+    const cells = [...row.children];
+    if (/^Total Winnings/i.test(clean(row.textContent))) {
+      total = npNumber(cells[cells.length - 1]?.textContent);
+      continue;
+    }
+    if (cells.length < 5 || !/^\d+$/.test(clean(cells[0].textContent))) continue; // title and header rows
+    bets.push({
+      round: clean(cells[0].textContent),
+      amount: npNumber(cells[2].textContent),
+      odds: clean(cells[3].textContent),
+      winnings: npNumber(cells[4].textContent),
+    });
+  }
+  return { total: total || bets.reduce((sum, b) => sum + b.winnings, 0), bets };
+}
