@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { mdiContentSave, mdiDeleteOutline, mdiGavel } from '@mdi/js';
 import {
   state, makeRelistAuction, deleteRelist, saveRelistEdits, relistEdited,
+  relistFromSdb, relistDropped, saveRelistPin,
 } from './store.js';
 import { AUCTION_DURATIONS } from '../lib/fast-relist.js';
 
@@ -26,8 +27,14 @@ const savedOn = computed(() => (entry.value?.savedAt
   ? new Date(entry.value.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   : null));
 
+const fromSdb = computed(() => relistFromSdb());
+// The box names an item by kind; the inventory by the copy it holds.
+const haveItem = computed(() => Boolean(fromSdb.value ? item.value?.objInfoId : item.value?.objId));
+// Settings the box cannot carry, so the panel can say so before you press it.
+const dropped = computed(() => relistDropped());
+
 const canAuction = computed(() => Boolean(
-  draft.value?.startPrice && item.value?.objId && !item.value?.listed,
+  draft.value?.startPrice && haveItem.value && !item.value?.listed,
 ));
 </script>
 
@@ -49,6 +56,38 @@ const canAuction = computed(() => Boolean(
     </p>
 
     <template v-else>
+      <div class="ns-relist-actions">
+        <v-btn
+          color="primary"
+          variant="flat"
+          size="small"
+          class="ns-relist-make"
+          :prepend-icon="mdiGavel"
+          :loading="state.relist.busy"
+          :disabled="!canAuction"
+          @click="makeRelistAuction"
+        >{{ item?.listed ? 'Auction made' : 'Make auction' }}</v-btn>
+        <v-btn
+          variant="tonal"
+          size="small"
+          class="ns-relist-save"
+          :prepend-icon="mdiContentSave"
+          :disabled="state.relist.busy || !relistEdited()"
+          title="Keep these values as this item's Fast Relist"
+          @click="saveRelistEdits"
+        >Save changes</v-btn>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          size="small"
+          color="error"
+          class="ns-relist-delete"
+          :prepend-icon="mdiDeleteOutline"
+          :disabled="state.relist.busy"
+          @click="deleteRelist"
+        >Delete</v-btn>
+      </div>
+
       <div class="ns-relist-form">
         <label class="ns-relist-field">
           <span>Start price (NP)</span>
@@ -83,6 +122,21 @@ const canAuction = computed(() => Boolean(
           </select>
         </label>
 
+        <label v-if="fromSdb" class="ns-relist-field ns-relist-pin">
+          <span>Safety Deposit Box PIN</span>
+          <input
+            class="ns-relist-input"
+            type="password"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="4"
+            placeholder="4 digits"
+            :value="state.relist.pin"
+            :disabled="state.relist.busy"
+            @change="saveRelistPin($event.target.value)"
+          >
+        </label>
+
         <v-switch
           v-model="state.relist.draft.neofriendsOnly"
           label="NeoFriends only"
@@ -101,13 +155,25 @@ const canAuction = computed(() => Boolean(
           inset
           hide-details
           class="ns-relist-check"
-          :disabled="state.relist.busy"
+          :disabled="state.relist.busy || fromSdb"
         />
       </div>
 
+      <p v-if="fromSdb" class="ns-relist-note ns-relist-source">
+        From your Safety Deposit Box — the item goes up straight from the box.
+      </p>
+      <p v-if="dropped.length" class="ns-relist-note">
+        The box has no guild-members-only option, so this auction will not have one.
+      </p>
+      <p v-if="state.relist.pinError" class="ns-relist-result ns-relist-result--bad">
+        {{ state.relist.pinError }}
+      </p>
+
       <p v-if="!draft.startPrice" class="ns-relist-note">Enter a start price to make the auction.</p>
-      <p v-else-if="!item?.objId" class="ns-relist-note">
-        This item is not in your inventory right now, so there is nothing to auction.
+      <p v-else-if="!haveItem" class="ns-relist-note">
+        {{ fromSdb
+          ? 'This item is not in your Safety Deposit Box right now, so there is nothing to auction.'
+          : 'This item is not in your inventory right now, so there is nothing to auction.' }}
       </p>
       <p
         v-if="state.relist.result"
@@ -115,37 +181,6 @@ const canAuction = computed(() => Boolean(
         :class="{ 'ns-relist-result--bad': !state.relist.result.ok }"
       >{{ state.relist.result.message }}</p>
 
-      <div class="ns-relist-actions">
-        <v-btn
-          color="primary"
-          variant="flat"
-          size="small"
-          class="ns-relist-make"
-          :prepend-icon="mdiGavel"
-          :loading="state.relist.busy"
-          :disabled="!canAuction"
-          @click="makeRelistAuction"
-        >{{ item?.listed ? 'Auction made' : 'Make auction' }}</v-btn>
-        <v-btn
-          variant="tonal"
-          size="small"
-          class="ns-relist-save"
-          :prepend-icon="mdiContentSave"
-          :disabled="state.relist.busy || !relistEdited()"
-          title="Keep these values as this item's Fast Relist"
-          @click="saveRelistEdits"
-        >Save changes</v-btn>
-        <v-spacer />
-        <v-btn
-          variant="text"
-          size="small"
-          color="error"
-          class="ns-relist-delete"
-          :prepend-icon="mdiDeleteOutline"
-          :disabled="state.relist.busy"
-          @click="deleteRelist"
-        >Delete</v-btn>
-      </div>
     </template>
   </div>
 </template>
@@ -176,6 +211,7 @@ const canAuction = computed(() => Boolean(
 .ns-relist-check :deep(.v-label) { font-size: 11.5px; font-weight: 600; opacity: .8; }
 
 .ns-relist-note { margin: 0; color: #b45309; font-size: 11px; }
+.ns-relist-source { color: rgba(0, 0, 0, .6); }
 .ns-relist-result { margin: 0; color: #2e7d32; font-size: 11px; }
 .ns-relist-result--bad { color: #c62828; }
 

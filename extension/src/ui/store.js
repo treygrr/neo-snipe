@@ -42,6 +42,10 @@ import {
   auctionBody, parseAuctionReply,
 } from '../lib/fast-relist.js';
 import {
+  SDB_AUCTION_URL, SDB_AJAX_HEADERS, SDB_PIN_KEY,
+  sdbAuctionBody, parseSdbAuctionReply, cleanPin, sdbDrops,
+} from '../lib/sdb.js';
+import {
   USES, INVENTORY_URL, INVENTORY_ITEMS_URL, INVENTORY_AJAX_HEADERS, USE_OBJECT_URL, itemInfoUrl,
   parseInventoryReply, candidatesFor, readActivePet, readItemActions, actionFor, useBody, parseUse, ItemUseError,
 } from '../lib/item-use.js';
@@ -143,7 +147,9 @@ export const state = reactive({
   // The Fast Relist view: the inventory item whose refresh badge opened it
   // (`{ name, objId, imageUrl, listed }`), its saved values, the edited copy of
   // them the form shows (`draft`), and the last reply.
-  relist: { item: null, entry: null, draft: null, busy: false, result: null },
+  // `pin` is what is saved, `pinError` the box's complaint about it. Both only
+  // matter when the item came from the Safety Deposit Box.
+  relist: { item: null, entry: null, draft: null, busy: false, result: null, pin: '', pinError: null },
 });
 
 function blankSearch() {
@@ -1307,7 +1313,7 @@ export function dismissToast() {
  * view is up swaps the item rather than closing the panel.
  */
 export async function openRelist(item) {
-  const got = await api.storage.local.get(RELIST_KEY).catch(() => ({}));
+  const got = await api.storage.local.get([RELIST_KEY, SDB_PIN_KEY]).catch(() => ({}));
   const entry = cleanRelists(got[RELIST_KEY])[relistKey(item.name)] ?? null;
   state.relist = {
     item,
@@ -1316,6 +1322,8 @@ export async function openRelist(item) {
     draft: entry ? { ...entry } : null,
     busy: false,
     result: null,
+    pin: cleanPin(got[SDB_PIN_KEY]) ?? '',
+    pinError: null,
   };
   if (state.panelOpen && state.panelView === 'relist') return;
   openPanelView('relist');
@@ -1348,28 +1356,78 @@ export async function saveRelistEdits() {
   showToast(`Saved the Fast Relist for ${next.name}.`);
 }
 
+/** Whether the item on the Fast Relist view is one the box holds. */
+export const relistFromSdb = () => state.relist.item?.source === 'sdb';
+
+/** The saved settings this relist cannot carry through the box. */
+export function relistDropped() {
+  return relistFromSdb() ? sdbDrops(relistDraft()) : [];
+}
+
+/** Keeps the PIN for next time. Four digits or nothing; anything else is not kept. */
+export async function saveRelistPin(value) {
+  const pin = cleanPin(value);
+  state.relist.pin = pin ?? '';
+  state.relist.pinError = null;
+  await api.storage.local.set({ [SDB_PIN_KEY]: pin ?? '' }).catch(() => {});
+}
+
 /**
- * Puts the item up for auction with its saved values, the way the inventory's
- * own Auction Item button does. Only ever from your click on Make auction.
+ * The inventory's own Auction Item call: a form post, answered with a page.
+ * The item must be in the inventory, so it is named by its object id.
+ */
+async function auctionFromInventory(item, entry) {
+  const res = await fetch(ADD_AUCTION_URL, {
+    method: 'POST',
+    credentials: 'include',
+    headers: INVENTORY_AJAX_HEADERS,
+    body: auctionBody(item.objId, entry),
+  });
+  if (!res.ok) throw new Error(`Neopets answered ${res.status}.`);
+  return parseAuctionReply(new DOMParser().parseFromString(await res.text(), 'text/html'));
+}
+
+/**
+ * The box's own call: JSON in, JSON back, and the item named by kind rather
+ * than by copy. It wants the page's `_ref_ck`, and the account's PIN when one
+ * is set — which is why this only runs from a neopets.com page.
+ */
+async function auctionFromSdb(item, entry, pin) {
+  const refCk = readRefCk(document);
+  if (!refCk) throw new Error('This page did not carry the token Neopets checks. Reload it and try again.');
+
+  const res = await fetch(SDB_AUCTION_URL, {
+    method: 'POST',
+    credentials: 'include',
+    headers: SDB_AJAX_HEADERS,
+    body: JSON.stringify(sdbAuctionBody(item.objInfoId, entry, { pin, refCk })),
+  });
+  if (!res.ok) throw new Error(`Neopets answered ${res.status}.`);
+  return parseSdbAuctionReply(await res.json().catch(() => null));
+}
+
+/**
+ * Puts the item up for auction with its saved values, the way the page it came
+ * from would. Only ever from your click on Make auction.
  */
 export async function makeRelistAuction() {
-  const { item, busy } = state.relist;
+  const { item, busy, pin } = state.relist;
   // What the form says now, edited or not.
   const entry = relistDraft();
-  if (busy || !item?.objId || !entry || !entry.startPrice || item.listed) return;
+  const fromSdb = relistFromSdb();
+  const haveItem = fromSdb ? Boolean(item?.objInfoId) : Boolean(item?.objId);
+  if (busy || !haveItem || !entry || !entry.startPrice || item.listed) return;
 
   state.relist.busy = true;
   state.relist.result = null;
+  state.relist.pinError = null;
   try {
-    const res = await fetch(ADD_AUCTION_URL, {
-      method: 'POST',
-      credentials: 'include',
-      headers: INVENTORY_AJAX_HEADERS,
-      body: auctionBody(item.objId, entry),
-    });
-    if (!res.ok) throw new Error(`Neopets answered ${res.status}.`);
-    const reply = parseAuctionReply(new DOMParser().parseFromString(await res.text(), 'text/html'));
+    const reply = fromSdb
+      ? await auctionFromSdb(item, entry, pin)
+      : await auctionFromInventory(item, entry);
     state.relist.result = reply;
+    // A PIN refusal belongs against the PIN field, not the general result.
+    if (reply.pin) state.relist.pinError = reply.wrongPin ? 'That PIN was refused.' : 'Your PIN is needed for this.';
     if (reply.ok) {
       state.relist.item = { ...item, listed: true };
       showToast(`${entry.name} is up for auction.`);

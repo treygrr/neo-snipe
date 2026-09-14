@@ -252,15 +252,16 @@ const leaked = await page.evaluate(() => {
   });
   return {
     vuetifyInPage,
-    // Only our own small scoped sheets should reach the page: the badge and
-    // the launcher. Everything else belongs in the shadow root.
+    // Only our own small scoped sheets should reach the page: the badge, the
+    // launcher, and Fast Relist's own button and badge. Everything else
+    // belongs in the shadow root.
     ours: [...document.querySelectorAll('style[data-neosnipe]')].map((s) => s.dataset.neosnipe).sort(),
     foreign: [...document.querySelectorAll('style:not([data-neosnipe])')].length,
   };
 });
 check('no Vuetify CSS in the host page', leaked.vuetifyInPage === false);
-check('only our two scoped stylesheets are added to the page',
-  JSON.stringify(leaked.ours) === '["badge","launcher"]', JSON.stringify(leaked.ours));
+check('only our own scoped stylesheets are added to the page',
+  JSON.stringify(leaked.ours) === '["badge","launcher","relist"]', JSON.stringify(leaked.ours));
 
 // --- click a badge: lazy mount + lookup -------------------------------------
 check('nothing is fetched from Jelly Neo before a click', jellyNeoRequests === 0,
