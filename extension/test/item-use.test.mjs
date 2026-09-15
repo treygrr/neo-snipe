@@ -22,6 +22,9 @@ const INVENTORY = doc([
   cell({ name: 'Waterfish', type: 'Food', objid: '1944994546', value: '0 NP', rarity: 101, img: 'vor_waterfish' }),
   cell({ name: 'Space Slug Soup', type: 'Space Food', objid: '1944900001', value: '250 NP', rarity: 40, img: 'space_slug_soup' }),
   cell({ name: 'Red Blush', type: 'Grooming', objid: '1944788232', value: '120 NP', rarity: 35, img: 'red_blush' }),
+  // Hairstyle brushes groom a pet too, but Neopets catalogues them as
+  // "Special", not "Grooming" — see issue #1.
+  cell({ name: 'Red Long Hair Brush', type: 'Special', objid: '1944788233', value: '5,000 NP', rarity: 90, img: 'red_hair_brush' }),
   cell({ name: 'Blue Kougra Plushie', type: 'Plushies', objid: '1944787782', value: '1,200 NP', rarity: 50, img: 'kougra_plushie' }),
   cell({ name: 'Headless Von Roo Plushie', type: 'Plushies', objid: '1944788389', value: '300 NP', rarity: 70, img: 'vonroo_plushie' }),
   cell({ name: 'Battle Ready!', type: 'Faerie Book', objid: '1944998704', value: '669 NP', rarity: 60, img: 'faeriebook_battleready' }),
@@ -36,7 +39,7 @@ test('the endpoints are the ones the inventory page uses', () => {
 
 test('inventory items are read from their data attributes', () => {
   const items = readInventory(INVENTORY);
-  assert.equal(items.length, 7);
+  assert.equal(items.length, 8);
   assert.deepEqual(items.find((i) => i.name === 'Battle Ready!'), {
     objId: '1944998704', name: 'Battle Ready!', type: 'Faerie Book',
     image: 'https://images.neopets.com/items/faeriebook_battleready.gif', value: 669, rarity: 60, nc: false,
@@ -51,7 +54,8 @@ test('each quest kind looks at its own kind of item, cheapest first, never NC', 
   assert.deepEqual(names('read'), ['Battle Ready!']);
   assert.deepEqual(names('feed'), ['Waterfish', 'Space Slug Soup']);
   assert.deepEqual(names('play'), ['Headless Von Roo Plushie', 'Blue Kougra Plushie']);
-  assert.deepEqual(names('groom'), ['Red Blush']);
+  // "Special"-typed brushes groom too, cheaper "Grooming"-typed items first.
+  assert.deepEqual(names('groom'), ['Red Blush', 'Red Long Hair Brush']);
   assert.deepEqual(candidatesFor('purchase', items), []);
 });
 

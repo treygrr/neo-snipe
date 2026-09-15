@@ -48,7 +48,12 @@ export const USES = {
   read: { verb: 'Read to', label: 'Read', noun: 'book', types: /book/i },
   feed: { verb: 'Feed to', label: 'Feed', noun: 'food', types: /food|drink|candy|dessert/i },
   play: { verb: 'Play with', label: 'Play', noun: 'toy', types: /toy|plush/i },
-  groom: { verb: 'Groom', label: 'Groom', noun: 'grooming item', types: /groom/i },
+  // Hairstyle/colour brushes groom a pet same as any comb or lotion, but
+  // Neopets catalogues them as "Special" rather than "Grooming" (see the
+  // Faerie Paint Brush fixture) — without it they'd never reach the popup
+  // check below and would be reported missing even while sitting in the
+  // inventory's own Grooming tab.
+  groom: { verb: 'Groom', label: 'Groom', noun: 'grooming item', types: /groom|special/i },
 };
 
 const npValue = (s) => {
