@@ -28,6 +28,13 @@ const INVENTORY = doc([
   cell({ name: 'Mystery Book', type: 'Book', objid: '1', value: '0 NP', rarity: 1, img: 'x', set: 'nc' }),
 ].join(''));
 
+// The Grooming tab, as Neopets fills it: the brush is typed `Special` and is
+// in there all the same — issue #1, where filtering by type left it out.
+const GROOMING_TAB = doc([
+  cell({ name: 'Red Blush', type: 'Grooming', objid: '1944788232', value: '120 NP', rarity: 35, img: 'red_blush' }),
+  cell({ name: 'Red Long Hair Brush', type: 'Special', objid: '1944788999', value: '0 NP', rarity: 90, img: 'red_long_hair_brush' }),
+].join(''));
+
 test('the endpoints are the ones the inventory page uses', () => {
   assert.equal(USE_OBJECT_URL, 'https://www.neopets.com/np-templates/views/useobject.phtml');
   assert.equal(itemInfoUrl('1944998704'), 'https://www.neopets.com/np-templates/views/iteminfo.phtml?obj_id=1944998704');
@@ -45,14 +52,19 @@ test('inventory items are read from their data attributes', () => {
   assert.equal(items.find((i) => i.name === 'Waterfish').value, 0);
 });
 
-test('each quest kind looks at its own kind of item, cheapest first, never NC', () => {
-  const items = readInventory(INVENTORY);
-  const names = (kind) => candidatesFor(kind, items).map((i) => i.name);
-  assert.deepEqual(names('read'), ['Battle Ready!']);
-  assert.deepEqual(names('feed'), ['Waterfish', 'Space Slug Soup']);
-  assert.deepEqual(names('play'), ['Headless Von Roo Plushie', 'Blue Kougra Plushie']);
-  assert.deepEqual(names('groom'), ['Red Blush']);
-  assert.deepEqual(candidatesFor('purchase', items), []);
+test('the tab\'s items are the candidates, cheapest first, never NC and never by type', () => {
+  const names = (kind, d) => candidatesFor(kind, readInventory(d)).map((i) => i.name);
+  // Whatever the tab holds is fair game — the NC book is the only one left out.
+  assert.deepEqual(names('feed', INVENTORY),
+    ['Waterfish', 'Red Blush', 'Space Slug Soup', 'Headless Von Roo Plushie', 'Battle Ready!', 'Blue Kougra Plushie']);
+  // The Grooming tab's `Special`-typed brush is a candidate, and the cheaper one.
+  assert.deepEqual(names('groom', GROOMING_TAB), ['Red Long Hair Brush', 'Red Blush']);
+  assert.deepEqual(candidatesFor('purchase', readInventory(INVENTORY)), []);
+});
+
+test('each quest kind asks the inventory for its own tab', () => {
+  assert.deepEqual(
+    ['feed', 'play', 'read', 'groom'].map((k) => USES[k].tab), [1, 2, 3, 4]);
 });
 
 test("the active pet comes from the header's pet link", () => {
@@ -95,13 +107,15 @@ test("the reply says what the pet thought and whether the item is gone", () => {
 });
 
 // --- where the items come from ---------------------------------------------------
-import { INVENTORY_ITEMS_URL, INVENTORY_AJAX_HEADERS, parseInventoryReply } from '../src/lib/item-use.js';
+import { inventoryItemsUrl, INVENTORY_AJAX_HEADERS, parseInventoryReply } from '../src/lib/item-use.js';
 
 const parse = (html) => parseHTML(`<!doctype html><html>${html}</html>`).document;
 
 test('items come from the call the inventory page fills itself in with, asked as the page asks', () => {
-  assert.equal(INVENTORY_ITEMS_URL,
+  assert.equal(inventoryItemsUrl(),
     'https://www.neopets.com/np-templates/ajax/inventory.php?itemType=np&alpha=&itemStack=1&action=');
+  assert.equal(inventoryItemsUrl(USES.groom.tab),
+    'https://www.neopets.com/np-templates/ajax/inventory.php?itemType=np&alpha=&itemStack=1&action=4');
   assert.deepEqual(INVENTORY_AJAX_HEADERS, { 'X-Requested-With': 'XMLHttpRequest' });
 });
 

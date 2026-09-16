@@ -12,10 +12,13 @@ export const USE_OBJECT_URL = `${NEOPETS}/np-templates/views/useobject.phtml`;
 /**
  * Where the inventory's items come from. The inventory page itself arrives
  * empty and fills in with this call, which Neopets answers "Request denied"
- * unless it is marked as the page's own XHR. The whole inventory, stacked the
- * way the page asks by default, so each item appears once with its quantity.
+ * unless it is marked as the page's own XHR. Stacked the way the page asks by
+ * default, so each item appears once with its quantity. `tab` is the
+ * inventory's own tab (1 Food, 2 Toys, 3 Books, 4 Grooming, 5 Healing,
+ * 6 Wearables, 7 Equipment, 8 Furniture, 9 Misc); blank is everything.
  */
-export const INVENTORY_ITEMS_URL = `${NEOPETS}/np-templates/ajax/inventory.php?itemType=np&alpha=&itemStack=1&action=`;
+export const inventoryItemsUrl = (tab = '') =>
+  `${NEOPETS}/np-templates/ajax/inventory.php?itemType=np&alpha=&itemStack=1&action=${tab}`;
 export const INVENTORY_AJAX_HEADERS = { 'X-Requested-With': 'XMLHttpRequest' };
 
 /**
@@ -40,15 +43,17 @@ export const itemInfoUrl = (objId) =>
 
 /**
  * Each quest kind: the words its action starts with in the item popup, the
- * button's label, what to call a suitable item, and the inventory types worth
- * asking about. The type test only narrows the search — the item's own popup
- * has the final say on what it can do.
+ * button's label, what to call a suitable item, and the inventory tab that
+ * holds them. Neopets sorts the tab itself — whatever it puts under Grooming
+ * can groom, whatever the item's own `data-itemtype` happens to say (a Red
+ * Long Hair Brush is typed `Special` and sits there all the same). The item's
+ * popup still has the final say on what it can do.
  */
 export const USES = {
-  read: { verb: 'Read to', label: 'Read', noun: 'book', types: /book/i },
-  feed: { verb: 'Feed to', label: 'Feed', noun: 'food', types: /food|drink|candy|dessert/i },
-  play: { verb: 'Play with', label: 'Play', noun: 'toy', types: /toy|plush/i },
-  groom: { verb: 'Groom', label: 'Groom', noun: 'grooming item', types: /groom/i },
+  read: { verb: 'Read to', label: 'Read', noun: 'book', tab: 3 },
+  feed: { verb: 'Feed to', label: 'Feed', noun: 'food', tab: 1 },
+  play: { verb: 'Play with', label: 'Play', noun: 'toy', tab: 2 },
+  groom: { verb: 'Groom', label: 'Groom', noun: 'grooming item', tab: 4 },
 };
 
 const npValue = (s) => {
@@ -75,13 +80,13 @@ export function readInventory(doc) {
  * The items worth trying for a quest kind, least valuable first: using an item
  * usually uses it up (a Faerie Book vanishes once read), so the cheapest one
  * goes. Unknown values sort last, then commoner items first. NC items never.
+ * The items are the quest's own inventory tab, so nothing is filtered by type.
  */
 export function candidatesFor(kind, items) {
-  const use = USES[kind];
-  if (!use) return [];
+  if (!USES[kind]) return [];
   const rank = (v) => (v == null ? Infinity : v);
   return items
-    .filter((item) => !item.nc && use.types.test(item.type))
+    .filter((item) => !item.nc)
     .sort((a, b) => rank(a.value) - rank(b.value) || rank(a.rarity) - rank(b.rarity));
 }
 

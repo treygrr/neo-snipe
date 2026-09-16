@@ -46,7 +46,7 @@ import {
   sdbAuctionBody, parseSdbAuctionReply, cleanPin, sdbDrops,
 } from '../lib/sdb.js';
 import {
-  USES, INVENTORY_URL, INVENTORY_ITEMS_URL, INVENTORY_AJAX_HEADERS, USE_OBJECT_URL, itemInfoUrl,
+  USES, INVENTORY_URL, inventoryItemsUrl, INVENTORY_AJAX_HEADERS, USE_OBJECT_URL, itemInfoUrl,
   parseInventoryReply, candidatesFor, readActivePet, readItemActions, actionFor, useBody, parseUse, ItemUseError,
 } from '../lib/item-use.js';
 import { SHOPPING_KEY, shopUrl, findShopWithStock, purchasesLeft } from '../lib/shops.js';
@@ -1029,8 +1029,9 @@ export function claimBonus() {
 async function useItemFor(quest) {
   const use = USES[quest.kind];
   // The inventory page arrives empty and fills itself in with this call, so
-  // this is what is asked — the way the page asks it, or Neopets refuses.
-  const invRes = await fetch(INVENTORY_ITEMS_URL, {
+  // this is what is asked — the way the page asks it, or Neopets refuses. The
+  // quest's own tab is asked for, and Neopets decides what belongs in it.
+  const invRes = await fetch(inventoryItemsUrl(use.tab), {
     method: 'POST', credentials: 'include', referrer: INVENTORY_URL, headers: INVENTORY_AJAX_HEADERS,
   });
   if (!invRes.ok) throw new QuestLogError(`Neopets returned ${invRes.status}.`);

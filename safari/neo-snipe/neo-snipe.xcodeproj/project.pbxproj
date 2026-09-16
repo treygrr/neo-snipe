@@ -7,78 +7,78 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F26018AE30584CE8004D57BA /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26018AD30584CE8004D57BA /* AppDelegate.swift */; };
-		F26018B030584CE8004D57BA /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26018AF30584CE8004D57BA /* SceneDelegate.swift */; };
-		F26018B330584CE8004D57BA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F26018B130584CE8004D57BA /* LaunchScreen.storyboard */; };
-		F26018B630584CE8004D57BA /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F26018B430584CE8004D57BA /* Main.storyboard */; };
-		F26018BF30584CE8004D57BA /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26018BE30584CE8004D57BA /* AppDelegate.swift */; };
-		F26018C230584CE8004D57BA /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F26018C030584CE8004D57BA /* Main.storyboard */; };
-		F26018C930584CE8004D57BA /* neo-snipe Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F26018C830584CE8004D57BA /* neo-snipe Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		F26018D330584CE8004D57BA /* neo-snipe Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F26018D230584CE8004D57BA /* neo-snipe Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		F26018D830584CE8004D57BA /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = F260189D30584CE7004D57BA /* Main.html */; };
-		F26018D930584CE8004D57BA /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = F260189D30584CE7004D57BA /* Main.html */; };
-		F26018DA30584CE8004D57BA /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = F260189F30584CE7004D57BA /* Icon.png */; };
-		F26018DB30584CE8004D57BA /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = F260189F30584CE7004D57BA /* Icon.png */; };
-		F26018DC30584CE8004D57BA /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = F26018A030584CE7004D57BA /* Style.css */; };
-		F26018DD30584CE8004D57BA /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = F26018A030584CE7004D57BA /* Style.css */; };
-		F26018DE30584CE8004D57BA /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = F26018A130584CE7004D57BA /* Script.js */; };
-		F26018DF30584CE8004D57BA /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = F26018A130584CE7004D57BA /* Script.js */; };
-		F26018E030584CE8004D57BA /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26018A230584CE7004D57BA /* ViewController.swift */; };
-		F26018E130584CE8004D57BA /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26018A230584CE7004D57BA /* ViewController.swift */; };
-		F26018E230584CE8004D57BA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F26018A330584CE8004D57BA /* Assets.xcassets */; };
-		F26018E330584CE8004D57BA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F26018A330584CE8004D57BA /* Assets.xcassets */; };
-		F26018E430584CE8004D57BA /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26018A530584CE8004D57BA /* SafariWebExtensionHandler.swift */; };
-		F26018E530584CE8004D57BA /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26018A530584CE8004D57BA /* SafariWebExtensionHandler.swift */; };
-		F26018FD30584CE8004D57BA /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = F26018F730584CE8004D57BA /* background.js */; };
-		F26018FE30584CE8004D57BA /* icons in Resources */ = {isa = PBXBuildFile; fileRef = F26018F830584CE8004D57BA /* icons */; };
-		F26018FF30584CE8004D57BA /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = F26018F930584CE8004D57BA /* manifest.json */; };
-		F260190030584CE8004D57BA /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = F26018FA30584CE8004D57BA /* content.js */; };
-		F260190130584CE8004D57BA /* assets in Resources */ = {isa = PBXBuildFile; fileRef = F26018FB30584CE8004D57BA /* assets */; };
-		F260190230584CE8004D57BA /* src in Resources */ = {isa = PBXBuildFile; fileRef = F26018FC30584CE8004D57BA /* src */; };
-		F260190330584CE8004D57BA /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = F26018F730584CE8004D57BA /* background.js */; };
-		F260190430584CE8004D57BA /* icons in Resources */ = {isa = PBXBuildFile; fileRef = F26018F830584CE8004D57BA /* icons */; };
-		F260190530584CE8004D57BA /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = F26018F930584CE8004D57BA /* manifest.json */; };
-		F260190630584CE8004D57BA /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = F26018FA30584CE8004D57BA /* content.js */; };
-		F260190730584CE8004D57BA /* assets in Resources */ = {isa = PBXBuildFile; fileRef = F26018FB30584CE8004D57BA /* assets */; };
-		F260190830584CE8004D57BA /* src in Resources */ = {isa = PBXBuildFile; fileRef = F26018FC30584CE8004D57BA /* src */; };
+		F27A8ED5305883D200035681 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27A8ED4305883D200035681 /* AppDelegate.swift */; };
+		F27A8ED7305883D200035681 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27A8ED6305883D200035681 /* SceneDelegate.swift */; };
+		F27A8EDA305883D200035681 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F27A8ED8305883D200035681 /* LaunchScreen.storyboard */; };
+		F27A8EDD305883D200035681 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EDB305883D200035681 /* Main.storyboard */; };
+		F27A8EE6305883D200035681 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27A8EE5305883D200035681 /* AppDelegate.swift */; };
+		F27A8EE9305883D200035681 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EE7305883D200035681 /* Main.storyboard */; };
+		F27A8EF0305883D200035681 /* neo-snipe Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F27A8EEF305883D200035681 /* neo-snipe Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F27A8EFA305883D200035681 /* neo-snipe Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F27A8EF9305883D200035681 /* neo-snipe Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F27A8EFF305883D200035681 /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EC4305883D100035681 /* Main.html */; };
+		F27A8F00305883D200035681 /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EC4305883D100035681 /* Main.html */; };
+		F27A8F01305883D200035681 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EC6305883D100035681 /* Icon.png */; };
+		F27A8F02305883D200035681 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EC6305883D100035681 /* Icon.png */; };
+		F27A8F03305883D200035681 /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EC7305883D100035681 /* Style.css */; };
+		F27A8F04305883D200035681 /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EC7305883D100035681 /* Style.css */; };
+		F27A8F05305883D200035681 /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EC8305883D100035681 /* Script.js */; };
+		F27A8F06305883D200035681 /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = F27A8EC8305883D100035681 /* Script.js */; };
+		F27A8F07305883D200035681 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27A8EC9305883D100035681 /* ViewController.swift */; };
+		F27A8F08305883D200035681 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27A8EC9305883D100035681 /* ViewController.swift */; };
+		F27A8F09305883D200035681 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F27A8ECA305883D200035681 /* Assets.xcassets */; };
+		F27A8F0A305883D200035681 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F27A8ECA305883D200035681 /* Assets.xcassets */; };
+		F27A8F0B305883D200035681 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27A8ECC305883D200035681 /* SafariWebExtensionHandler.swift */; };
+		F27A8F0C305883D200035681 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27A8ECC305883D200035681 /* SafariWebExtensionHandler.swift */; };
+		F27A8F24305883D200035681 /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F1E305883D200035681 /* background.js */; };
+		F27A8F25305883D200035681 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F1F305883D200035681 /* icons */; };
+		F27A8F26305883D200035681 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F20305883D200035681 /* manifest.json */; };
+		F27A8F27305883D200035681 /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F21305883D200035681 /* content.js */; };
+		F27A8F28305883D200035681 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F22305883D200035681 /* assets */; };
+		F27A8F29305883D200035681 /* src in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F23305883D200035681 /* src */; };
+		F27A8F2A305883D200035681 /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F1E305883D200035681 /* background.js */; };
+		F27A8F2B305883D200035681 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F1F305883D200035681 /* icons */; };
+		F27A8F2C305883D200035681 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F20305883D200035681 /* manifest.json */; };
+		F27A8F2D305883D200035681 /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F21305883D200035681 /* content.js */; };
+		F27A8F2E305883D200035681 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F22305883D200035681 /* assets */; };
+		F27A8F2F305883D200035681 /* src in Resources */ = {isa = PBXBuildFile; fileRef = F27A8F23305883D200035681 /* src */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		F26018CA30584CE8004D57BA /* PBXContainerItemProxy */ = {
+		F27A8EF1305883D200035681 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = F260189730584CE7004D57BA /* Project object */;
+			containerPortal = F27A8EBE305883D100035681 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = F26018C730584CE8004D57BA;
+			remoteGlobalIDString = F27A8EEE305883D200035681;
 			remoteInfo = "neo-snipe Extension (iOS)";
 		};
-		F26018D430584CE8004D57BA /* PBXContainerItemProxy */ = {
+		F27A8EFB305883D200035681 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = F260189730584CE7004D57BA /* Project object */;
+			containerPortal = F27A8EBE305883D100035681 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = F26018D130584CE8004D57BA;
+			remoteGlobalIDString = F27A8EF8305883D200035681;
 			remoteInfo = "neo-snipe Extension (macOS)";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		F26018EB30584CE8004D57BA /* Embed Foundation Extensions */ = {
+		F27A8F12305883D200035681 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				F26018C930584CE8004D57BA /* neo-snipe Extension.appex in Embed Foundation Extensions */,
+				F27A8EF0305883D200035681 /* neo-snipe Extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018F230584CE8004D57BA /* Embed Foundation Extensions */ = {
+		F27A8F19305883D200035681 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				F26018D330584CE8004D57BA /* neo-snipe Extension.appex in Embed Foundation Extensions */,
+				F27A8EFA305883D200035681 /* neo-snipe Extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -86,58 +86,58 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		F260189E30584CE7004D57BA /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
-		F260189F30584CE7004D57BA /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
-		F26018A030584CE7004D57BA /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
-		F26018A130584CE7004D57BA /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
-		F26018A230584CE7004D57BA /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
-		F26018A330584CE8004D57BA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		F26018A530584CE8004D57BA /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
-		F26018AA30584CE8004D57BA /* neo-snipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "neo-snipe.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F26018AD30584CE8004D57BA /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		F26018AF30584CE8004D57BA /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		F26018B230584CE8004D57BA /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		F26018B530584CE8004D57BA /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
-		F26018B730584CE8004D57BA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		F26018BC30584CE8004D57BA /* neo-snipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "neo-snipe.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F26018BE30584CE8004D57BA /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		F26018C130584CE8004D57BA /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
-		F26018C330584CE8004D57BA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		F26018C830584CE8004D57BA /* neo-snipe Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "neo-snipe Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F26018CD30584CE8004D57BA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		F26018D230584CE8004D57BA /* neo-snipe Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "neo-snipe Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F26018D730584CE8004D57BA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		F26018F730584CE8004D57BA /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = background.js; path = "../../../extension/dist-safari/background.js"; sourceTree = "<group>"; };
-		F26018F830584CE8004D57BA /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = icons; path = "../../../extension/dist-safari/icons"; sourceTree = "<group>"; };
-		F26018F930584CE8004D57BA /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = "../../../extension/dist-safari/manifest.json"; sourceTree = "<group>"; };
-		F26018FA30584CE8004D57BA /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = content.js; path = "../../../extension/dist-safari/content.js"; sourceTree = "<group>"; };
-		F26018FB30584CE8004D57BA /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = "../../../extension/dist-safari/assets"; sourceTree = "<group>"; };
-		F26018FC30584CE8004D57BA /* src */ = {isa = PBXFileReference; lastKnownFileType = folder; name = src; path = "../../../extension/dist-safari/src"; sourceTree = "<group>"; };
+		F27A8EC5305883D100035681 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
+		F27A8EC6305883D100035681 /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
+		F27A8EC7305883D100035681 /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
+		F27A8EC8305883D100035681 /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
+		F27A8EC9305883D100035681 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		F27A8ECA305883D200035681 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F27A8ECC305883D200035681 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		F27A8ED1305883D200035681 /* neo-snipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "neo-snipe.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F27A8ED4305883D200035681 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		F27A8ED6305883D200035681 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		F27A8ED9305883D200035681 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		F27A8EDC305883D200035681 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		F27A8EDE305883D200035681 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F27A8EE3305883D200035681 /* neo-snipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "neo-snipe.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F27A8EE5305883D200035681 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		F27A8EE8305883D200035681 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		F27A8EEA305883D200035681 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F27A8EEF305883D200035681 /* neo-snipe Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "neo-snipe Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F27A8EF4305883D200035681 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F27A8EF9305883D200035681 /* neo-snipe Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "neo-snipe Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F27A8EFE305883D200035681 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F27A8F1E305883D200035681 /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = background.js; path = "../../../extension/dist-safari/background.js"; sourceTree = "<group>"; };
+		F27A8F1F305883D200035681 /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; name = icons; path = "../../../extension/dist-safari/icons"; sourceTree = "<group>"; };
+		F27A8F20305883D200035681 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = "../../../extension/dist-safari/manifest.json"; sourceTree = "<group>"; };
+		F27A8F21305883D200035681 /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = content.js; path = "../../../extension/dist-safari/content.js"; sourceTree = "<group>"; };
+		F27A8F22305883D200035681 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = "../../../extension/dist-safari/assets"; sourceTree = "<group>"; };
+		F27A8F23305883D200035681 /* src */ = {isa = PBXFileReference; lastKnownFileType = folder; name = src; path = "../../../extension/dist-safari/src"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		F26018A730584CE8004D57BA /* Frameworks */ = {
+		F27A8ECE305883D200035681 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018B930584CE8004D57BA /* Frameworks */ = {
+		F27A8EE0305883D200035681 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018C530584CE8004D57BA /* Frameworks */ = {
+		F27A8EEC305883D200035681 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018CF30584CE8004D57BA /* Frameworks */ = {
+		F27A8EF6305883D200035681 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -147,107 +147,107 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		F260189630584CE7004D57BA = {
+		F27A8EBD305883D100035681 = {
 			isa = PBXGroup;
 			children = (
-				F260189B30584CE7004D57BA /* Shared (App) */,
-				F26018A430584CE8004D57BA /* Shared (Extension) */,
-				F26018AC30584CE8004D57BA /* iOS (App) */,
-				F26018BD30584CE8004D57BA /* macOS (App) */,
-				F26018CC30584CE8004D57BA /* iOS (Extension) */,
-				F26018D630584CE8004D57BA /* macOS (Extension) */,
-				F26018AB30584CE8004D57BA /* Products */,
+				F27A8EC2305883D100035681 /* Shared (App) */,
+				F27A8ECB305883D200035681 /* Shared (Extension) */,
+				F27A8ED3305883D200035681 /* iOS (App) */,
+				F27A8EE4305883D200035681 /* macOS (App) */,
+				F27A8EF3305883D200035681 /* iOS (Extension) */,
+				F27A8EFD305883D200035681 /* macOS (Extension) */,
+				F27A8ED2305883D200035681 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		F260189B30584CE7004D57BA /* Shared (App) */ = {
+		F27A8EC2305883D100035681 /* Shared (App) */ = {
 			isa = PBXGroup;
 			children = (
-				F26018A230584CE7004D57BA /* ViewController.swift */,
-				F26018A330584CE8004D57BA /* Assets.xcassets */,
-				F260189C30584CE7004D57BA /* Resources */,
+				F27A8EC9305883D100035681 /* ViewController.swift */,
+				F27A8ECA305883D200035681 /* Assets.xcassets */,
+				F27A8EC3305883D100035681 /* Resources */,
 			);
 			path = "Shared (App)";
 			sourceTree = "<group>";
 		};
-		F260189C30584CE7004D57BA /* Resources */ = {
+		F27A8EC3305883D100035681 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				F260189D30584CE7004D57BA /* Main.html */,
-				F260189F30584CE7004D57BA /* Icon.png */,
-				F26018A030584CE7004D57BA /* Style.css */,
-				F26018A130584CE7004D57BA /* Script.js */,
+				F27A8EC4305883D100035681 /* Main.html */,
+				F27A8EC6305883D100035681 /* Icon.png */,
+				F27A8EC7305883D100035681 /* Style.css */,
+				F27A8EC8305883D100035681 /* Script.js */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		F26018A430584CE8004D57BA /* Shared (Extension) */ = {
+		F27A8ECB305883D200035681 /* Shared (Extension) */ = {
 			isa = PBXGroup;
 			children = (
-				F26018F630584CE8004D57BA /* Resources */,
-				F26018A530584CE8004D57BA /* SafariWebExtensionHandler.swift */,
+				F27A8F1D305883D200035681 /* Resources */,
+				F27A8ECC305883D200035681 /* SafariWebExtensionHandler.swift */,
 			);
 			path = "Shared (Extension)";
 			sourceTree = "<group>";
 		};
-		F26018AB30584CE8004D57BA /* Products */ = {
+		F27A8ED2305883D200035681 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				F26018AA30584CE8004D57BA /* neo-snipe.app */,
-				F26018BC30584CE8004D57BA /* neo-snipe.app */,
-				F26018C830584CE8004D57BA /* neo-snipe Extension.appex */,
-				F26018D230584CE8004D57BA /* neo-snipe Extension.appex */,
+				F27A8ED1305883D200035681 /* neo-snipe.app */,
+				F27A8EE3305883D200035681 /* neo-snipe.app */,
+				F27A8EEF305883D200035681 /* neo-snipe Extension.appex */,
+				F27A8EF9305883D200035681 /* neo-snipe Extension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		F26018AC30584CE8004D57BA /* iOS (App) */ = {
+		F27A8ED3305883D200035681 /* iOS (App) */ = {
 			isa = PBXGroup;
 			children = (
-				F26018AD30584CE8004D57BA /* AppDelegate.swift */,
-				F26018AF30584CE8004D57BA /* SceneDelegate.swift */,
-				F26018B130584CE8004D57BA /* LaunchScreen.storyboard */,
-				F26018B430584CE8004D57BA /* Main.storyboard */,
-				F26018B730584CE8004D57BA /* Info.plist */,
+				F27A8ED4305883D200035681 /* AppDelegate.swift */,
+				F27A8ED6305883D200035681 /* SceneDelegate.swift */,
+				F27A8ED8305883D200035681 /* LaunchScreen.storyboard */,
+				F27A8EDB305883D200035681 /* Main.storyboard */,
+				F27A8EDE305883D200035681 /* Info.plist */,
 			);
 			path = "iOS (App)";
 			sourceTree = "<group>";
 		};
-		F26018BD30584CE8004D57BA /* macOS (App) */ = {
+		F27A8EE4305883D200035681 /* macOS (App) */ = {
 			isa = PBXGroup;
 			children = (
-				F26018BE30584CE8004D57BA /* AppDelegate.swift */,
-				F26018C030584CE8004D57BA /* Main.storyboard */,
-				F26018C330584CE8004D57BA /* Info.plist */,
+				F27A8EE5305883D200035681 /* AppDelegate.swift */,
+				F27A8EE7305883D200035681 /* Main.storyboard */,
+				F27A8EEA305883D200035681 /* Info.plist */,
 			);
 			path = "macOS (App)";
 			sourceTree = "<group>";
 		};
-		F26018CC30584CE8004D57BA /* iOS (Extension) */ = {
+		F27A8EF3305883D200035681 /* iOS (Extension) */ = {
 			isa = PBXGroup;
 			children = (
-				F26018CD30584CE8004D57BA /* Info.plist */,
+				F27A8EF4305883D200035681 /* Info.plist */,
 			);
 			path = "iOS (Extension)";
 			sourceTree = "<group>";
 		};
-		F26018D630584CE8004D57BA /* macOS (Extension) */ = {
+		F27A8EFD305883D200035681 /* macOS (Extension) */ = {
 			isa = PBXGroup;
 			children = (
-				F26018D730584CE8004D57BA /* Info.plist */,
+				F27A8EFE305883D200035681 /* Info.plist */,
 			);
 			path = "macOS (Extension)";
 			sourceTree = "<group>";
 		};
-		F26018F630584CE8004D57BA /* Resources */ = {
+		F27A8F1D305883D200035681 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				F26018F730584CE8004D57BA /* background.js */,
-				F26018F830584CE8004D57BA /* icons */,
-				F26018F930584CE8004D57BA /* manifest.json */,
-				F26018FA30584CE8004D57BA /* content.js */,
-				F26018FB30584CE8004D57BA /* assets */,
-				F26018FC30584CE8004D57BA /* src */,
+				F27A8F1E305883D200035681 /* background.js */,
+				F27A8F1F305883D200035681 /* icons */,
+				F27A8F20305883D200035681 /* manifest.json */,
+				F27A8F21305883D200035681 /* content.js */,
+				F27A8F22305883D200035681 /* assets */,
+				F27A8F23305883D200035681 /* src */,
 			);
 			name = Resources;
 			path = "Shared (Extension)";
@@ -256,55 +256,55 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		F26018A930584CE8004D57BA /* neo-snipe (iOS) */ = {
+		F27A8ED0305883D200035681 /* neo-snipe (iOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F26018EC30584CE8004D57BA /* Build configuration list for PBXNativeTarget "neo-snipe (iOS)" */;
+			buildConfigurationList = F27A8F13305883D200035681 /* Build configuration list for PBXNativeTarget "neo-snipe (iOS)" */;
 			buildPhases = (
-				F26018A630584CE8004D57BA /* Sources */,
-				F26018A730584CE8004D57BA /* Frameworks */,
-				F26018A830584CE8004D57BA /* Resources */,
-				F26018EB30584CE8004D57BA /* Embed Foundation Extensions */,
+				F27A8ECD305883D200035681 /* Sources */,
+				F27A8ECE305883D200035681 /* Frameworks */,
+				F27A8ECF305883D200035681 /* Resources */,
+				F27A8F12305883D200035681 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				F26018CB30584CE8004D57BA /* PBXTargetDependency */,
+				F27A8EF2305883D200035681 /* PBXTargetDependency */,
 			);
 			name = "neo-snipe (iOS)";
 			packageProductDependencies = (
 			);
 			productName = "neo-snipe (iOS)";
-			productReference = F26018AA30584CE8004D57BA /* neo-snipe.app */;
+			productReference = F27A8ED1305883D200035681 /* neo-snipe.app */;
 			productType = "com.apple.product-type.application";
 		};
-		F26018BB30584CE8004D57BA /* neo-snipe (macOS) */ = {
+		F27A8EE2305883D200035681 /* neo-snipe (macOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F26018F330584CE8004D57BA /* Build configuration list for PBXNativeTarget "neo-snipe (macOS)" */;
+			buildConfigurationList = F27A8F1A305883D200035681 /* Build configuration list for PBXNativeTarget "neo-snipe (macOS)" */;
 			buildPhases = (
-				F26018B830584CE8004D57BA /* Sources */,
-				F26018B930584CE8004D57BA /* Frameworks */,
-				F26018BA30584CE8004D57BA /* Resources */,
-				F26018F230584CE8004D57BA /* Embed Foundation Extensions */,
+				F27A8EDF305883D200035681 /* Sources */,
+				F27A8EE0305883D200035681 /* Frameworks */,
+				F27A8EE1305883D200035681 /* Resources */,
+				F27A8F19305883D200035681 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				F26018D530584CE8004D57BA /* PBXTargetDependency */,
+				F27A8EFC305883D200035681 /* PBXTargetDependency */,
 			);
 			name = "neo-snipe (macOS)";
 			packageProductDependencies = (
 			);
 			productName = "neo-snipe (macOS)";
-			productReference = F26018BC30584CE8004D57BA /* neo-snipe.app */;
+			productReference = F27A8EE3305883D200035681 /* neo-snipe.app */;
 			productType = "com.apple.product-type.application";
 		};
-		F26018C730584CE8004D57BA /* neo-snipe Extension (iOS) */ = {
+		F27A8EEE305883D200035681 /* neo-snipe Extension (iOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F26018E830584CE8004D57BA /* Build configuration list for PBXNativeTarget "neo-snipe Extension (iOS)" */;
+			buildConfigurationList = F27A8F0F305883D200035681 /* Build configuration list for PBXNativeTarget "neo-snipe Extension (iOS)" */;
 			buildPhases = (
-				F26018C430584CE8004D57BA /* Sources */,
-				F26018C530584CE8004D57BA /* Frameworks */,
-				F26018C630584CE8004D57BA /* Resources */,
+				F27A8EEB305883D200035681 /* Sources */,
+				F27A8EEC305883D200035681 /* Frameworks */,
+				F27A8EED305883D200035681 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -314,16 +314,16 @@
 			packageProductDependencies = (
 			);
 			productName = "neo-snipe Extension (iOS)";
-			productReference = F26018C830584CE8004D57BA /* neo-snipe Extension.appex */;
+			productReference = F27A8EEF305883D200035681 /* neo-snipe Extension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		F26018D130584CE8004D57BA /* neo-snipe Extension (macOS) */ = {
+		F27A8EF8305883D200035681 /* neo-snipe Extension (macOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F26018EF30584CE8004D57BA /* Build configuration list for PBXNativeTarget "neo-snipe Extension (macOS)" */;
+			buildConfigurationList = F27A8F16305883D200035681 /* Build configuration list for PBXNativeTarget "neo-snipe Extension (macOS)" */;
 			buildPhases = (
-				F26018CE30584CE8004D57BA /* Sources */,
-				F26018CF30584CE8004D57BA /* Frameworks */,
-				F26018D030584CE8004D57BA /* Resources */,
+				F27A8EF5305883D200035681 /* Sources */,
+				F27A8EF6305883D200035681 /* Frameworks */,
+				F27A8EF7305883D200035681 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -333,191 +333,191 @@
 			packageProductDependencies = (
 			);
 			productName = "neo-snipe Extension (macOS)";
-			productReference = F26018D230584CE8004D57BA /* neo-snipe Extension.appex */;
+			productReference = F27A8EF9305883D200035681 /* neo-snipe Extension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		F260189730584CE7004D57BA /* Project object */ = {
+		F27A8EBE305883D100035681 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
-					F26018A930584CE8004D57BA = {
+					F27A8ED0305883D200035681 = {
 						CreatedOnToolsVersion = 26.2;
 					};
-					F26018BB30584CE8004D57BA = {
+					F27A8EE2305883D200035681 = {
 						CreatedOnToolsVersion = 26.2;
 					};
-					F26018C730584CE8004D57BA = {
+					F27A8EEE305883D200035681 = {
 						CreatedOnToolsVersion = 26.2;
 					};
-					F26018D130584CE8004D57BA = {
+					F27A8EF8305883D200035681 = {
 						CreatedOnToolsVersion = 26.2;
 					};
 				};
 			};
-			buildConfigurationList = F260189A30584CE7004D57BA /* Build configuration list for PBXProject "neo-snipe" */;
+			buildConfigurationList = F27A8EC1305883D100035681 /* Build configuration list for PBXProject "neo-snipe" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = F260189630584CE7004D57BA;
+			mainGroup = F27A8EBD305883D100035681;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = F26018AB30584CE8004D57BA /* Products */;
+			productRefGroup = F27A8ED2305883D200035681 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F26018A930584CE8004D57BA /* neo-snipe (iOS) */,
-				F26018BB30584CE8004D57BA /* neo-snipe (macOS) */,
-				F26018C730584CE8004D57BA /* neo-snipe Extension (iOS) */,
-				F26018D130584CE8004D57BA /* neo-snipe Extension (macOS) */,
+				F27A8ED0305883D200035681 /* neo-snipe (iOS) */,
+				F27A8EE2305883D200035681 /* neo-snipe (macOS) */,
+				F27A8EEE305883D200035681 /* neo-snipe Extension (iOS) */,
+				F27A8EF8305883D200035681 /* neo-snipe Extension (macOS) */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		F26018A830584CE8004D57BA /* Resources */ = {
+		F27A8ECF305883D200035681 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F26018DA30584CE8004D57BA /* Icon.png in Resources */,
-				F26018B330584CE8004D57BA /* LaunchScreen.storyboard in Resources */,
-				F26018D830584CE8004D57BA /* Main.html in Resources */,
-				F26018DE30584CE8004D57BA /* Script.js in Resources */,
-				F26018E230584CE8004D57BA /* Assets.xcassets in Resources */,
-				F26018B630584CE8004D57BA /* Main.storyboard in Resources */,
-				F26018DC30584CE8004D57BA /* Style.css in Resources */,
+				F27A8F01305883D200035681 /* Icon.png in Resources */,
+				F27A8EDA305883D200035681 /* LaunchScreen.storyboard in Resources */,
+				F27A8EFF305883D200035681 /* Main.html in Resources */,
+				F27A8F05305883D200035681 /* Script.js in Resources */,
+				F27A8F09305883D200035681 /* Assets.xcassets in Resources */,
+				F27A8EDD305883D200035681 /* Main.storyboard in Resources */,
+				F27A8F03305883D200035681 /* Style.css in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018BA30584CE8004D57BA /* Resources */ = {
+		F27A8EE1305883D200035681 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F26018DB30584CE8004D57BA /* Icon.png in Resources */,
-				F26018DD30584CE8004D57BA /* Style.css in Resources */,
-				F26018C230584CE8004D57BA /* Main.storyboard in Resources */,
-				F26018DF30584CE8004D57BA /* Script.js in Resources */,
-				F26018E330584CE8004D57BA /* Assets.xcassets in Resources */,
-				F26018D930584CE8004D57BA /* Main.html in Resources */,
+				F27A8F02305883D200035681 /* Icon.png in Resources */,
+				F27A8F04305883D200035681 /* Style.css in Resources */,
+				F27A8EE9305883D200035681 /* Main.storyboard in Resources */,
+				F27A8F06305883D200035681 /* Script.js in Resources */,
+				F27A8F0A305883D200035681 /* Assets.xcassets in Resources */,
+				F27A8F00305883D200035681 /* Main.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018C630584CE8004D57BA /* Resources */ = {
+		F27A8EED305883D200035681 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F260190730584CE8004D57BA /* assets in Resources */,
-				F260190630584CE8004D57BA /* content.js in Resources */,
-				F260190330584CE8004D57BA /* background.js in Resources */,
-				F260190830584CE8004D57BA /* src in Resources */,
-				F260190530584CE8004D57BA /* manifest.json in Resources */,
-				F260190430584CE8004D57BA /* icons in Resources */,
+				F27A8F2E305883D200035681 /* assets in Resources */,
+				F27A8F2D305883D200035681 /* content.js in Resources */,
+				F27A8F2A305883D200035681 /* background.js in Resources */,
+				F27A8F2F305883D200035681 /* src in Resources */,
+				F27A8F2C305883D200035681 /* manifest.json in Resources */,
+				F27A8F2B305883D200035681 /* icons in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018D030584CE8004D57BA /* Resources */ = {
+		F27A8EF7305883D200035681 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F260190130584CE8004D57BA /* assets in Resources */,
-				F260190030584CE8004D57BA /* content.js in Resources */,
-				F26018FD30584CE8004D57BA /* background.js in Resources */,
-				F260190230584CE8004D57BA /* src in Resources */,
-				F26018FF30584CE8004D57BA /* manifest.json in Resources */,
-				F26018FE30584CE8004D57BA /* icons in Resources */,
+				F27A8F28305883D200035681 /* assets in Resources */,
+				F27A8F27305883D200035681 /* content.js in Resources */,
+				F27A8F24305883D200035681 /* background.js in Resources */,
+				F27A8F29305883D200035681 /* src in Resources */,
+				F27A8F26305883D200035681 /* manifest.json in Resources */,
+				F27A8F25305883D200035681 /* icons in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		F26018A630584CE8004D57BA /* Sources */ = {
+		F27A8ECD305883D200035681 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F26018E030584CE8004D57BA /* ViewController.swift in Sources */,
-				F26018AE30584CE8004D57BA /* AppDelegate.swift in Sources */,
-				F26018B030584CE8004D57BA /* SceneDelegate.swift in Sources */,
+				F27A8F07305883D200035681 /* ViewController.swift in Sources */,
+				F27A8ED5305883D200035681 /* AppDelegate.swift in Sources */,
+				F27A8ED7305883D200035681 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018B830584CE8004D57BA /* Sources */ = {
+		F27A8EDF305883D200035681 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F26018E130584CE8004D57BA /* ViewController.swift in Sources */,
-				F26018BF30584CE8004D57BA /* AppDelegate.swift in Sources */,
+				F27A8F08305883D200035681 /* ViewController.swift in Sources */,
+				F27A8EE6305883D200035681 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018C430584CE8004D57BA /* Sources */ = {
+		F27A8EEB305883D200035681 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F26018E430584CE8004D57BA /* SafariWebExtensionHandler.swift in Sources */,
+				F27A8F0B305883D200035681 /* SafariWebExtensionHandler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F26018CE30584CE8004D57BA /* Sources */ = {
+		F27A8EF5305883D200035681 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F26018E530584CE8004D57BA /* SafariWebExtensionHandler.swift in Sources */,
+				F27A8F0C305883D200035681 /* SafariWebExtensionHandler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		F26018CB30584CE8004D57BA /* PBXTargetDependency */ = {
+		F27A8EF2305883D200035681 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F26018C730584CE8004D57BA /* neo-snipe Extension (iOS) */;
-			targetProxy = F26018CA30584CE8004D57BA /* PBXContainerItemProxy */;
+			target = F27A8EEE305883D200035681 /* neo-snipe Extension (iOS) */;
+			targetProxy = F27A8EF1305883D200035681 /* PBXContainerItemProxy */;
 		};
-		F26018D530584CE8004D57BA /* PBXTargetDependency */ = {
+		F27A8EFC305883D200035681 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F26018D130584CE8004D57BA /* neo-snipe Extension (macOS) */;
-			targetProxy = F26018D430584CE8004D57BA /* PBXContainerItemProxy */;
+			target = F27A8EF8305883D200035681 /* neo-snipe Extension (macOS) */;
+			targetProxy = F27A8EFB305883D200035681 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		F260189D30584CE7004D57BA /* Main.html */ = {
+		F27A8EC4305883D100035681 /* Main.html */ = {
 			isa = PBXVariantGroup;
 			children = (
-				F260189E30584CE7004D57BA /* Base */,
+				F27A8EC5305883D100035681 /* Base */,
 			);
 			name = Main.html;
 			sourceTree = "<group>";
 		};
-		F26018B130584CE8004D57BA /* LaunchScreen.storyboard */ = {
+		F27A8ED8305883D200035681 /* LaunchScreen.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
-				F26018B230584CE8004D57BA /* Base */,
+				F27A8ED9305883D200035681 /* Base */,
 			);
 			name = LaunchScreen.storyboard;
 			sourceTree = "<group>";
 		};
-		F26018B430584CE8004D57BA /* Main.storyboard */ = {
+		F27A8EDB305883D200035681 /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
-				F26018B530584CE8004D57BA /* Base */,
+				F27A8EDC305883D200035681 /* Base */,
 			);
 			name = Main.storyboard;
 			sourceTree = "<group>";
 		};
-		F26018C030584CE8004D57BA /* Main.storyboard */ = {
+		F27A8EE7305883D200035681 /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
-				F26018C130584CE8004D57BA /* Base */,
+				F27A8EE8305883D200035681 /* Base */,
 			);
 			name = Main.storyboard;
 			sourceTree = "<group>";
@@ -525,7 +525,7 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		F26018E630584CE8004D57BA /* Debug */ = {
+		F27A8F0D305883D200035681 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -586,7 +586,7 @@
 			};
 			name = Debug;
 		};
-		F26018E730584CE8004D57BA /* Release */ = {
+		F27A8F0E305883D200035681 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -639,7 +639,7 @@
 			};
 			name = Release;
 		};
-		F26018E930584CE8004D57BA /* Debug */ = {
+		F27A8F10305883D200035681 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -672,7 +672,7 @@
 			};
 			name = Debug;
 		};
-		F26018EA30584CE8004D57BA /* Release */ = {
+		F27A8F11305883D200035681 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -706,7 +706,7 @@
 			};
 			name = Release;
 		};
-		F26018ED30584CE8004D57BA /* Debug */ = {
+		F27A8F14305883D200035681 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -746,7 +746,7 @@
 			};
 			name = Debug;
 		};
-		F26018EE30584CE8004D57BA /* Release */ = {
+		F27A8F15305883D200035681 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -787,7 +787,7 @@
 			};
 			name = Release;
 		};
-		F26018F030584CE8004D57BA /* Debug */ = {
+		F27A8F17305883D200035681 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -822,7 +822,7 @@
 			};
 			name = Debug;
 		};
-		F26018F130584CE8004D57BA /* Release */ = {
+		F27A8F18305883D200035681 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -857,7 +857,7 @@
 			};
 			name = Release;
 		};
-		F26018F430584CE8004D57BA /* Debug */ = {
+		F27A8F1B305883D200035681 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -898,7 +898,7 @@
 			};
 			name = Debug;
 		};
-		F26018F530584CE8004D57BA /* Release */ = {
+		F27A8F1C305883D200035681 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -942,52 +942,52 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		F260189A30584CE7004D57BA /* Build configuration list for PBXProject "neo-snipe" */ = {
+		F27A8EC1305883D100035681 /* Build configuration list for PBXProject "neo-snipe" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F26018E630584CE8004D57BA /* Debug */,
-				F26018E730584CE8004D57BA /* Release */,
+				F27A8F0D305883D200035681 /* Debug */,
+				F27A8F0E305883D200035681 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F26018E830584CE8004D57BA /* Build configuration list for PBXNativeTarget "neo-snipe Extension (iOS)" */ = {
+		F27A8F0F305883D200035681 /* Build configuration list for PBXNativeTarget "neo-snipe Extension (iOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F26018E930584CE8004D57BA /* Debug */,
-				F26018EA30584CE8004D57BA /* Release */,
+				F27A8F10305883D200035681 /* Debug */,
+				F27A8F11305883D200035681 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F26018EC30584CE8004D57BA /* Build configuration list for PBXNativeTarget "neo-snipe (iOS)" */ = {
+		F27A8F13305883D200035681 /* Build configuration list for PBXNativeTarget "neo-snipe (iOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F26018ED30584CE8004D57BA /* Debug */,
-				F26018EE30584CE8004D57BA /* Release */,
+				F27A8F14305883D200035681 /* Debug */,
+				F27A8F15305883D200035681 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F26018EF30584CE8004D57BA /* Build configuration list for PBXNativeTarget "neo-snipe Extension (macOS)" */ = {
+		F27A8F16305883D200035681 /* Build configuration list for PBXNativeTarget "neo-snipe Extension (macOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F26018F030584CE8004D57BA /* Debug */,
-				F26018F130584CE8004D57BA /* Release */,
+				F27A8F17305883D200035681 /* Debug */,
+				F27A8F18305883D200035681 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F26018F330584CE8004D57BA /* Build configuration list for PBXNativeTarget "neo-snipe (macOS)" */ = {
+		F27A8F1A305883D200035681 /* Build configuration list for PBXNativeTarget "neo-snipe (macOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F26018F430584CE8004D57BA /* Debug */,
-				F26018F530584CE8004D57BA /* Release */,
+				F27A8F1B305883D200035681 /* Debug */,
+				F27A8F1C305883D200035681 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = F260189730584CE7004D57BA /* Project object */;
+	rootObject = F27A8EBE305883D100035681 /* Project object */;
 }

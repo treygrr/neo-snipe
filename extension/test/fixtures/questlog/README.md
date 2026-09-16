@@ -81,7 +81,9 @@ go-ahead. That finished Read to a Pet and moved the bonus from 2/5 to 3/5.
   `Grooming`, `Plushies`, …), `data-itemname` and `data-image`. The inventory page's own HTML holds **none**
   of them: `inventory.js` fills the page in with `POST /np-templates/ajax/inventory.php?itemType=np&alpha=&itemStack=1&action=<tab>`
   (tabs: 1 Food, 2 Toys, 3 Books, 4 Grooming, 5 Healing, 6 Wearables, 7 Equipment, 8 Furniture, 9 Misc;
-  blank for everything). Without the `X-Requested-With: XMLHttpRequest` header it answers
+  blank for everything). The tab is Neopets' own sorting and is what a quest asks for — the Grooming tab
+  holds every item that can groom, including ones typed `Special` (a Red Long Hair Brush), so `data-itemtype`
+  must not be used to narrow it further. Without the `X-Requested-With: XMLHttpRequest` header it answers
   `{"error":true,"message":"Request denied"}`. `inventory-items.html` is that reply trimmed to one cell
   (captured 2026-09-13 while fixing Feed, which had been reading the empty page).
 - **The item's actions** — `POST /np-templates/views/iteminfo.phtml?obj_id=<objid>` returns an HTML fragment
